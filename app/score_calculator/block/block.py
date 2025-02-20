@@ -16,12 +16,25 @@ class BlockSource(Enum):
     KAMICHA = 3
 
 class Block:
+    """Represents a block of tiles.
+
+    The `tile` attribute refers to the first tile of the block.
+    For example:
+        789m -> 7m,
+        999p -> 9p,
+        147s -> 1s.
+
+    Attributes:
+        type (BlockType): The type of block (e.g., sequence, triplet, etc.).
+        tile (int): The first tile of the block.
+        source (BlockSource): The source of the block (default is BlockSource.SELF).
+    """
+
     def __init__(self, block_type: BlockType, tile: int, source: BlockSource = BlockSource.SELF, source_tile_index: int = 0):
         self.type = block_type
         self.tile = tile
         self.source = source
-        self.source_tile_index = source_tile_index
 
     def __repr__(self):
         return (f"Block(type={self.type.name}, tile={self.tile}, "
-                f"source={self.source.name}, source_tile_index={self.source_tile_index})")
+                f"source={self.source.name})")
