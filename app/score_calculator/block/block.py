@@ -10,10 +10,8 @@ class BlockType(Enum):
     SINGLETILE = 5
 
 class BlockSource(Enum):
-    SELF = 0
-    SHIMOCHA = 1
-    TOIMEN = 2
-    KAMICHA = 3
+    CLOSED = 0
+    OPENED = 1
 
 class Block:
     """Represents a block of tiles.
@@ -27,10 +25,10 @@ class Block:
     Attributes:
         type (BlockType): The type of block (e.g., sequence, triplet, etc.).
         tile (int): The first tile of the block.
-        source (BlockSource): The source of the block (default is BlockSource.SELF).
+        source (BlockSource): The source of the block (default is BlockSource.CLOSED).
     """
 
-    def __init__(self, block_type: BlockType, tile: int, source: BlockSource = BlockSource.SELF, source_tile_index: int = 0):
+    def __init__(self, block_type: BlockType, tile: int, source: BlockSource = BlockSource.CLOSED):
         self.type = block_type
         self.tile = tile
         self.source = source
