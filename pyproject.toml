@@ -1,4 +1,4 @@
-[tool.poetry]
+[project]
 name = "mcr-masters-game"
 version = "0.1.0"
 description = ""
