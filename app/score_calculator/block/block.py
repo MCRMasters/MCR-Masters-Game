@@ -1,4 +1,5 @@
 # block.py
+from dataclasses import dataclass
 from enum import Enum
 
 class BlockType(Enum):
@@ -9,10 +10,8 @@ class BlockType(Enum):
     KNITTED = 4
     SINGLETILE = 5
 
-class BlockSource(Enum):
-    CLOSED = 0
-    OPENED = 1
 
+@dataclass
 class Block:
     """Represents a block of tiles.
 
@@ -25,14 +24,12 @@ class Block:
     Attributes:
         type (BlockType): The type of block (e.g., sequence, triplet, etc.).
         tile (int): The first tile of the block.
-        source (BlockSource): The source of the block (default is BlockSource.CLOSED).
+        is_opened (bool): open state of the block (default is False(Closed block)).
     """
-
-    def __init__(self, block_type: BlockType, tile: int, source: BlockSource = BlockSource.CLOSED):
-        self.type = block_type
-        self.tile = tile
-        self.source = source
+    type: BlockType
+    tile: int
+    is_opened: bool = False
 
     def __repr__(self):
         return (f"Block(type={self.type.name}, tile={self.tile}, "
-                f"source={self.source.name})")
+                f"is_opened={self.is_opened})")
