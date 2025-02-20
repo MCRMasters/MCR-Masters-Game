@@ -29,7 +29,3 @@ class Block:
     type: BlockType
     tile: int
     is_opened: bool = False
-
-    def __repr__(self):
-        return (f"Block(type={self.type.name}, tile={self.tile}, "
-                f"is_opened={self.is_opened})")
