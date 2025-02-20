@@ -1,0 +1,96 @@
+[project]
+name = "mcr-masters-game"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Hot6Mania",email = "than7683@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi (>=0.115.8,<0.116.0)",
+    "uvicorn (>=0.34.0,<0.35.0)"
+]
+
+
+[tool.poetry.dependencies]
+python = "^3.12"
+uvicorn = "^0.34.0"
+pydantic-settings = "^2.7.1"
+python-dotenv = "^1.0.1"
+pytest-dotenv = "^0.5.2"
+fastapi = "^0.115.8"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3.4"
+mypy = "^1.15.0"
+ruff = "^0.9.6"
+pre-commit = "^4.1.0"
+httpx = "^0.28.1"
+pytest-asyncio = "^0.25.3"
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module= "migrations.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "app.api.*"
+disable_error_code = ["no-untyped-def"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+fix = true
+output-format = "grouped"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # isort
+    "N",   # pep8-naming
+    "W",   # pycodestyle warnings
+    "C",   # flake8-comprehensions
+    "UP",  # pyupgrade
+    "RUF", # ruff-specific rules
+    "COM", # trailing commas
+    "SIM", # code simplification
+    "ARG",  # unused arguments
+    "PL",   # pylint
+    "TRY",  # try-except style
+]
+exclude = ["migrations/*"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.pytest.ini_options]
+env_files = [".env", ".env.test"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
