@@ -6,12 +6,7 @@ authors = [
     {name = "Hot6Mania",email = "than7683@gmail.com"}
 ]
 readme = "README.md"
-requires-python = ">=3.12"
-dependencies = [
-    "fastapi (>=0.115.8,<0.116.0)",
-    "uvicorn (>=0.34.0,<0.35.0)"
-]
-
+package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.12"
@@ -39,10 +34,6 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "tests.*"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module= "migrations.*"
 ignore_errors = true
 
 [[tool.mypy.overrides]]
@@ -77,7 +68,6 @@ select = [
     "PL",   # pylint
     "TRY",  # try-except style
 ]
-exclude = ["migrations/*"]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 10
