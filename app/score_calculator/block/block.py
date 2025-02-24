@@ -1,14 +1,7 @@
 # block.py
 from dataclasses import dataclass
-from enum import Enum
 
-class BlockType(Enum):
-    SEQUENCE = 0
-    TRIPLET = 1
-    QUAD = 2
-    PAIR = 3
-    KNITTED = 4
-    SINGLETILE = 5
+from app.score_calculator.enums.enums import BlockType
 
 
 @dataclass
@@ -26,6 +19,7 @@ class Block:
         tile (int): The first tile of the block.
         is_opened (bool): open state of the block (default is False(Closed block)).
     """
+
     type: BlockType
     tile: int
     is_opened: bool = False
