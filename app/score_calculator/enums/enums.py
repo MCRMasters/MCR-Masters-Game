@@ -118,3 +118,6 @@ class Tile(Enum):
 
     # Flower tile (F)
     F0 = 34
+
+    def __index__(self) -> int:
+        return int(self.value)

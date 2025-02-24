@@ -5,5 +5,11 @@ def test_sample():
     assert True
 
 
-def test_print_hand():
-    print(Hand([0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 8, 8], []))
+def print_hand(hand1: Hand):
+    print(hand1)
+
+
+def test_print_output():
+    print_hand(Hand([0] * 34, []))
+    print_hand(Hand.create_frome_tiles([0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 8, 8], []))
+    assert True
