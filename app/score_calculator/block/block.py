@@ -1,7 +1,7 @@
 # block.py
 from dataclasses import dataclass
 
-from app.score_calculator.enums.enums import BlockType
+from app.score_calculator.enums.enums import BlockType, Tile
 
 
 @dataclass
@@ -21,5 +21,5 @@ class Block:
     """
 
     type: BlockType
-    tile: int
+    tile: Tile
     is_opened: bool = False

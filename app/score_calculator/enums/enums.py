@@ -28,6 +28,8 @@ class Tile(Enum):
     - F (Flower tile)
 
     Attributes:
+        ERROR (int): Error
+
         M1 (int): Manzu 1
         M2 (int): Manzu 2
         M3 (int): Manzu 3
@@ -68,6 +70,9 @@ class Tile(Enum):
 
         F0 (int): Flower tile
     """
+
+    # Error
+    ERROR = -1
 
     # Manzu tiles (M)
     M1 = 0

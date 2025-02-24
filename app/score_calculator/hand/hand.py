@@ -1,40 +1,36 @@
+# hand.py
+from dataclasses import dataclass
+
 from app.score_calculator.block.block import Block
+from app.score_calculator.enums.enums import Tile
 
 
+@dataclass
 class Hand:
-    """Represents a hand consisting of tiles and call blocks.
-
-    This class stores a list of tiles in hand and a list of call blocks.
+    """A hand of tiles and call blocks.
 
     Attributes:
-        tiles (List[int]): A list representing the count of each tile in the hand.
-        call_blocks (List[Block]): A list of Block objects representing the call blocks.
+        tiles (list[Tile]): A list representing the tiles in the hand.
+        call_blocks (list[Block]): A list of Block objects representing call blocks.
     """
 
-    def __init__(self, tiles: list[int], call_blocks: list[Block]):
-        """Initializes a Hand object.
-
-        Args:
-            tiles (List[int]): A list of integers representing the tile counts.
-            call_blocks (List[Block]): A list of Block objects.
-        """
-        self.tiles = tiles
-        self.call_blocks = call_blocks
+    tiles: list[Tile]
+    call_blocks: list[Block]
 
     def __repr__(self) -> str:
-        """Returns a string representation of the Hand.
+        """Return a string representation of the Hand.
 
-        The tiles are printed in rows of 9 tiles each followed by a blank line,
-        and the call blocks are printed afterwards.
+        Tiles are displayed in rows of 9, with each row separated by a newline.
+        The call blocks are then printed on a new line.
 
         Returns:
-            str: The string representation of the Hand.
+            str: A string representation of the Hand.
         """
-        rep = "[tiles]\n"
+        tiles_rep = "[tiles]\n"
         for i, tile in enumerate(self.tiles):
-            rep += f"{tile} "
+            tiles_rep += f"{tile} "
             if (i + 1) % 9 == 0:
-                rep += "\n"
-        rep += "\n"
-        rep += f"call_blocks: {self.call_blocks}"
-        return rep
+                tiles_rep += "\n"
+        tiles_rep += "\n"
+        tiles_rep += f"call_blocks: {self.call_blocks}"
+        return tiles_rep
