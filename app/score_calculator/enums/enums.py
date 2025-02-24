@@ -1,4 +1,4 @@
-from enum import Enum
+from enum import Enum, IntEnum
 
 
 class BlockType(Enum):
@@ -17,7 +17,7 @@ class Wind(Enum):
     NORTH = 30
 
 
-class Tile(Enum):
+class Tile(IntEnum):
     """Tile enumeration for Mahjong.
 
     This enum categorizes Mahjong tiles into five groups:
@@ -28,8 +28,6 @@ class Tile(Enum):
     - F (Flower tile)
 
     Attributes:
-        ERROR (int): Error
-
         M1 (int): Manzu 1
         M2 (int): Manzu 2
         M3 (int): Manzu 3
@@ -70,9 +68,6 @@ class Tile(Enum):
 
         F0 (int): Flower tile
     """
-
-    # Error
-    ERROR = -1
 
     # Manzu tiles (M)
     M1 = 0
@@ -119,5 +114,29 @@ class Tile(Enum):
     # Flower tile (F)
     F0 = 34
 
-    def __index__(self) -> int:
-        return int(self.value)
+    def is_honor(self) -> bool:
+        return Tile.Z1 <= self.value <= Tile.Z7
+
+    def is_number(self) -> bool:
+        return Tile.M1 <= self.value <= Tile.S9
+
+    def is_manzu(self) -> bool:
+        return Tile.M1 <= self.value <= Tile.M9
+
+    def is_pinzu(self) -> bool:
+        return Tile.P1 <= self.value <= Tile.P9
+
+    def is_souzu(self) -> bool:
+        return Tile.S1 <= self.value <= Tile.S9
+
+    def is_wind(self) -> bool:
+        return Tile.Z1 <= self.value <= Tile.Z4
+
+    def is_dragon(self) -> bool:
+        return Tile.Z5 <= self.value <= Tile.Z7
+
+    def is_terminal(self) -> bool:
+        return self.value in {Tile.M1, Tile.M9, Tile.P1, Tile.P9, Tile.S1, Tile.S9}
+
+    def is_outside(self) -> bool:
+        return self.is_terminal() or self.is_honor()
