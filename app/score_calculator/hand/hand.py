@@ -4,7 +4,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from itertools import batched
 
-from app.score_calculator.block.block import Block, Tile
+from app.score_calculator.block.block import Block
+from app.score_calculator.enums.enums import Tile
 
 
 @dataclass
