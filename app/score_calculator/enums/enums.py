@@ -145,13 +145,13 @@ class Tile(IntEnum):
 
 class Yaku(Enum):
     ChickenHand = 0
-    ChainedSevenPairs = 1
+    SevenShiftedPairs = 1
     ThirteenOrphans = 2
     BigFourWinds = 3
     BigThreeDragons = 4
     NineGates = 5
     AllGreen = 6
-    FourQuads = 7
+    FourKongs = 7
     FourConcealedPungs = 8
     AllTerminals = 9
     LittleFourWinds = 10
@@ -197,7 +197,7 @@ class Yaku(Enum):
     AllPungs = 50
     HalfFlush = 51
     AllTypes = 52
-    TwoDragons = 53
+    TwoDragonsPungs = 53
     FullyConcealedHand = 54
     LastTile = 55
     OutsideHand = 56
@@ -218,9 +218,9 @@ class Yaku(Enum):
     TwoTerminalChows = 71
     PungOfTerminalsOrHonors = 72
     OneVoidedSuit = 73
-    NoHonors = 74
-    SingleWait = 75
-    MeldedKong = 76
-    SelfDrawn = 77
-    EdgeWait = 78
-    ClosedWait = 79
+    NoHonorTiles = 74
+    MeldedKong = 75
+    EdgeWait = 76
+    SingleWait = 77
+    ClosedWait = 78
+    SelfDrawn = 79
