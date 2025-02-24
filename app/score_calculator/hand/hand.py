@@ -21,7 +21,7 @@ class Hand:
     call_blocks: list[Block]
 
     @staticmethod
-    def create_frome_tiles(tiles: list[Tile], call_blocks: list[Block]) -> Hand:
+    def create_from_tiles(tiles: list[Tile], call_blocks: list[Block]) -> Hand:
         _tiles = [0] * 34
         for tile_index in tiles:
             _tiles[tile_index] += 1
