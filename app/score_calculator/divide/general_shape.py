@@ -54,7 +54,7 @@ def divide_general_shape(hand: Hand) -> list[list[Block]]:
         state: BlockDivisionState = stack.pop()
         next_state: BlockDivisionState
 
-        next_tile: Tile = state.current_tile
+        next_tile: Tile = deepcopy(state.current_tile)
         while next_tile < Tile.F0 and state.remaining_tiles_count[next_tile] == 0:
             next_tile = next_tile + 1
 
@@ -73,7 +73,7 @@ def divide_general_shape(hand: Hand) -> list[list[Block]]:
             next_state.parsed_blocks.append(
                 Block(type=BlockType.TRIPLET, tile=next_tile, is_opened=False),
             )
-            stack.append(next_state)
+            stack.append(deepcopy(next_state))
 
         # Pair
         if (
@@ -87,7 +87,7 @@ def divide_general_shape(hand: Hand) -> list[list[Block]]:
                 Block(type=BlockType.PAIR, tile=next_tile, is_opened=False),
             )
             next_state.has_pair = True
-            stack.append(next_state)
+            stack.append(deepcopy(next_state))
 
         # Sequence
         if (
@@ -104,5 +104,5 @@ def divide_general_shape(hand: Hand) -> list[list[Block]]:
                 Block(type=BlockType.SEQUENCE, tile=next_tile, is_opened=False),
             )
             next_state.previous_was_sequence = True
-            stack.append(next_state)
+            stack.append(deepcopy(next_state))
     return parsed_hands
