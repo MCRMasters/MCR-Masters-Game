@@ -1,6 +1,6 @@
-# hand.py
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass
 from itertools import batched
 
@@ -25,7 +25,7 @@ class Hand:
         _tiles = [0] * 34
         for tile_index in tiles:
             _tiles[tile_index] += 1
-        return Hand(tiles=_tiles, call_blocks=call_blocks)
+        return Hand(tiles=_tiles, call_blocks=deepcopy(call_blocks))
 
     def __repr__(self) -> str:
         """Return a string representation of the Hand.

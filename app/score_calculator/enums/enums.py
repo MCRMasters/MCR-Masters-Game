@@ -1,9 +1,9 @@
-# enums.py
+from __future__ import annotations
+
 from enum import Enum, IntEnum
 
 
 class BlockType(Enum):
-    ERROR = -1
     SEQUENCE = 0
     TRIPLET = 1
     QUAD = 2
@@ -141,6 +141,12 @@ class Tile(IntEnum):
 
     def is_outside(self) -> bool:
         return self.is_terminal() or self.is_honor()
+
+    def get_number(self) -> int:
+        return self.value % 9 + 1 if self.is_number() else 0
+
+    def __add__(self, value: int) -> Tile:
+        return Tile(self.value + value)
 
 
 class Yaku(Enum):
