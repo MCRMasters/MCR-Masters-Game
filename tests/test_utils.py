@@ -53,16 +53,20 @@ def raw_string_to_hand_class(string: str) -> Hand:
     tiles_count: list[int] = [0] * 34
     blocks_list: list[Block] = []
     four: int = 4
+    call_mode: bool = False
 
     for c in string:
         if c in {"[", "{"}:
+            call_mode = True
             tile_stack.clear()
         elif c in {"]", "}"}:
+            call_mode = False
             if len(tile_stack) == four:
-                if len(set(tile_stack)) == four:
-                    block_type = BlockType.SEQUENCE
-                else:
-                    block_type = BlockType.TRIPLET
+                block_type = (
+                    BlockType.SEQUENCE
+                    if len(set(tile_stack)) == four
+                    else BlockType.TRIPLET
+                )
             elif len(tile_stack) == four + 1:
                 block_type = BlockType.QUAD
             else:
@@ -70,7 +74,7 @@ def raw_string_to_hand_class(string: str) -> Hand:
             blocks_list.append(
                 Block(
                     type=block_type,
-                    tile=name_to_tile[tile_stack[-2:]],
+                    tile=name_to_tile["".join(tile_stack[-2:])],
                     is_opened=c == "]",
                 ),
             )
@@ -78,8 +82,12 @@ def raw_string_to_hand_class(string: str) -> Hand:
         elif c.isdigit():
             tile_stack.append(c)
         elif c in {"m", "p", "s", "z"}:
+            if call_mode:
+                tile_stack.append(c)
+                continue
             for num in tile_stack:
+                print("tile:", num + c, name_to_tile[num + c])
                 tiles_count[name_to_tile[num + c]] += 1
 
             tile_stack.clear()
-    return Hand.create_from_tiles(tiles=tiles_count, call_blocks=blocks_list)
+    return Hand(tiles_count, blocks_list)

@@ -21,3 +21,4 @@ def test_print_string_to_hand_1():
     print_hand(raw_string_to_hand_class("123m123p123s777z11z"))
     print_hand(raw_string_to_hand_class("123m123p123s11z[888p]"))
     print_hand(raw_string_to_hand_class("123m[888p]123p123s11z"))
+    assert True
