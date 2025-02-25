@@ -1,4 +1,4 @@
-# hand.py
+# winning_conditions.py
 from dataclasses import dataclass
 
 from app.score_calculator.enums.enums import Tile, Wind
