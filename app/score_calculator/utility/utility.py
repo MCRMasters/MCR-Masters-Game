@@ -1,4 +1,3 @@
-# utility.py
 from app.score_calculator.block.block import Block
 from app.score_calculator.enums.enums import Yaku
 

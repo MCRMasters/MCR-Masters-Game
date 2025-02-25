@@ -1,4 +1,3 @@
-# block.py
 from dataclasses import dataclass
 
 from app.score_calculator.enums.enums import BlockType, Tile
