@@ -69,6 +69,8 @@ select = [
     "TRY",  # try-except style
 ]
 
+ignore = ["TRY003"]
+
 [tool.ruff.lint.mccabe]
 max-complexity = 10
 

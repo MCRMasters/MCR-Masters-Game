@@ -30,15 +30,25 @@ class BlockDivisionState:
         )
 
 
+GENERAL_SHAPE_SIZE: Final[int] = 5
+TRIPLET_SIZE: Final[int] = 3
+PAIR_SIZE: Final[int] = 2
+SEQUENCE_MAX_START_POINT: Final[int] = 7
+FULLY_HAND_SIZE: Final[int] = 14
+
+
 def divide_general_shape(hand: Hand) -> list[list[Block]]:
     parsed_hands: list[list[Block]] = []
 
     stack: list[BlockDivisionState] = []
     stack.append(BlockDivisionState.create_from_hand(hand))
-    general_shape_size: Final[int] = 5
-    triplet_size: Final[int] = 3
-    pair_size: Final[int] = 2
-    sequence_max_start_point: Final[int] = 7
+
+    total_tiles_count: int = sum(hand.tiles)
+    for block in hand.call_blocks:
+        total_tiles_count -= 1 if block.type == BlockType.QUAD else 0
+
+    if total_tiles_count != FULLY_HAND_SIZE:
+        raise ValueError("Wrong hand size.")
 
     while stack:
         state: BlockDivisionState = stack.pop()
@@ -49,25 +59,17 @@ def divide_general_shape(hand: Hand) -> list[list[Block]]:
             next_tile = next_tile + 1
 
         # end point
-        if next_tile >= Tile.F0 or len(state.parsed_blocks) >= general_shape_size:
-            if (
-                sum(state.remaining_tiles_count)
-                or len(state.parsed_blocks) != general_shape_size
-            ):
-                continue
-            pair_block_count: list[int] = [0, 0]
-            for block in state.parsed_blocks:
-                pair_block_count[0 if block.type == BlockType.PAIR else 1] += 1
-            if pair_block_count[0] == 1:
+        if next_tile >= Tile.F0:
+            if len(state.parsed_blocks) == GENERAL_SHAPE_SIZE:
                 parsed_hands.append(state.parsed_blocks)
             continue
 
         # Triplet
-        if state.remaining_tiles_count[next_tile] >= triplet_size and (
+        if state.remaining_tiles_count[next_tile] >= TRIPLET_SIZE and (
             state.previous_tile != next_tile or not state.previous_was_sequence
         ):
             next_state = deepcopy(state)
-            next_state.remaining_tiles_count[next_tile] -= triplet_size
+            next_state.remaining_tiles_count[next_tile] -= TRIPLET_SIZE
             next_state.parsed_blocks.append(
                 Block(type=BlockType.TRIPLET, tile=next_tile, is_opened=False),
             )
@@ -75,12 +77,12 @@ def divide_general_shape(hand: Hand) -> list[list[Block]]:
 
         # Pair
         if (
-            state.remaining_tiles_count[next_tile] >= pair_size
+            state.remaining_tiles_count[next_tile] >= PAIR_SIZE
             and not state.has_pair
             and (state.previous_tile != next_tile or not state.previous_was_sequence)
         ):
             next_state = deepcopy(state)
-            next_state.remaining_tiles_count[next_tile] -= pair_size
+            next_state.remaining_tiles_count[next_tile] -= PAIR_SIZE
             next_state.parsed_blocks.append(
                 Block(type=BlockType.PAIR, tile=next_tile, is_opened=False),
             )
@@ -90,8 +92,7 @@ def divide_general_shape(hand: Hand) -> list[list[Block]]:
         # Sequence
         if (
             next_tile.is_number()
-            and next_tile.get_number() <= sequence_max_start_point
-            and state.remaining_tiles_count[next_tile] >= 1
+            and next_tile.get_number() <= SEQUENCE_MAX_START_POINT
             and state.remaining_tiles_count[next_tile + 1] >= 1
             and state.remaining_tiles_count[next_tile + 2] >= 1
         ):
