@@ -69,7 +69,7 @@ select = [
     "TRY",  # try-except style
 ]
 
-ignore = ["TRY003"]
+ignore = ["TRY003"] # should be removed
 
 [tool.ruff.lint.mccabe]
 max-complexity = 10
