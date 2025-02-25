@@ -1,4 +1,6 @@
-from app.score_calculator.enums.enums import Tile
+from app.score_calculator.block.block import Block
+from app.score_calculator.enums.enums import BlockType, Tile
+from app.score_calculator.hand.hand import Hand
 
 
 def tile_to_name(tile: Tile) -> str:
@@ -42,3 +44,42 @@ name_to_tile: dict[str, Tile] = {
     "7z": Tile.Z7,
     "0f": Tile.F0,
 }
+
+
+# [] Open Pung/Kong, {} Closed Kong
+def raw_string_to_hand_class(string: str) -> Hand:
+    tile_stack: list[str] = []
+    block_type: BlockType
+    tiles_count: list[int] = [0] * 34
+    blocks_list: list[Block] = []
+    four: int = 4
+
+    for c in string:
+        if c in {"[", "{"}:
+            tile_stack.clear()
+        elif c in {"]", "}"}:
+            if len(tile_stack) == four:
+                if len(set(tile_stack)) == four:
+                    block_type = BlockType.SEQUENCE
+                else:
+                    block_type = BlockType.TRIPLET
+            elif len(tile_stack) == four + 1:
+                block_type = BlockType.QUAD
+            else:
+                continue
+            blocks_list.append(
+                Block(
+                    type=block_type,
+                    tile=name_to_tile[tile_stack[-2:]],
+                    is_opened=c == "]",
+                ),
+            )
+            tile_stack.clear()
+        elif c.isdigit():
+            tile_stack.append(c)
+        elif c in {"m", "p", "s", "z"}:
+            for num in tile_stack:
+                tiles_count[name_to_tile[num + c]] += 1
+
+            tile_stack.clear()
+    return Hand.create_from_tiles(tiles=tiles_count, call_blocks=blocks_list)
