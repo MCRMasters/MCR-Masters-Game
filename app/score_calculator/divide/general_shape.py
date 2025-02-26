@@ -71,10 +71,11 @@ def divide_general_shape_knitted_sub(hand: Hand) -> list[list[Block]]:
         if not has_knitted_blocks:
             continue
         new_hand = deepcopy(hand)
-        for i in range(0, len(case), KNITTED_SIZE):
-            new_hand.call_blocks.append(
-                Block(BlockType.KNITTED, case[i], is_opened=False),
-            )
+        new_hand.call_blocks.extend(
+            Block(type=BlockType.KNITTED, tile=start_tile, is_opened=False)
+            for start_tile in case[::KNITTED_GAP]
+        )
+
         parsed_hands.extend(divide_general_shape(new_hand))
     return parsed_hands
 
