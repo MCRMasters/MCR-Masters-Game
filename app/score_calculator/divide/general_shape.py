@@ -133,8 +133,8 @@ def divide_general_shape(hand: Hand) -> list[list[Block]]:
             stack.append(next_state)
         # Sequence
         if (
-            next_tile.is_number()
-            and next_tile.get_number() <= SEQUENCE_MAX_START_POINT
+            next_tile.is_number
+            and next_tile.number <= SEQUENCE_MAX_START_POINT
             and state.remaining_tiles_count[next_tile + 1] >= 1
             and state.remaining_tiles_count[next_tile + 2] >= 1
         ):
