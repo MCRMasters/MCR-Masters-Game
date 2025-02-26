@@ -17,7 +17,7 @@ KNITTED_GAP: Final[int] = 3
 PAIR_SIZE: Final[int] = 2
 SEQUENCE_MAX_START_POINT: Final[int] = 7
 FULLY_HAND_SIZE: Final[int] = 14
-KNITTED_CASE: Final[list[list[Tile]]] = [
+KNITTED_CASES: Final[list[list[Tile]]] = [
     [Tile.M1, Tile.M4, Tile.M7, Tile.S2, Tile.S5, Tile.S8, Tile.P3, Tile.P6, Tile.P9],
     [Tile.M1, Tile.M4, Tile.M7, Tile.P2, Tile.P5, Tile.P8, Tile.S3, Tile.S6, Tile.S9],
     [Tile.S1, Tile.S4, Tile.S7, Tile.M2, Tile.M5, Tile.M8, Tile.P3, Tile.P6, Tile.P9],
@@ -66,18 +66,14 @@ def divide_general_shape_knitted_sub(hand: Hand) -> list[list[Block]]:
     has_knitted_blocks: bool
     parsed_hands: list[list[Block]] = []
 
-    for one_case in KNITTED_CASE:
-        has_knitted_blocks = True
-        for tile in one_case:
-            if hand.tiles[tile] < 1:
-                has_knitted_blocks = False
-                break
+    for case in KNITTED_CASES:
+        has_knitted_blocks = all(hand.tiles[tile] > 0 for tile in case)
         if not has_knitted_blocks:
             continue
         new_hand = deepcopy(hand)
-        for i in range(0, len(one_case), KNITTED_SIZE):
+        for i in range(0, len(case), KNITTED_SIZE):
             new_hand.call_blocks.append(
-                Block(BlockType.KNITTED, one_case[i], is_opened=False),
+                Block(BlockType.KNITTED, case[i], is_opened=False),
             )
         parsed_hands.extend(divide_general_shape(new_hand))
     return parsed_hands
