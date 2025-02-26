@@ -145,6 +145,9 @@ class Tile(IntEnum):
     def get_number(self) -> int:
         return self.value % 9 + 1 if self.is_number() else 0
 
+    def get_type(self) -> str:
+        return self.name[0]
+
     def __add__(self, value: int) -> Tile:
         return Tile(self.value + value)
 
