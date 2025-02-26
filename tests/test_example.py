@@ -8,16 +8,16 @@ from app.score_calculator.divide.general_shape import (
 from app.score_calculator.enums.enums import BlockType, Tile
 from app.score_calculator.hand.hand import Hand
 from app.score_calculator.yaku_check.block_yaku.mixed_double_chow import (
-    check_mixed_double_chow,
+    MixedDoubleChowChecker,
 )
 from app.score_calculator.yaku_check.block_yaku.pure_double_chow import (
-    check_pure_double_chow,
+    PureDoubleChowChecker,
 )
 from app.score_calculator.yaku_check.block_yaku.short_straight import (
-    check_short_straight,
+    ShortStraightChecker,
 )
 from app.score_calculator.yaku_check.block_yaku.two_terminal_chows import (
-    check_two_terminal_chows,
+    TwoTerminalChowsChecker,
 )
 from tests.test_utils import print_blocks, raw_string_to_hand_class
 
@@ -64,11 +64,14 @@ S123: Final[Block] = Block(BlockType.SEQUENCE, Tile.S1)
 
 
 def test_check_block_yakus():
-    assert check_mixed_double_chow([M123, S123])
-    assert not check_mixed_double_chow([M123, M789])
-    assert check_pure_double_chow([M123, M123])
-    assert not check_pure_double_chow([M123, M456])
-    assert check_short_straight([M123, M456])
-    assert not check_short_straight([M789, P123])
-    assert check_two_terminal_chows([M123, M789])
-    assert not check_two_terminal_chows([M123, M456])
+    assert MixedDoubleChowChecker([M123, S123]).check_yaku()
+    assert not MixedDoubleChowChecker([M123, M789]).check_yaku()
+
+    assert PureDoubleChowChecker([M123, M123]).check_yaku()
+    assert not PureDoubleChowChecker([M123, M456]).check_yaku()
+
+    assert ShortStraightChecker([M123, M456]).check_yaku()
+    assert not ShortStraightChecker([M789, P123]).check_yaku()
+
+    assert TwoTerminalChowsChecker([M123, M789]).check_yaku()
+    assert not TwoTerminalChowsChecker([M123, M456]).check_yaku()

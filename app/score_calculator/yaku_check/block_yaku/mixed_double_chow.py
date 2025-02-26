@@ -1,22 +1,18 @@
-from typing import Final
-
 from app.score_calculator.block.block import Block
-from app.score_calculator.enums.enums import BlockType
-
-BLOCKS_SIZE: Final[int] = 2
-TILE_TYPE_COUNT: Final[int] = 2
+from app.score_calculator.enums.enums import Yaku
+from app.score_calculator.yaku_check.yaku_checker import BlockYakuChecker
 
 
-def valid_check_mixed_double_chow(blocks: list[Block]) -> bool:
-    return len(blocks) == BLOCKS_SIZE and all(
-        block.type == BlockType.SEQUENCE for block in blocks
-    )
+class MixedDoubleChowChecker(BlockYakuChecker):
+    def __init__(self, blocks: list[Block]):
+        super().__init__(Yaku.MixedDoubleChow, blocks)
 
+    def validate_basic_conditions(self) -> bool:
+        return len(self.blocks) == self.DOUBLE and self.is_all_sequence()
 
-def check_mixed_double_chow(blocks: list[Block]) -> bool:
-    if not valid_check_mixed_double_chow(blocks):
-        return False
-    return (
-        len({block.tile.get_type() for block in blocks}) == TILE_TYPE_COUNT
-        and blocks[0].tile.get_number() == blocks[1].tile.get_number()
-    )
+    def check_yaku(self) -> bool:
+        return (
+            self.validate_basic_conditions()
+            and self.count_type() == self.DOUBLE
+            and self.blocks[0].tile.get_number() == self.blocks[1].tile.get_number()
+        )

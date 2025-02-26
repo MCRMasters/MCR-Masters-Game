@@ -1,22 +1,18 @@
-from typing import Final
-
 from app.score_calculator.block.block import Block
-from app.score_calculator.enums.enums import BlockType
-
-BLOCKS_SIZE: Final[int] = 2
-TERMINAL_GAP: Final[int] = 6
+from app.score_calculator.enums.enums import Yaku
+from app.score_calculator.yaku_check.yaku_checker import BlockYakuChecker
 
 
-def valid_check_two_terminal_chows(blocks: list[Block]) -> bool:
-    return len(blocks) == BLOCKS_SIZE and all(
-        block.type == BlockType.SEQUENCE for block in blocks
-    )
+class TwoTerminalChowsChecker(BlockYakuChecker):
+    def __init__(self, blocks: list[Block]):
+        super().__init__(Yaku.TwoTerminalChows, blocks)
 
+    def validate_basic_conditions(self) -> bool:
+        return len(self.blocks) == self.DOUBLE and self.is_all_sequence()
 
-def check_two_terminal_chows(blocks: list[Block]) -> bool:
-    if not valid_check_two_terminal_chows(blocks):
-        return False
-    return (
-        len({block.tile.get_type() for block in blocks}) == 1
-        and abs(blocks[0].tile - blocks[1].tile) == TERMINAL_GAP
-    )
+    def check_yaku(self) -> bool:
+        return (
+            self.validate_basic_conditions()
+            and self.count_type() == self.SINGLE
+            and abs(self.blocks[0].tile - self.blocks[1].tile) == self.TERMINAL_GAP
+        )
