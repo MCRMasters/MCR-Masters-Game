@@ -54,8 +54,44 @@ def raw_string_to_hand_class(string: str) -> Hand:
                 tile_stack.append(c)
                 continue
             for num in tile_stack:
-                print("tile:", num + c, name_to_tile(num + c))
+                # print("tile:", num + c, name_to_tile(num + c))
                 tiles_count[name_to_tile(num + c)] += 1
 
             tile_stack.clear()
     return Hand(tiles_count, blocks_list)
+
+
+SEQUENCE_SIZE: Final[int] = 3
+
+
+def print_blocks(blocks: list[Block]):
+    for block in blocks:
+        print_block(block)
+    print()
+
+
+BLOCKTYPE_SIZE: dict[BlockType, int] = {
+    BlockType.PAIR: 2,
+    BlockType.TRIPLET: 3,
+    BlockType.QUAD: 4,
+}
+
+
+def print_block(block: Block):
+    if block.is_opened:
+        print("[", end="")
+    elif block.type == BlockType.QUAD:
+        print("{", end="")
+    if block.type in {BlockType.PAIR, BlockType.TRIPLET, BlockType.QUAD}:
+        print(tile_to_name(block.tile) * BLOCKTYPE_SIZE[block.type], end="")
+    elif block.type == BlockType.SEQUENCE:
+        for i in range(SEQUENCE_SIZE):
+            print(tile_to_name(block.tile + i), end="")
+    elif block.type == BlockType.KNITTED:
+        for i in range(SEQUENCE_SIZE):
+            print(tile_to_name(block.tile + i * SEQUENCE_SIZE), end="")
+    if block.is_opened:
+        print("]", end="")
+    elif block.type == BlockType.QUAD:
+        print("}", end="")
+    print(" ", end="")
