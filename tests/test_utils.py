@@ -50,14 +50,13 @@ def raw_string_to_hand_class(string: str) -> Hand:
         elif c.isdigit():
             tile_stack.append(c)
         elif c in {"m", "p", "s", "z"}:
-            if call_mode:
-                tile_stack.append(c)
-                continue
             for num in tile_stack:
                 # print("tile:", num + c, name_to_tile(num + c))
                 tiles_count[name_to_tile(num + c)] += 1
-
-            tile_stack.clear()
+            if call_mode:
+                tile_stack.append(c)
+            else:
+                tile_stack.clear()
     return Hand(tiles_count, blocks_list)
 
 

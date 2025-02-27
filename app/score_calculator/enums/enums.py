@@ -115,41 +115,56 @@ class Tile(IntEnum):
     # Flower tile (F)
     F0 = 34
 
+    @property
     def is_honor(self) -> bool:
         return Tile.Z1 <= self.value <= Tile.Z7
 
+    @property
     def is_number(self) -> bool:
         return Tile.M1 <= self.value <= Tile.S9
 
+    @property
     def is_manzu(self) -> bool:
         return Tile.M1 <= self.value <= Tile.M9
 
+    @property
     def is_pinzu(self) -> bool:
         return Tile.P1 <= self.value <= Tile.P9
 
+    @property
     def is_souzu(self) -> bool:
         return Tile.S1 <= self.value <= Tile.S9
 
+    @property
     def is_wind(self) -> bool:
         return Tile.Z1 <= self.value <= Tile.Z4
 
+    @property
     def is_dragon(self) -> bool:
         return Tile.Z5 <= self.value <= Tile.Z7
 
+    @property
     def is_terminal(self) -> bool:
         return self.value in {Tile.M1, Tile.M9, Tile.P1, Tile.P9, Tile.S1, Tile.S9}
 
+    @property
     def is_outside(self) -> bool:
-        return self.is_terminal() or self.is_honor()
+        return self.is_terminal or self.is_honor
 
-    def get_number(self) -> int:
-        return self.value % 9 + 1 if self.is_number() else 0
+    @property
+    def number(self) -> int:
+        return self.value % 9 + 1 if self.is_number else 0
+
+    @property
+    def type(self) -> str:
+        return self.name[0]
 
     def __add__(self, value: int) -> Tile:
         return Tile(self.value + value)
 
 
 class Yaku(Enum):
+    ERROR = -1
     ChickenHand = 0
     SevenShiftedPairs = 1
     ThirteenOrphans = 2
