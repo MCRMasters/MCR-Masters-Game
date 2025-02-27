@@ -79,7 +79,7 @@ class BlocksYakuChecker(YakuChecker):
     def validate_all_condition(self, condition: Callable[[Block], bool]) -> bool:
         return all(condition.__get__(block) for block in self.blocks)
 
-    def validate_all_properties(self, *conditions: Callable[[Block], bool]) -> bool:
+    def validate_all_conditions(self, *conditions: Callable[[Block], bool]) -> bool:
         return all(self.validate_all_condition(condition) for condition in conditions)
 
     # general yaku checker
@@ -100,12 +100,12 @@ class BlocksYakuChecker(YakuChecker):
     # two blocks checker
     @property
     def is_two_dragons_pungs(self) -> bool:
-        return self.validate_all_properties(Block.is_dragon, Block.is_triplet)
+        return self.validate_all_conditions(Block.is_dragon, Block.is_triplet)
 
     @property
     def is_double_pung(self) -> bool:
         return (
-            self.validate_all_properties(Block.is_number, Block.is_triplet)
+            self.validate_all_conditions(Block.is_number, Block.is_triplet)
             and self.is_mixed_same_num
         )
 
@@ -120,7 +120,7 @@ class BlocksYakuChecker(YakuChecker):
     @property
     def is_short_straight(self) -> bool:
         return (
-            self.validate_all_properties(Block.is_sequence)
+            self.validate_all_conditions(Block.is_sequence)
             and len(self.blocks) == self.DOUBLE
             and abs(self.blocks[0].tile - self.blocks[1].tile) == self.STRAIGHT_GAP
         )
@@ -128,7 +128,7 @@ class BlocksYakuChecker(YakuChecker):
     @property
     def is_two_terminal_chows(self) -> bool:
         return (
-            self.validate_all_properties(Block.is_sequence)
+            self.validate_all_conditions(Block.is_sequence)
             and len(self.blocks) == self.DOUBLE
             and abs(self.blocks[0].tile - self.blocks[1].tile) == self.TERMINAL_GAP
         )
