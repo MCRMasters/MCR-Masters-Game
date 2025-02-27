@@ -28,14 +28,22 @@ class BlocksYakuChecker(YakuChecker):
         return self._yaku
 
     def set_yaku(self) -> None:
-        if len(self.blocks) == self.FIVE:
-            self._yaku = self.five_blocks_checker()
-        elif len(self.blocks) == self.FOUR or len(self.blocks) == self.TRIPLE:
-            self._yaku = self.four_blocks_checker()
-        elif len(self.blocks) == self.DOUBLE:
-            self._yaku = self.two_blocks_checker()
-        elif len(self.blocks) == self.SINGLE:
-            raise NotImplementedError
+        checkers = {
+            5: self.five_blocks_checker,
+            4: self.four_blocks_checker,
+            3: None,  # Not implemented for triple blocks
+            2: self.two_blocks_checker,
+            1: None,  # Not implemented for single blocks
+        }
+        block_len = len(self.blocks)
+        if block_len in checkers:
+            checker = checkers[block_len]
+            if checker is not None:
+                self._yaku = checker()
+            else:
+                raise NotImplementedError(
+                    f"Checker for block length {block_len} is not implemented",
+                )
         else:
             raise IndexError("invalid blocks size")
 
@@ -49,34 +57,25 @@ class BlocksYakuChecker(YakuChecker):
         return result
 
     def two_blocks_checker(self) -> Yaku:
-        result: Yaku = Yaku.ERROR
-        if self.is_two_dragons_pungs:
-            result = Yaku.TwoDragonsPungs
-        elif self.is_double_pung:
-            result = Yaku.DoublePung
-        elif self.is_pure_double_chow:
-            result = Yaku.PureDoubleChow
-        elif self.is_mixed_double_chow:
-            result = Yaku.MixedDoubleChow
-        elif self.is_short_straight:
-            result = Yaku.ShortStraight
-        elif self.is_two_terminal_chows:
-            result = Yaku.TwoTerminalChows
-        return result
+        conditions = [
+            (self.is_two_dragons_pungs, Yaku.TwoDragonsPungs),
+            (self.is_double_pung, Yaku.DoublePung),
+            (self.is_pure_double_chow, Yaku.PureDoubleChow),
+            (self.is_mixed_double_chow, Yaku.MixedDoubleChow),
+            (self.is_short_straight, Yaku.ShortStraight),
+            (self.is_two_terminal_chows, Yaku.TwoTerminalChows),
+        ]
+        return next((value for checker, value in conditions if checker), Yaku.ERROR)
 
     def four_blocks_checker(self) -> Yaku:
-        result: Yaku = Yaku.ERROR
-        if self.is_big_four_winds:
-            result = Yaku.BigFourWinds
-        elif self.is_little_four_winds:
-            result = Yaku.LittleFourWinds
-        elif self.is_quadruple_chow:
-            result = Yaku.QuadrupleChow
-        elif self.is_four_pure_shifted_chows:
-            result = Yaku.FourPureShiftedChows
-        elif self.is_four_pure_shifted_pungs:
-            result = Yaku.FourPureShiftedPungs
-        return result
+        conditions = [
+            (self.is_big_four_winds, Yaku.BigFourWinds),
+            (self.is_little_four_winds, Yaku.LittleFourWinds),
+            (self.is_quadruple_chow, Yaku.QuadrupleChow),
+            (self.is_four_pure_shifted_chows, Yaku.FourPureShiftedChows),
+            (self.is_four_pure_shifted_pungs, Yaku.FourPureShiftedPungs),
+        ]
+        return next((value for checker, value in conditions if checker), Yaku.ERROR)
 
     # utils
     @property
@@ -102,9 +101,9 @@ class BlocksYakuChecker(YakuChecker):
         )
 
     def validate_all_condition(self, condition: Callable[[Block], bool]) -> bool:
-        return all(condition.__get__(block) for block in self.blocks)
+        return all(condition(block) for block in self.blocks)
 
-    def validate_all_conditions(self, *conditions: Callable[[Block], bool]) -> bool:
+    def validate_all_properties(self, *conditions: Callable[[Block], bool]) -> bool:
         return all(self.validate_all_condition(condition) for condition in conditions)
 
     # general yaku checker
@@ -117,7 +116,7 @@ class BlocksYakuChecker(YakuChecker):
     @property
     def is_pure_chow(self) -> bool:
         return (
-            self.validate_all_condition(Block.is_sequence)
+            self.validate_all_properties(lambda x: x.is_sequence)
             and self.tile_type_count == self.SINGLE
             and all(self.blocks[0].tile == block.tile for block in self.blocks)
         )
@@ -125,12 +124,12 @@ class BlocksYakuChecker(YakuChecker):
     # two blocks checker
     @property
     def is_two_dragons_pungs(self) -> bool:
-        return self.validate_all_conditions(Block.is_dragon, Block.is_pung)
+        return self.validate_all_properties(lambda x: x.is_dragon, lambda x: x.is_pung)
 
     @property
     def is_double_pung(self) -> bool:
         return (
-            self.validate_all_conditions(Block.is_number, Block.is_pung)
+            self.validate_all_properties(lambda x: x.is_number, lambda x: x.is_pung)
             and self.is_mixed_same_num
         )
 
@@ -140,12 +139,15 @@ class BlocksYakuChecker(YakuChecker):
 
     @property
     def is_mixed_double_chow(self) -> bool:
-        return self.validate_all_condition(Block.is_sequence) and self.is_mixed_same_num
+        return (
+            self.validate_all_properties(lambda x: x.is_sequence)
+            and self.is_mixed_same_num
+        )
 
     @property
     def is_short_straight(self) -> bool:
         return (
-            self.validate_all_conditions(Block.is_sequence)
+            self.validate_all_properties(lambda x: x.is_sequence)
             and len(self.blocks) == self.DOUBLE
             and abs(self.blocks[0].tile - self.blocks[1].tile) == self.STRAIGHT_GAP
         )
@@ -153,7 +155,7 @@ class BlocksYakuChecker(YakuChecker):
     @property
     def is_two_terminal_chows(self) -> bool:
         return (
-            self.validate_all_conditions(Block.is_sequence)
+            self.validate_all_properties(lambda x: x.is_sequence)
             and len(self.blocks) == self.DOUBLE
             and abs(self.blocks[0].tile - self.blocks[1].tile) == self.TERMINAL_GAP
         )
@@ -161,18 +163,13 @@ class BlocksYakuChecker(YakuChecker):
     # four blocks checker
     @property
     def is_big_four_winds(self) -> bool:
-        return self.validate_all_conditions(Block.is_wind, Block.is_pung)
+        return self.validate_all_properties(lambda x: x.is_wind, lambda x: x.is_pung)
 
     @property
     def is_little_four_winds(self) -> bool:
         return (
-            self.validate_all_conditions(Block.is_wind)
-            and len(
-                list(
-                    filter(lambda x: x.type == BlockType.PAIR, self.blocks),
-                ),
-            )
-            == 1
+            self.validate_all_properties(lambda x: x.is_wind)
+            and sum(1 for block in self.blocks if block.type == BlockType.PAIR) == 1
         )
 
     @property
@@ -182,7 +179,7 @@ class BlocksYakuChecker(YakuChecker):
     @property
     def is_four_pure_shifted_pungs(self) -> bool:
         return (
-            self.validate_all_conditions(Block.is_number, Block.is_pung)
+            self.validate_all_properties(lambda x: x.is_number, lambda x: x.is_pung)
             and self.tile_type_count == 1
             and self.has_constant_gap(self.SINGLE)
         )
@@ -190,7 +187,7 @@ class BlocksYakuChecker(YakuChecker):
     @property
     def is_four_pure_shifted_chows(self) -> bool:
         return (
-            self.validate_all_conditions(Block.is_number, Block.is_sequence)
+            self.validate_all_properties(lambda x: x.is_number, lambda x: x.is_sequence)
             and self.tile_type_count == 1
             and (
                 self.has_constant_gap(self.SINGLE) or self.has_constant_gap(self.DOUBLE)
@@ -200,8 +197,8 @@ class BlocksYakuChecker(YakuChecker):
     # five blocks checker
     @property
     def is_outside_hand(self) -> bool:
-        return self.validate_all_condition(Block.has_outside)
+        return self.validate_all_properties(lambda x: x.has_outside)
 
     @property
     def is_all_fives(self) -> bool:
-        return self.validate_all_condition(Block.has_five)
+        return self.validate_all_properties(lambda x: x.has_five)
