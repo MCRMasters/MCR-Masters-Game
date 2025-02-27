@@ -46,14 +46,25 @@ def test_general_hand_parse():
 
 
 M123: Final[Block] = Block(BlockType.SEQUENCE, Tile.M1)
+M234: Final[Block] = Block(BlockType.SEQUENCE, Tile.M2)
+M345: Final[Block] = Block(BlockType.SEQUENCE, Tile.M3)
 M456: Final[Block] = Block(BlockType.SEQUENCE, Tile.M4)
+M567: Final[Block] = Block(BlockType.SEQUENCE, Tile.M5)
 M789: Final[Block] = Block(BlockType.SEQUENCE, Tile.M7)
 P123: Final[Block] = Block(BlockType.SEQUENCE, Tile.P1)
 S123: Final[Block] = Block(BlockType.SEQUENCE, Tile.S1)
+Z111: Final[Block] = Block(BlockType.TRIPLET, Tile.Z1)
+Z222: Final[Block] = Block(BlockType.TRIPLET, Tile.Z2)
+Z333: Final[Block] = Block(BlockType.TRIPLET, Tile.Z3)
+Z4444: Final[Block] = Block(BlockType.QUAD, Tile.Z4)
+Z11: Final[Block] = Block(BlockType.PAIR, Tile.Z1)
 Z555: Final[Block] = Block(BlockType.TRIPLET, Tile.Z5)
 Z7777: Final[Block] = Block(BlockType.QUAD, Tile.Z7)
 S1111: Final[Block] = Block(BlockType.QUAD, Tile.S1)
 M111: Final[Block] = Block(BlockType.TRIPLET, Tile.M1)
+M222: Final[Block] = Block(BlockType.TRIPLET, Tile.M2)
+M333: Final[Block] = Block(BlockType.TRIPLET, Tile.M3)
+M4444: Final[Block] = Block(BlockType.QUAD, Tile.M4)
 
 
 def test_block_yaku_checker():
@@ -73,3 +84,11 @@ def test_block_yaku_checker():
     blocks = divide_general_shape(hand)[0]
     print_blocks(blocks=blocks)
     assert Yaku.OutsideHand == BlocksYakuChecker(blocks).yaku
+    assert Yaku.BigFourWinds == BlocksYakuChecker([Z111, Z222, Z333, Z4444]).yaku
+    assert Yaku.LittleFourWinds == BlocksYakuChecker([Z11, Z222, Z333, Z4444]).yaku
+    assert Yaku.QuadrupleChow == BlocksYakuChecker([M123, M123, M123, M123]).yaku
+    assert (
+        Yaku.FourPureShiftedPungs == BlocksYakuChecker([M111, M222, M333, M4444]).yaku
+    )
+    assert Yaku.FourPureShiftedChows == BlocksYakuChecker([M123, M234, M345, M456]).yaku
+    assert Yaku.FourPureShiftedChows == BlocksYakuChecker([M123, M345, M567, M789]).yaku

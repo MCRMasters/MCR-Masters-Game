@@ -34,7 +34,7 @@ class Block:
         return self.type == BlockType.SEQUENCE
 
     @property
-    def is_triplet(self) -> bool:
+    def is_pung(self) -> bool:
         return self.type in {BlockType.TRIPLET, BlockType.QUAD}
 
     @property
