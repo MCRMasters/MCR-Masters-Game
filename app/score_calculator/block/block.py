@@ -93,9 +93,9 @@ class Block:
     def tiles(self) -> list[Tile]:
         tiles: list[Tile] = []
         if self.type == BlockType.SEQUENCE:
-            tiles.extend(self.tile + i for i in range(SEQUENCE_SIZE))
+            tiles = [self.tile + i for i in range(SEQUENCE_SIZE)]
         elif self.type == BlockType.KNITTED:
-            tiles.extend(self.tile + i for i in range(0, KNITTED_SIZE, KNITTED_GAP))
+            tiles = [self.tile + i for i in range(0, KNITTED_SIZE, KNITTED_GAP)]
         else:
-            tiles.extend([self.tile])
+            tiles = [self.tile]
         return tiles

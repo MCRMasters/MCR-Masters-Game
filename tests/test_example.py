@@ -7,7 +7,7 @@ from app.score_calculator.divide.general_shape import (
 )
 from app.score_calculator.enums.enums import BlockType, Tile, Yaku
 from app.score_calculator.hand.hand import Hand
-from app.score_calculator.yaku_check.yaku_checker import BlocksYakuChecker
+from app.score_calculator.yaku_check.blocks_yaku_checker import BlocksYakuChecker
 from tests.test_utils import print_blocks, raw_string_to_hand_class
 
 
