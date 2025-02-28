@@ -7,6 +7,7 @@ from app.score_calculator.enums.enums import BlockType, Tile, Yaku
 from app.score_calculator.yaku_check.yaku_checker import YakuChecker
 
 
+# yaku checker for combination of blocks
 class BlocksYakuChecker(YakuChecker):
     def __init__(self, blocks: list[Block]):
         super().__init__()
@@ -46,12 +47,11 @@ class BlocksYakuChecker(YakuChecker):
 
     # one checker per block size
     def five_blocks_checker(self) -> Yaku:
-        result: Yaku = Yaku.ERROR
-        if self.is_all_fives:
-            result = Yaku.AllFives
-        elif self.is_outside_hand:
-            result = Yaku.OutsideHand
-        return result
+        conditions = [
+            (self.is_all_fives, Yaku.AllFives),
+            (self.is_outside_hand, Yaku.OutsideHand),
+        ]
+        return next((yaku for checker, yaku in conditions if checker), Yaku.ERROR)
 
     def two_blocks_checker(self) -> Yaku:
         conditions = [
@@ -62,7 +62,7 @@ class BlocksYakuChecker(YakuChecker):
             (self.is_short_straight, Yaku.ShortStraight),
             (self.is_two_terminal_chows, Yaku.TwoTerminalChows),
         ]
-        return next((value for checker, value in conditions if checker), Yaku.ERROR)
+        return next((yaku for checker, yaku in conditions if checker), Yaku.ERROR)
 
     def four_blocks_checker(self) -> Yaku:
         conditions = [
@@ -72,7 +72,7 @@ class BlocksYakuChecker(YakuChecker):
             (self.is_four_pure_shifted_chows, Yaku.FourPureShiftedChows),
             (self.is_four_pure_shifted_pungs, Yaku.FourPureShiftedPungs),
         ]
-        return next((value for checker, value in conditions if checker), Yaku.ERROR)
+        return next((yaku for checker, yaku in conditions if checker), Yaku.ERROR)
 
     # utils
     @property
