@@ -65,6 +65,20 @@ M111: Final[Block] = Block(BlockType.TRIPLET, Tile.M1)
 M222: Final[Block] = Block(BlockType.TRIPLET, Tile.M2)
 M333: Final[Block] = Block(BlockType.TRIPLET, Tile.M3)
 M4444: Final[Block] = Block(BlockType.QUAD, Tile.M4)
+P111: Final[Block] = Block(BlockType.TRIPLET, Tile.P1)
+P222: Final[Block] = Block(BlockType.TRIPLET, Tile.P2)
+S111: Final[Block] = Block(BlockType.TRIPLET, Tile.S1)
+S333: Final[Block] = Block(BlockType.TRIPLET, Tile.S3)
+Z666: Final[Block] = Block(BlockType.TRIPLET, Tile.Z6)
+Z777: Final[Block] = Block(BlockType.TRIPLET, Tile.Z7)
+Z77: Final[Block] = Block(BlockType.PAIR, Tile.Z7)
+M147: Final[Block] = Block(BlockType.KNITTED, Tile.M1)
+P258: Final[Block] = Block(BlockType.KNITTED, Tile.S2)
+S369: Final[Block] = Block(BlockType.KNITTED, Tile.P3)
+P234: Final[Block] = Block(BlockType.SEQUENCE, Tile.P2)
+S345: Final[Block] = Block(BlockType.SEQUENCE, Tile.S3)
+P456: Final[Block] = Block(BlockType.SEQUENCE, Tile.P4)
+S789: Final[Block] = Block(BlockType.SEQUENCE, Tile.S7)
 
 
 def test_block_yaku_checker():
@@ -92,3 +106,17 @@ def test_block_yaku_checker():
     )
     assert Yaku.FourPureShiftedChows == BlocksYakuChecker([M123, M234, M345, M456]).yaku
     assert Yaku.FourPureShiftedChows == BlocksYakuChecker([M123, M345, M567, M789]).yaku
+
+    assert Yaku.BigThreeDragons == BlocksYakuChecker([Z555, Z666, Z777]).yaku
+    assert Yaku.LittleThreeDragons == BlocksYakuChecker([Z555, Z666, Z77]).yaku
+    assert Yaku.PureTripleChow == BlocksYakuChecker([M123, M123, M123]).yaku
+    assert Yaku.PureShiftedPungs == BlocksYakuChecker([M111, M222, M333]).yaku
+    assert Yaku.PureShiftedChows == BlocksYakuChecker([M123, M234, M345]).yaku
+    assert Yaku.PureStraight == BlocksYakuChecker([M123, M456, M789]).yaku
+    assert Yaku.TriplePung == BlocksYakuChecker([M111, S111, P111]).yaku
+    assert Yaku.BigThreeWinds == BlocksYakuChecker([Z111, Z222, Z333]).yaku
+    assert Yaku.KnittedStraight == BlocksYakuChecker([M147, P258, S369]).yaku
+    assert Yaku.MixedTripleChow == BlocksYakuChecker([M123, P123, S123]).yaku
+    assert Yaku.MixedStraight == BlocksYakuChecker([M123, P456, S789]).yaku
+    assert Yaku.MixedShiftedPungs == BlocksYakuChecker([M111, P222, S333]).yaku
+    assert Yaku.MixedShiftedChows == BlocksYakuChecker([M123, P234, S345]).yaku
