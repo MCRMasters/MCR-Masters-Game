@@ -36,16 +36,13 @@ class BlocksYakuChecker(YakuChecker):
             1: None,  # Not implemented for single blocks
         }
         block_len = len(self.blocks)
-        if block_len in checkers:
-            checker = checkers[block_len]
-            if checker is not None:
-                self._yaku = checker()
-            else:
-                raise NotImplementedError(
-                    f"Checker for block length {block_len} is not implemented",
-                )
-        else:
-            raise IndexError("invalid blocks size")
+        if block_len not in checkers:
+            raise IndexError("Invalid blocks size.")
+        if (checker := checkers[block_len]) is None:
+            raise NotImplementedError(
+                f"Checker for blocks size {block_len} is not implemented",
+            )
+        self._yaku = checker()
 
     # one checker per block size
     def five_blocks_checker(self) -> Yaku:
