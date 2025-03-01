@@ -106,13 +106,13 @@ class BlocksYakuChecker(YakuChecker):
 
     # general yaku checker
     @property
-    def is_mixed_same_num_general(self) -> bool:
+    def _is_mixed_same_num(self) -> bool:
         return self.tile_type_count == len(self.blocks) and all(
             self.blocks[0].tile.number == block.tile.number for block in self.blocks
         )
 
     @property
-    def is_pure_chow_general(self) -> bool:
+    def _is_pure_chow(self) -> bool:
         return (
             self.validate_all_properties(lambda x: x.is_number, lambda x: x.is_sequence)
             and self.tile_type_count == 1
@@ -120,7 +120,7 @@ class BlocksYakuChecker(YakuChecker):
         )
 
     @property
-    def is_pure_shifted_pungs_general(self) -> bool:
+    def _is_pure_shifted_pungs(self) -> bool:
         return (
             self.validate_all_properties(lambda x: x.is_number, lambda x: x.is_pung)
             and self.tile_type_count == 1
@@ -128,7 +128,7 @@ class BlocksYakuChecker(YakuChecker):
         )
 
     @property
-    def is_pure_shifted_chows_general(self) -> bool:
+    def _is_pure_shifted_chows(self) -> bool:
         return (
             self.validate_all_properties(lambda x: x.is_number, lambda x: x.is_sequence)
             and self.tile_type_count == 1
@@ -136,17 +136,17 @@ class BlocksYakuChecker(YakuChecker):
         )
 
     @property
-    def is_big_winds_general(self) -> bool:
+    def _is_big_winds(self) -> bool:
         return self.validate_all_properties(lambda x: x.is_wind, lambda x: x.is_pung)
 
     @property
-    def is_big_dragons_general(self) -> bool:
+    def _is_big_dragons(self) -> bool:
         return self.validate_all_properties(lambda x: x.is_dragon, lambda x: x.is_pung)
 
     # three blocks checker
     @property
     def is_big_three_dragons(self) -> bool:
-        return self.is_big_dragons_general
+        return self._is_big_dragons
 
     @property
     def is_little_three_dragons(self) -> bool:
@@ -158,15 +158,15 @@ class BlocksYakuChecker(YakuChecker):
 
     @property
     def is_pure_triple_chow(self) -> bool:
-        return self.is_pure_chow_general
+        return self._is_pure_chow
 
     @property
     def is_pure_shifted_pungs(self) -> bool:
-        return self.is_pure_shifted_pungs_general
+        return self._is_pure_shifted_pungs
 
     @property
     def is_pure_shifted_chows(self) -> bool:
-        return self.is_pure_shifted_chows_general
+        return self._is_pure_shifted_chows
 
     @property
     def is_pure_straight(self) -> bool:
@@ -189,7 +189,7 @@ class BlocksYakuChecker(YakuChecker):
 
     @property
     def is_big_three_winds(self) -> bool:
-        return self.is_big_winds_general
+        return self._is_big_winds
 
     @property
     def is_knitted_straight(self) -> bool:
@@ -206,7 +206,7 @@ class BlocksYakuChecker(YakuChecker):
     def is_mixed_triple_chow(self) -> bool:
         return (
             self.validate_all_properties(lambda x: x.is_number, lambda x: x.is_sequence)
-            and self.is_mixed_same_num_general
+            and self._is_mixed_same_num
         )
 
     @property
@@ -242,18 +242,18 @@ class BlocksYakuChecker(YakuChecker):
     def is_double_pung(self) -> bool:
         return (
             self.validate_all_properties(lambda x: x.is_number, lambda x: x.is_pung)
-            and self.is_mixed_same_num_general
+            and self._is_mixed_same_num
         )
 
     @property
     def is_pure_double_chow(self) -> bool:
-        return self.is_pure_chow_general
+        return self._is_pure_chow
 
     @property
     def is_mixed_double_chow(self) -> bool:
         return (
             self.validate_all_properties(lambda x: x.is_number, lambda x: x.is_sequence)
-            and self.is_mixed_same_num_general
+            and self._is_mixed_same_num
         )
 
     @property
@@ -275,7 +275,7 @@ class BlocksYakuChecker(YakuChecker):
     # four blocks checker
     @property
     def is_big_four_winds(self) -> bool:
-        return self.is_big_winds_general
+        return self._is_big_winds
 
     @property
     def is_little_four_winds(self) -> bool:
@@ -287,15 +287,15 @@ class BlocksYakuChecker(YakuChecker):
 
     @property
     def is_quadruple_chow(self) -> bool:
-        return self.is_pure_chow_general
+        return self._is_pure_chow
 
     @property
     def is_four_pure_shifted_pungs(self) -> bool:
-        return self.is_pure_shifted_pungs_general
+        return self._is_pure_shifted_pungs
 
     @property
     def is_four_pure_shifted_chows(self) -> bool:
-        return self.is_pure_shifted_chows_general
+        return self._is_pure_shifted_chows
 
     # five blocks checker
     @property
