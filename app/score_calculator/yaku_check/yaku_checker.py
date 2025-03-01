@@ -8,10 +8,10 @@ class YakuChecker(ABC):
         pass
 
     @abstractmethod
-    def set_yaku(self) -> None:
+    def set_yakus(self) -> None:
         pass
 
     @property
     @abstractmethod
-    def yaku(self) -> Yaku:
+    def yakus(self) -> list[Yaku]:
         pass
