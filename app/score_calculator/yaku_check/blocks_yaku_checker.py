@@ -23,67 +23,53 @@ class BlocksYakuChecker(YakuChecker):
         return self._yaku
 
     def set_yaku(self) -> None:
-        checkers = {
-            5: self.five_blocks_checker,
-            4: self.four_blocks_checker,
-            3: self.three_blocks_checker,
-            2: self.two_blocks_checker,
-            1: None,  # Not implemented for single blocks
-        }
-        block_len = len(self.blocks)
-        if block_len not in checkers:
-            raise IndexError("Invalid blocks size.")
-        if (checker := checkers[block_len]) is None:
-            raise NotImplementedError(
-                f"Checker for blocks size {block_len} is not implemented",
-            )
-        self._yaku = checker()
+        self._yaku = self.blocks_checker()
 
-    # one checker per block size
-    def five_blocks_checker(self) -> Yaku:
-        conditions = [
-            (self.is_all_fives, Yaku.AllFives),
-            (self.is_outside_hand, Yaku.OutsideHand),
-        ]
-        return next((yaku for checker, yaku in conditions if checker), Yaku.ERROR)
-
-    def four_blocks_checker(self) -> Yaku:
-        conditions = [
-            (self.is_big_four_winds, Yaku.BigFourWinds),
-            (self.is_little_four_winds, Yaku.LittleFourWinds),
-            (self.is_quadruple_chow, Yaku.QuadrupleChow),
-            (self.is_four_pure_shifted_chows, Yaku.FourPureShiftedChows),
-            (self.is_four_pure_shifted_pungs, Yaku.FourPureShiftedPungs),
-        ]
-        return next((yaku for checker, yaku in conditions if checker), Yaku.ERROR)
-
-    def three_blocks_checker(self) -> Yaku:
-        conditions = [
-            (self.is_big_three_dragons, Yaku.BigThreeDragons),
-            (self.is_little_three_dragons, Yaku.LittleThreeDragons),
-            (self.is_pure_triple_chow, Yaku.PureTripleChow),
-            (self.is_pure_shifted_pungs, Yaku.PureShiftedPungs),
-            (self.is_pure_shifted_chows, Yaku.PureShiftedChows),
-            (self.is_pure_straight, Yaku.PureStraight),
-            (self.is_triple_pung, Yaku.TriplePung),
-            (self.is_big_three_winds, Yaku.BigThreeWinds),
-            (self.is_knitted_straight, Yaku.KnittedStraight),
-            (self.is_mixed_triple_chow, Yaku.MixedTripleChow),
-            (self.is_mixed_straight, Yaku.MixedStraight),
-            (self.is_mixed_shifted_pungs, Yaku.MixedShiftedPungs),
-            (self.is_mixed_shifted_chows, Yaku.MixedShiftedChows),
-        ]
-        return next((yaku for checker, yaku in conditions if checker), Yaku.ERROR)
-
-    def two_blocks_checker(self) -> Yaku:
-        conditions = [
-            (self.is_two_dragons_pungs, Yaku.TwoDragonsPungs),
-            (self.is_double_pung, Yaku.DoublePung),
-            (self.is_pure_double_chow, Yaku.PureDoubleChow),
-            (self.is_mixed_double_chow, Yaku.MixedDoubleChow),
-            (self.is_short_straight, Yaku.ShortStraight),
-            (self.is_two_terminal_chows, Yaku.TwoTerminalChows),
-        ]
+    def blocks_checker(self) -> Yaku:
+        conditions: list[tuple[bool, Yaku]]
+        match len(self.blocks):
+            case 5:
+                conditions = [
+                    (self.is_all_fives, Yaku.AllFives),
+                    (self.is_outside_hand, Yaku.OutsideHand),
+                ]
+            case 4:
+                conditions = [
+                    (self.is_big_four_winds, Yaku.BigFourWinds),
+                    (self.is_little_four_winds, Yaku.LittleFourWinds),
+                    (self.is_quadruple_chow, Yaku.QuadrupleChow),
+                    (self.is_four_pure_shifted_chows, Yaku.FourPureShiftedChows),
+                    (self.is_four_pure_shifted_pungs, Yaku.FourPureShiftedPungs),
+                ]
+            case 3:
+                conditions = [
+                    (self.is_big_three_dragons, Yaku.BigThreeDragons),
+                    (self.is_little_three_dragons, Yaku.LittleThreeDragons),
+                    (self.is_pure_triple_chow, Yaku.PureTripleChow),
+                    (self.is_pure_shifted_pungs, Yaku.PureShiftedPungs),
+                    (self.is_pure_shifted_chows, Yaku.PureShiftedChows),
+                    (self.is_pure_straight, Yaku.PureStraight),
+                    (self.is_triple_pung, Yaku.TriplePung),
+                    (self.is_big_three_winds, Yaku.BigThreeWinds),
+                    (self.is_knitted_straight, Yaku.KnittedStraight),
+                    (self.is_mixed_triple_chow, Yaku.MixedTripleChow),
+                    (self.is_mixed_straight, Yaku.MixedStraight),
+                    (self.is_mixed_shifted_pungs, Yaku.MixedShiftedPungs),
+                    (self.is_mixed_shifted_chows, Yaku.MixedShiftedChows),
+                ]
+            case 2:
+                conditions = [
+                    (self.is_two_dragons_pungs, Yaku.TwoDragonsPungs),
+                    (self.is_double_pung, Yaku.DoublePung),
+                    (self.is_pure_double_chow, Yaku.PureDoubleChow),
+                    (self.is_mixed_double_chow, Yaku.MixedDoubleChow),
+                    (self.is_short_straight, Yaku.ShortStraight),
+                    (self.is_two_terminal_chows, Yaku.TwoTerminalChows),
+                ]
+            case 1:
+                conditions = []
+            case _:
+                raise IndexError("Invalid blocks size.")
         return next((yaku for checker, yaku in conditions if checker), Yaku.ERROR)
 
     # utils
