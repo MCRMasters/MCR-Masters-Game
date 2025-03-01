@@ -15,12 +15,6 @@ class BlocksYakuChecker(YakuChecker):
         self._yaku: Yaku
         self.set_yaku()
 
-    SINGLE: Final[int] = 1
-    DOUBLE: Final[int] = 2
-    TRIPLE: Final[int] = 3
-    FOUR: Final[int] = 4
-    FIVE: Final[int] = 5
-
     STRAIGHT_GAP: Final[int] = 3
     TERMINAL_GAP: Final[int] = 6
 
@@ -135,7 +129,7 @@ class BlocksYakuChecker(YakuChecker):
     def is_pure_chow_general(self) -> bool:
         return (
             self.validate_all_properties(lambda x: x.is_number, lambda x: x.is_sequence)
-            and self.tile_type_count == self.SINGLE
+            and self.tile_type_count == 1
             and all(self.blocks[0].tile == block.tile for block in self.blocks)
         )
 
@@ -144,7 +138,7 @@ class BlocksYakuChecker(YakuChecker):
         return (
             self.validate_all_properties(lambda x: x.is_number, lambda x: x.is_pung)
             and self.tile_type_count == 1
-            and self.has_constant_gap(self.SINGLE)
+            and self.has_constant_gap(1)
         )
 
     @property
@@ -152,9 +146,7 @@ class BlocksYakuChecker(YakuChecker):
         return (
             self.validate_all_properties(lambda x: x.is_number, lambda x: x.is_sequence)
             and self.tile_type_count == 1
-            and (
-                self.has_constant_gap(self.SINGLE) or self.has_constant_gap(self.DOUBLE)
-            )
+            and (self.has_constant_gap(1) or self.has_constant_gap(2))
         )
 
     @property
@@ -175,7 +167,7 @@ class BlocksYakuChecker(YakuChecker):
         return (
             self.validate_all_properties(lambda x: x.is_dragon)
             and self.count_blocks_if(lambda x: x.is_pair) == 1
-            and self.count_blocks_if(lambda x: x.is_pung) == self.DOUBLE
+            and self.count_blocks_if(lambda x: x.is_pung) == 2
         )
 
     @property
@@ -202,11 +194,11 @@ class BlocksYakuChecker(YakuChecker):
     def is_triple_pung(self) -> bool:
         return (
             self.validate_all_properties(lambda x: x.is_number, lambda x: x.is_pung)
-            and self.tile_type_count == self.TRIPLE
+            and self.tile_type_count == 3
             and self.count_blocks_if(
                 lambda x: x.tile.number == self.blocks[0].tile.number,
             )
-            == self.TRIPLE
+            == 3
         )
 
     @property
@@ -220,7 +212,7 @@ class BlocksYakuChecker(YakuChecker):
                 lambda x: x.is_number,
                 lambda x: x.type == BlockType.KNITTED,
             )
-            and self.tile_type_count == self.TRIPLE
+            and self.tile_type_count == 3
             and self.has_constant_gap(1)
         )
 
@@ -235,7 +227,7 @@ class BlocksYakuChecker(YakuChecker):
     def is_mixed_straight(self) -> bool:
         return (
             self.validate_all_properties(lambda x: x.is_number, lambda x: x.is_sequence)
-            and self.tile_type_count == self.TRIPLE
+            and self.tile_type_count == 3
             and self.has_constant_gap(self.STRAIGHT_GAP)
         )
 
@@ -243,18 +235,16 @@ class BlocksYakuChecker(YakuChecker):
     def is_mixed_shifted_pungs(self) -> bool:
         return (
             self.validate_all_properties(lambda x: x.is_number, lambda x: x.is_pung)
-            and self.tile_type_count == self.TRIPLE
-            and self.has_constant_gap(self.SINGLE)
+            and self.tile_type_count == 3
+            and self.has_constant_gap(1)
         )
 
     @property
     def is_mixed_shifted_chows(self) -> bool:
         return (
             self.validate_all_properties(lambda x: x.is_number, lambda x: x.is_sequence)
-            and self.tile_type_count == self.TRIPLE
-            and (
-                self.has_constant_gap(self.SINGLE) or self.has_constant_gap(self.DOUBLE)
-            )
+            and self.tile_type_count == 3
+            and (self.has_constant_gap(1) or self.has_constant_gap(2))
         )
 
     # two blocks checker
@@ -284,7 +274,7 @@ class BlocksYakuChecker(YakuChecker):
     def is_short_straight(self) -> bool:
         return (
             self.validate_all_properties(lambda x: x.is_number, lambda x: x.is_sequence)
-            and len(self.blocks) == self.DOUBLE
+            and len(self.blocks) == 2
             and self.has_constant_gap(self.STRAIGHT_GAP)
         )
 
@@ -292,7 +282,7 @@ class BlocksYakuChecker(YakuChecker):
     def is_two_terminal_chows(self) -> bool:
         return (
             self.validate_all_properties(lambda x: x.is_number, lambda x: x.is_sequence)
-            and len(self.blocks) == self.DOUBLE
+            and len(self.blocks) == 2
             and self.has_constant_gap(self.TERMINAL_GAP)
         )
 
@@ -306,7 +296,7 @@ class BlocksYakuChecker(YakuChecker):
         return (
             self.validate_all_properties(lambda x: x.is_wind)
             and self.count_blocks_if(lambda x: x.is_pair) == 1
-            and self.count_blocks_if(lambda x: x.is_pung) == self.TRIPLE
+            and self.count_blocks_if(lambda x: x.is_pung) == 3
         )
 
     @property
