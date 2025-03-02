@@ -6,7 +6,7 @@ authors = [
     {name = "Hot6Mania",email = "than7683@gmail.com"}
 ]
 readme = "README.md"
-package-mode = false
+packages = [{include = "app"}]
 
 [tool.poetry.dependencies]
 python = "^3.12"
@@ -23,6 +23,10 @@ ruff = "^0.9.6"
 pre-commit = "^4.1.0"
 httpx = "^0.28.1"
 pytest-asyncio = "^0.25.3"
+
+[tool.poetry.scripts]
+start = "scripts.cli:start_dev_server"
+start-prod = "scripts.cli:start_prod_server"
 
 [tool.mypy]
 python_version = "3.12"
