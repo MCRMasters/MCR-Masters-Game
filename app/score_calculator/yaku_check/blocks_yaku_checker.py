@@ -12,7 +12,7 @@ class BlocksYakuChecker(YakuChecker):
     def __init__(self, blocks: list[Block]):
         super().__init__()
         self.blocks: list[Block] = blocks
-        self._yaku: Yaku
+        self._yakus: list[Yaku]
         self.conditions: dict[int, list[tuple[bool, Yaku]]] = {
             2: [
                 (self.is_two_dragons_pungs, Yaku.TwoDragonsPungs),
@@ -49,17 +49,17 @@ class BlocksYakuChecker(YakuChecker):
                 (self.is_outside_hand, Yaku.OutsideHand),
             ],
         }
-        self.set_yaku()
+        self.set_yakus()
 
     STRAIGHT_GAP: Final[int] = 3
     TERMINAL_GAP: Final[int] = 6
 
     @property
-    def yaku(self) -> Yaku:
-        return self._yaku
+    def yakus(self) -> list[Yaku]:
+        return self._yakus
 
-    def set_yaku(self) -> None:
-        self._yaku = self.blocks_checker()
+    def set_yakus(self) -> None:
+        self._yakus = [self.blocks_checker()]
 
     def blocks_checker(self) -> Yaku:
         if len(self.blocks) not in self.conditions:

@@ -8,6 +8,7 @@ from app.score_calculator.divide.general_shape import (
 from app.score_calculator.enums.enums import BlockType, Tile, Yaku
 from app.score_calculator.hand.hand import Hand
 from app.score_calculator.yaku_check.blocks_yaku_checker import BlocksYakuChecker
+from app.score_calculator.yaku_check.hand_yaku_checker import HandYakuChecker
 from tests.test_utils import print_blocks, raw_string_to_hand_class
 
 
@@ -81,42 +82,77 @@ P456: Final[Block] = Block(BlockType.SEQUENCE, Tile.P4)
 S789: Final[Block] = Block(BlockType.SEQUENCE, Tile.S7)
 
 
+def test_hand_yaku_checker():
+    hand = raw_string_to_hand_class("123m123s111p222p33p")
+    print(hand)
+    blocks = divide_general_shape(hand)[0]
+    print_blocks(blocks=blocks)
+    assert [Yaku.LowerTiles] == HandYakuChecker(blocks).yakus
+    hand = raw_string_to_hand_class("123m234s111p222p33p")
+    print(hand)
+    blocks = divide_general_shape(hand)[0]
+    print_blocks(blocks=blocks)
+    assert [Yaku.LowerFour] == HandYakuChecker(blocks).yakus
+    hand = raw_string_to_hand_class("456m456s444p555p66p")
+    print(hand)
+    blocks = divide_general_shape(hand)[0]
+    print_blocks(blocks=blocks)
+    assert [Yaku.MiddleTiles] == HandYakuChecker(blocks).yakus
+    hand = raw_string_to_hand_class("789m789s77788899p")
+    print(hand)
+    blocks = divide_general_shape(hand)[0]
+    print_blocks(blocks=blocks)
+    assert [Yaku.UpperTiles] == HandYakuChecker(blocks).yakus
+    hand = raw_string_to_hand_class("678m789s77788899p")
+    print(hand)
+    blocks = divide_general_shape(hand)[0]
+    print_blocks(blocks=blocks)
+    assert [Yaku.UpperFour] == HandYakuChecker(blocks).yakus
+
+
 def test_block_yaku_checker():
-    assert Yaku.MixedDoubleChow == BlocksYakuChecker([M123, S123]).yaku
-    assert Yaku.PureDoubleChow == BlocksYakuChecker([M123, M123]).yaku
-    assert Yaku.ShortStraight == BlocksYakuChecker([M123, M456]).yaku
-    assert Yaku.TwoTerminalChows == BlocksYakuChecker([M123, M789]).yaku
-    assert Yaku.TwoDragonsPungs == BlocksYakuChecker([Z555, Z7777]).yaku
-    assert Yaku.DoublePung == BlocksYakuChecker([S1111, M111]).yaku
+    assert [Yaku.MixedDoubleChow] == BlocksYakuChecker([M123, S123]).yakus
+    assert [Yaku.PureDoubleChow] == BlocksYakuChecker([M123, M123]).yakus
+    assert [Yaku.ShortStraight] == BlocksYakuChecker([M123, M456]).yakus
+    assert [Yaku.TwoTerminalChows] == BlocksYakuChecker([M123, M789]).yakus
+    assert [Yaku.TwoDragonsPungs] == BlocksYakuChecker([Z555, Z7777]).yakus
+    assert [Yaku.DoublePung] == BlocksYakuChecker([S1111, M111]).yakus
+
     hand = raw_string_to_hand_class("445566m556677p55s")
     print(hand)
     blocks = divide_general_shape(hand)[0]
     print_blocks(blocks=blocks)
-    assert Yaku.AllFives == BlocksYakuChecker(blocks).yaku
+    assert [Yaku.AllFives] == BlocksYakuChecker(blocks).yakus
+
     hand = raw_string_to_hand_class("123m789s111p11z[7777z]")
     print(hand)
     blocks = divide_general_shape(hand)[0]
     print_blocks(blocks=blocks)
-    assert Yaku.OutsideHand == BlocksYakuChecker(blocks).yaku
-    assert Yaku.BigFourWinds == BlocksYakuChecker([Z111, Z222, Z333, Z4444]).yaku
-    assert Yaku.LittleFourWinds == BlocksYakuChecker([Z11, Z222, Z333, Z4444]).yaku
-    assert Yaku.QuadrupleChow == BlocksYakuChecker([M123, M123, M123, M123]).yaku
-    assert (
-        Yaku.FourPureShiftedPungs == BlocksYakuChecker([M111, M222, M333, M4444]).yaku
-    )
-    assert Yaku.FourPureShiftedChows == BlocksYakuChecker([M123, M234, M345, M456]).yaku
-    assert Yaku.FourPureShiftedChows == BlocksYakuChecker([M123, M345, M567, M789]).yaku
+    assert [Yaku.OutsideHand] == BlocksYakuChecker(blocks).yakus
 
-    assert Yaku.BigThreeDragons == BlocksYakuChecker([Z555, Z666, Z777]).yaku
-    assert Yaku.LittleThreeDragons == BlocksYakuChecker([Z555, Z666, Z77]).yaku
-    assert Yaku.PureTripleChow == BlocksYakuChecker([M123, M123, M123]).yaku
-    assert Yaku.PureShiftedPungs == BlocksYakuChecker([M111, M222, M333]).yaku
-    assert Yaku.PureShiftedChows == BlocksYakuChecker([M123, M234, M345]).yaku
-    assert Yaku.PureStraight == BlocksYakuChecker([M123, M456, M789]).yaku
-    assert Yaku.TriplePung == BlocksYakuChecker([M111, S111, P111]).yaku
-    assert Yaku.BigThreeWinds == BlocksYakuChecker([Z111, Z222, Z333]).yaku
-    assert Yaku.KnittedStraight == BlocksYakuChecker([M147, P258, S369]).yaku
-    assert Yaku.MixedTripleChow == BlocksYakuChecker([M123, P123, S123]).yaku
-    assert Yaku.MixedStraight == BlocksYakuChecker([M123, P456, S789]).yaku
-    assert Yaku.MixedShiftedPungs == BlocksYakuChecker([M111, P222, S333]).yaku
-    assert Yaku.MixedShiftedChows == BlocksYakuChecker([M123, P234, S345]).yaku
+    assert [Yaku.BigFourWinds] == BlocksYakuChecker([Z111, Z222, Z333, Z4444]).yakus
+    assert [Yaku.LittleFourWinds] == BlocksYakuChecker([Z11, Z222, Z333, Z4444]).yakus
+    assert [Yaku.QuadrupleChow] == BlocksYakuChecker([M123, M123, M123, M123]).yakus
+    assert [Yaku.FourPureShiftedPungs] == BlocksYakuChecker(
+        [M111, M222, M333, M4444],
+    ).yakus
+    assert [Yaku.FourPureShiftedChows] == BlocksYakuChecker(
+        [M123, M234, M345, M456],
+    ).yakus
+    assert [Yaku.FourPureShiftedChows] == BlocksYakuChecker(
+        [M123, M345, M567, M789],
+    ).yakus
+
+    assert [Yaku.BigThreeDragons] == BlocksYakuChecker([Z555, Z666, Z777]).yakus
+    assert [Yaku.LittleThreeDragons] == BlocksYakuChecker([Z555, Z666, Z77]).yakus
+    assert [Yaku.PureTripleChow] == BlocksYakuChecker([M123, M123, M123]).yakus
+    assert [Yaku.PureShiftedPungs] == BlocksYakuChecker([M111, M222, M333]).yakus
+    assert [Yaku.PureShiftedChows] == BlocksYakuChecker([M123, M234, M345]).yakus
+    assert [Yaku.PureStraight] == BlocksYakuChecker([M123, M456, M789]).yakus
+    assert [Yaku.TriplePung] == BlocksYakuChecker([M111, S111, P111]).yakus
+    assert [Yaku.BigThreeWinds] == BlocksYakuChecker([Z111, Z222, Z333]).yakus
+    assert [Yaku.KnittedStraight] == BlocksYakuChecker([M147, P258, S369]).yakus
+    assert [Yaku.MixedTripleChow] == BlocksYakuChecker([M123, P123, S123]).yakus
+    assert [Yaku.MixedStraight] == BlocksYakuChecker([M123, P456, S789]).yakus
+    assert [Yaku.MixedShiftedPungs] == BlocksYakuChecker([M111, P222, S333]).yakus
+    assert [Yaku.MixedShiftedChows] == BlocksYakuChecker([M123, P234, S345]).yakus
