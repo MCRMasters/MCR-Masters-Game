@@ -7,7 +7,7 @@ from app.score_calculator.enums.enums import BlockType, Tile, Yaku
 from app.score_calculator.yaku_check.yaku_checker import YakuChecker
 
 
-# yaku checker for combination of blocks
+# yaku checker for hand property
 class HandYakuChecker(YakuChecker):
     def __init__(self, blocks: list[Block]):
         super().__init__()
