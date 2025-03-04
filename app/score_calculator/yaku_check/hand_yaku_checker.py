@@ -24,38 +24,113 @@ class HandYakuChecker(YakuChecker):
         self.blocks: list[Block] = blocks
         self.winning_conditions: WinningConditions = winning_conditions
         self._yakus: list[Yaku]
-        self.conditions: dict[YakuType, list[tuple[bool, Yaku]]] = {
+        self.conditions: dict[YakuType, list[tuple[Callable[[], bool], Yaku]]] = {
             YakuType.NUM_COMPARE: [
-                (self.is_upper_tiles, Yaku.UpperTiles),
-                (self.is_middle_tiles, Yaku.MiddleTiles),
-                (self.is_lower_tiles, Yaku.LowerTiles),
-                (self.is_upper_four, Yaku.UpperFour),
-                (self.is_lower_four, Yaku.LowerFour),
+                (
+                    lambda: self.validate_tiles(
+                        lambda x: x.is_number and x.number >= 7,
+                    ),
+                    Yaku.UpperTiles,
+                ),
+                (
+                    lambda: self.validate_tiles(
+                        lambda x: x.is_number and 4 <= x.number <= 6,
+                    ),
+                    Yaku.MiddleTiles,
+                ),
+                (
+                    lambda: self.validate_tiles(
+                        lambda x: x.is_number and x.number <= 3,
+                    ),
+                    Yaku.LowerTiles,
+                ),
+                (
+                    lambda: self.validate_tiles(
+                        lambda x: x.is_number and x.number >= 6,
+                    ),
+                    Yaku.UpperFour,
+                ),
+                (
+                    lambda: self.validate_tiles(
+                        lambda x: x.is_number and x.number <= 4,
+                    ),
+                    Yaku.LowerFour,
+                ),
             ],
             YakuType.NUM_CONDITION: [
-                (self.is_all_honors, Yaku.AllHonors),
-                (self.is_all_terminals, Yaku.AllTerminals),
-                (self.is_all_terminals_and_honors, Yaku.AllTerminalsAndHonors),
-                (self.is_all_simples, Yaku.AllSimples),
-                (self.is_no_honor_tiles, Yaku.NoHonorTiles),
+                (lambda: self.validate_tiles(lambda x: x.is_honor), Yaku.AllHonors),
+                (
+                    lambda: self.validate_tiles(lambda x: x.is_terminal),
+                    Yaku.AllTerminals,
+                ),
+                (
+                    lambda: self.validate_tiles(lambda x: x.is_terminal or x.is_honor),
+                    Yaku.AllTerminalsAndHonors,
+                ),
+                (
+                    lambda: self.validate_tiles(
+                        lambda x: x.is_number and 2 <= x.number <= 8,
+                    ),
+                    Yaku.AllSimples,
+                ),
+                (
+                    lambda: self.validate_tiles(lambda x: not x.is_honor),
+                    Yaku.NoHonorTiles,
+                ),
             ],
             YakuType.NUM_FLUSH: [
-                (self.is_full_flush, Yaku.FullFlush),
-                (self.is_half_flush, Yaku.HalfFlush),
-                (self.is_one_voided_suit, Yaku.OneVoidedSuit),
+                (
+                    lambda: self.validate_blocks(lambda b: b.tile.is_number)
+                    and len({b.tile.type for b in self.blocks}) == 1,
+                    Yaku.FullFlush,
+                ),
+                (
+                    lambda: len({b.tile.type for b in self.blocks if b.tile.is_number})
+                    == 1,
+                    Yaku.HalfFlush,
+                ),
+                (
+                    lambda: len({b.tile.type for b in self.blocks if b.tile.is_number})
+                    == 2,
+                    Yaku.OneVoidedSuit,
+                ),
             ],
             YakuType.KONG_COUNT: [
-                (self.is_four_kongs, Yaku.FourKongs),
-                (self.is_three_kongs, Yaku.ThreeKongs),
-                (self.is_two_concealed_kongs, Yaku.TwoConcealedKongs),
-                (self.is_two_melded_kongs, Yaku.TwoMeldedKongs),
-                (self.is_concealed_kong, Yaku.ConcealedKong),
-                (self.is_melded_kong, Yaku.MeldedKong),
+                (
+                    lambda: self.count_blocks_if(lambda b: b.is_quad) == 4,
+                    Yaku.FourKongs,
+                ),
+                (
+                    lambda: self.count_blocks_if(lambda b: b.is_quad) == 3,
+                    Yaku.ThreeKongs,
+                ),
+                (
+                    lambda: self.count_blocks_if(
+                        lambda b: b.is_quad and not b.is_opened,
+                    )
+                    == 2,
+                    Yaku.TwoConcealedKongs,
+                ),
+                (
+                    lambda: self.count_blocks_if(lambda b: b.is_quad) == 2,
+                    Yaku.TwoMeldedKongs,
+                ),
+                (
+                    lambda: self.count_blocks_if(
+                        lambda b: b.is_quad and not b.is_opened,
+                    )
+                    == 1,
+                    Yaku.ConcealedKong,
+                ),
+                (
+                    lambda: self.count_blocks_if(lambda b: b.is_quad) == 1,
+                    Yaku.MeldedKong,
+                ),
             ],
             YakuType.CONCEALED_PUNG_COUNT: [
-                (self.is_four_concealed_pungs, Yaku.FourConcealedPungs),
-                (self.is_three_concealed_pungs, Yaku.ThreeConcealedPungs),
-                (self.is_two_concealed_pungs, Yaku.TwoConcealedPungs),
+                (lambda: self._count_concealed_pungs() == 4, Yaku.FourConcealedPungs),
+                (lambda: self._count_concealed_pungs() == 3, Yaku.ThreeConcealedPungs),
+                (lambda: self._count_concealed_pungs() == 2, Yaku.TwoConcealedPungs),
             ],
         }
         self.set_yakus()
@@ -68,11 +143,11 @@ class HandYakuChecker(YakuChecker):
         self._yakus = self.blocks_checker()
 
     def blocks_checker(self) -> list[Yaku]:
-        yakus = [
-            next((yaku for checker, yaku in condition if checker), Yaku.ERROR)
-            for condition in self.conditions.values()
+        return [
+            self._get_yaku_by_type(yaku_type)
+            for yaku_type in YakuType
+            if self._get_yaku_by_type(yaku_type) != Yaku.ERROR
         ]
-        return [yaku for yaku in yakus if yaku != Yaku.ERROR]
 
     # utils
     def validate_blocks(self, condition: Callable[[Block], bool]) -> bool:
@@ -136,102 +211,23 @@ class HandYakuChecker(YakuChecker):
             ),
         )
 
-    # concealed pungs count
-    @property
-    def is_four_concealed_pungs(self) -> bool:
-        return self._count_concealed_pungs() == 4
-
-    @property
-    def is_three_concealed_pungs(self) -> bool:
-        return self._count_concealed_pungs() == 3
-
-    @property
-    def is_two_concealed_pungs(self) -> bool:
-        return self._count_concealed_pungs() == 2
-
-    # kong count
-    @property
-    def is_four_kongs(self) -> bool:
-        return self.count_blocks_if(lambda x: x.is_quad) == 4
-
-    @property
-    def is_three_kongs(self) -> bool:
-        return self.count_blocks_if(lambda x: x.is_quad) == 3
-
-    @property
-    def is_two_concealed_kongs(self) -> bool:
-        return self.count_blocks_if(lambda x: x.is_quad and not x.is_opened) == 2
-
-    @property
-    def is_two_melded_kongs(self) -> bool:
-        return self.count_blocks_if(lambda x: x.is_quad) == 2
-
-    @property
-    def is_concealed_kong(self) -> bool:
-        return self.count_blocks_if(lambda x: x.is_quad and not x.is_opened) == 1
-
-    @property
-    def is_melded_kong(self) -> bool:
-        return self.count_blocks_if(lambda x: x.is_quad) == 1
-
-    # number flush
-    @property
-    def is_full_flush(self) -> bool:
-        return (
-            self.validate_blocks(lambda x: x.is_number)
-            and len({block.tile.type for block in self.blocks}) == 1
+    def _get_yaku_by_type(self, yaku_type: YakuType) -> Yaku:
+        return next(
+            (yaku for checker, yaku in self.conditions[yaku_type] if checker()),
+            Yaku.ERROR,
         )
 
-    @property
-    def is_half_flush(self) -> bool:
-        return (
-            len({block.tile.type for block in self.blocks if block.tile.is_number}) == 1
-        )
+    def get_num_compare_yaku(self) -> Yaku:
+        return self._get_yaku_by_type(YakuType.NUM_COMPARE)
 
-    @property
-    def is_one_voided_suit(self) -> bool:
-        return (
-            len({block.tile.type for block in self.blocks if block.tile.is_number}) == 2
-        )
+    def get_num_condition_yaku(self) -> Yaku:
+        return self._get_yaku_by_type(YakuType.NUM_CONDITION)
 
-    # number condition
-    @property
-    def is_all_honors(self) -> bool:
-        return self.validate_tiles(lambda x: x.is_honor)
+    def get_num_flush_yaku(self) -> Yaku:
+        return self._get_yaku_by_type(YakuType.NUM_FLUSH)
 
-    @property
-    def is_all_terminals(self) -> bool:
-        return self.validate_tiles(lambda x: x.is_terminal)
+    def get_kong_count_yaku(self) -> Yaku:
+        return self._get_yaku_by_type(YakuType.KONG_COUNT)
 
-    @property
-    def is_all_terminals_and_honors(self) -> bool:
-        return self.validate_tiles(lambda x: x.is_terminal or x.is_honor)
-
-    @property
-    def is_all_simples(self) -> bool:
-        return self.validate_tiles(lambda x: x.is_number and 2 <= x.number <= 8)
-
-    @property
-    def is_no_honor_tiles(self) -> bool:
-        return self.validate_tiles(lambda x: not x.is_honor)
-
-    # number compare
-    @property
-    def is_upper_tiles(self) -> bool:
-        return self.validate_tiles(lambda x: x.is_number and x.number >= 7)
-
-    @property
-    def is_middle_tiles(self) -> bool:
-        return self.validate_tiles(lambda x: x.is_number and 4 <= x.number <= 6)
-
-    @property
-    def is_lower_tiles(self) -> bool:
-        return self.validate_tiles(lambda x: x.is_number and x.number <= 3)
-
-    @property
-    def is_upper_four(self) -> bool:
-        return self.validate_tiles(lambda x: x.is_number and x.number >= 6)
-
-    @property
-    def is_lower_four(self) -> bool:
-        return self.validate_tiles(lambda x: x.is_number and x.number <= 4)
+    def get_concealed_pung_count_yaku(self) -> Yaku:
+        return self._get_yaku_by_type(YakuType.CONCEALED_PUNG_COUNT)
