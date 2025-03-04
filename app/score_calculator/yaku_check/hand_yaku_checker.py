@@ -1,10 +1,15 @@
 from collections import defaultdict
 from collections.abc import Callable
+from enum import Enum
 from functools import cached_property
 
 from app.score_calculator.block.block import Block
 from app.score_calculator.enums.enums import BlockType, Tile, Yaku
 from app.score_calculator.yaku_check.yaku_checker import YakuChecker
+
+
+class YakuType(Enum):
+    NUM_COMPARE = 0
 
 
 # yaku checker for hand property
@@ -13,8 +18,8 @@ class HandYakuChecker(YakuChecker):
         super().__init__()
         self.blocks: list[Block] = blocks
         self._yakus: list[Yaku]
-        self.conditions: dict[str, list[tuple[bool, Yaku]]] = {
-            "num_compair": [
+        self.conditions: dict[YakuType, list[tuple[bool, Yaku]]] = {
+            YakuType.NUM_COMPARE: [
                 (self.is_upper_tiles, Yaku.UpperTiles),
                 (self.is_middle_tiles, Yaku.MiddleTiles),
                 (self.is_lower_tiles, Yaku.LowerTiles),
@@ -32,15 +37,11 @@ class HandYakuChecker(YakuChecker):
         self._yakus = self.blocks_checker()
 
     def blocks_checker(self) -> list[Yaku]:
-        return list(
-            filter(
-                lambda x: x != Yaku.ERROR,
-                (
-                    next((yaku for checker, yaku in condition if checker), Yaku.ERROR)
-                    for condition in self.conditions.values()
-                ),
-            ),
-        )
+        yakus = [
+            next((yaku for checker, yaku in condition if checker), Yaku.ERROR)
+            for condition in self.conditions.values()
+        ]
+        return [yaku for yaku in yakus if yaku != Yaku.ERROR]
 
     # utils
     def validate_blocks(self, condition: Callable[[Block], bool]) -> bool:
