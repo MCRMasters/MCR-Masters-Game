@@ -126,8 +126,6 @@ class HandYakuChecker(YakuChecker):
 
     # general yaku checker
     def _count_concealed_pungs(self) -> int:
-        print(self.concealed_tiles)
-        print(self.winning_conditions)
         return self.count_blocks_if(
             lambda x: x.is_pung
             and not x.is_opened
