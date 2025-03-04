@@ -1,12 +1,16 @@
 from typing import Final
 
+import pytest
+
 from app.score_calculator.block.block import Block
 from app.score_calculator.divide.general_shape import (
     divide_general_shape,
     divide_general_shape_knitted_sub,
 )
-from app.score_calculator.enums.enums import BlockType, Tile, Yaku
+from app.score_calculator.divide.seven_pairs_shape import divide_seven_pairs_shape
+from app.score_calculator.enums.enums import BlockType, Tile, Wind, Yaku
 from app.score_calculator.hand.hand import Hand
+from app.score_calculator.winning_conditions.winning_conditions import WinningConditions
 from app.score_calculator.yaku_check.blocks_yaku_checker import BlocksYakuChecker
 from app.score_calculator.yaku_check.hand_yaku_checker import HandYakuChecker
 from tests.test_utils import print_blocks, raw_string_to_hand_class
@@ -82,32 +86,110 @@ P456: Final[Block] = Block(BlockType.SEQUENCE, Tile.P4)
 S789: Final[Block] = Block(BlockType.SEQUENCE, Tile.S7)
 
 
-def test_hand_yaku_checker():
-    hand = raw_string_to_hand_class("123m123s111p222p33p")
-    print(hand)
+def create_default_winning_conditions(
+    winning_tile: Tile,
+    is_discarded: bool = True,
+    count_tenpai_tiles: int = 1,
+    seat_wind: Wind = Wind.EAST,
+    round_wind: Wind = Wind.EAST,
+):
+    """Create default winning conditions with minimal setup."""
+    return WinningConditions(
+        winning_tile=winning_tile,
+        is_discarded=is_discarded,
+        is_last_tile_in_the_game=False,
+        is_last_tile_of_its_kind=False,
+        is_replacement_tile=False,
+        is_robbing_the_kong=False,
+        count_tenpai_tiles=count_tenpai_tiles,
+        seat_wind=seat_wind,
+        round_wind=round_wind,
+    )
+
+
+@pytest.mark.parametrize(
+    "hand_string, expected_yaku, use_seven_pairs",
+    [
+        ("123m123s111p222p33p", Yaku.LowerTiles, False),
+        ("123m234s111p222p33p", Yaku.LowerFour, False),
+        ("456m456s444p555p66p", Yaku.MiddleTiles, False),
+        ("789m789s77788899p", Yaku.UpperTiles, False),
+        ("678m789s77788899p", Yaku.UpperFour, False),
+        ("11223344556677z", Yaku.AllHonors, True),
+        ("111999m111999s11p", Yaku.AllTerminals, False),
+        ("111999m111222z99s", Yaku.AllTerminalsAndHonors, False),
+        ("234456m234s67888p", Yaku.AllSimples, False),
+        ("111123m678p78999s", Yaku.NoHonorTiles, False),
+    ],
+)
+def test_hand_yaku_checker(hand_string, expected_yaku, use_seven_pairs):
+    hand = raw_string_to_hand_class(hand_string)
+    winning_conditions = create_default_winning_conditions(hand.tiles[-1])
+    blocks = (
+        divide_seven_pairs_shape(hand)
+        if use_seven_pairs
+        else divide_general_shape(hand)[0]
+    )
+    assert expected_yaku in HandYakuChecker(blocks, winning_conditions).yakus
+
+
+@pytest.mark.parametrize(
+    "hand_string, expected_yaku",
+    [
+        ("11112367878999s", Yaku.FullFlush),
+        ("111222z67878999s", Yaku.HalfFlush),
+        ("111222z678p78999s", Yaku.OneVoidedSuit),
+    ],
+)
+def test_hand_yakus_checker_flush(hand_string, expected_yaku):
+    hand = raw_string_to_hand_class(hand_string)
+    winning_conditions = create_default_winning_conditions(hand.tiles[-1])
     blocks = divide_general_shape(hand)[0]
-    print_blocks(blocks=blocks)
-    assert [Yaku.LowerTiles] == HandYakuChecker(blocks).yakus
-    hand = raw_string_to_hand_class("123m234s111p222p33p")
-    print(hand)
+    assert expected_yaku in HandYakuChecker(blocks, winning_conditions).yakus
+
+
+@pytest.mark.parametrize(
+    "hand_string, expected_yaku",
+    [
+        ("[1111z]{2222m}[3333s]{5555p}11p", Yaku.FourKongs),
+        ("[1111z]{2222m}[3333s]555p11p", Yaku.ThreeKongs),
+        ("111z{2222m}{3333s}555p11p", Yaku.TwoConcealedKongs),
+        ("111z[2222m][3333s]555p11p", Yaku.TwoMeldedKongs),
+        ("111z222m{3333s}555p11p", Yaku.ConcealedKong),
+        ("111z222m[3333s]555p11p", Yaku.MeldedKong),
+    ],
+)
+def test_hand_yakus_checker_kong(hand_string, expected_yaku):
+    hand = raw_string_to_hand_class(hand_string)
+    winning_conditions = create_default_winning_conditions(hand.tiles[-1])
     blocks = divide_general_shape(hand)[0]
-    print_blocks(blocks=blocks)
-    assert [Yaku.LowerFour] == HandYakuChecker(blocks).yakus
-    hand = raw_string_to_hand_class("456m456s444p555p66p")
-    print(hand)
+    assert expected_yaku in HandYakuChecker(blocks, winning_conditions).yakus
+
+
+@pytest.mark.parametrize(
+    "hand_string, expected_yaku, winning_conditions",
+    [
+        (
+            "222m333p444s555z66p",
+            Yaku.FourConcealedPungs,
+            create_default_winning_conditions(winning_tile=Tile.P6, is_discarded=True),
+        ),
+        (
+            "222m333p444s555z66p",
+            Yaku.ThreeConcealedPungs,
+            create_default_winning_conditions(winning_tile=Tile.Z5, is_discarded=True),
+        ),
+        (
+            "222m333p345p456s66p",
+            Yaku.TwoConcealedPungs,
+            create_default_winning_conditions(winning_tile=Tile.P3, is_discarded=True),
+        ),
+    ],
+)
+def test_concealed_pungs(hand_string, expected_yaku, winning_conditions):
+    hand = raw_string_to_hand_class(hand_string)
     blocks = divide_general_shape(hand)[0]
-    print_blocks(blocks=blocks)
-    assert [Yaku.MiddleTiles] == HandYakuChecker(blocks).yakus
-    hand = raw_string_to_hand_class("789m789s77788899p")
-    print(hand)
-    blocks = divide_general_shape(hand)[0]
-    print_blocks(blocks=blocks)
-    assert [Yaku.UpperTiles] == HandYakuChecker(blocks).yakus
-    hand = raw_string_to_hand_class("678m789s77788899p")
-    print(hand)
-    blocks = divide_general_shape(hand)[0]
-    print_blocks(blocks=blocks)
-    assert [Yaku.UpperFour] == HandYakuChecker(blocks).yakus
+    assert expected_yaku in HandYakuChecker(blocks, winning_conditions).yakus
 
 
 def test_block_yaku_checker():
