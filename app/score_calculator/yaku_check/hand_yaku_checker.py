@@ -91,7 +91,12 @@ class HandYakuChecker(YakuChecker):
     @cached_property
     def tiles_by_type(self) -> list[list[int]]:
         return [
-            sorted(tile.number for tile in self.tiles if tile.type == tile_type)
+            sorted(
+                tile.number
+                for tile, count in self.tiles.items()
+                if tile.type == tile_type
+                for _ in range(count)
+            )
             for tile_type in {tile.type for tile in self.tiles}
         ]
 
@@ -236,13 +241,12 @@ class HandYakuChecker(YakuChecker):
                 Yaku.SevenShiftedPairs,
             ),
             (
-                lambda: self.validate_tiles(
-                    lambda t: t.is_number
-                    and (
-                        self.tiles[t] == 3 if t.number in {1, 9} else self.tiles[t] == 1
-                    ),
-                )
+                lambda: self.validate_tiles(lambda t: t.is_number)
                 and self.num_tile_types_count == 1
+                and all(
+                    self.tiles[t] >= 3 if t.number in {1, 9} else self.tiles[t] >= 1
+                    for t in self.tiles
+                )
                 and self.winning_conditions.count_tenpai_tiles == 9,
                 Yaku.NineGates,
             ),

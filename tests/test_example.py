@@ -192,6 +192,78 @@ def test_concealed_pungs(hand_string, expected_yaku, winning_conditions):
     assert expected_yaku in HandYakuChecker(blocks, winning_conditions).yakus
 
 
+@pytest.mark.parametrize(
+    "hand_string, expected_yaku, winning_conditions, use_seven_pairs",
+    [
+        (
+            "11223344556677m",
+            Yaku.SevenShiftedPairs,
+            create_default_winning_conditions(winning_tile=Tile.M1, is_discarded=True),
+            True,
+        ),
+        (
+            "11112345678999m",
+            Yaku.NineGates,
+            create_default_winning_conditions(
+                winning_tile=Tile.M5,
+                is_discarded=True,
+                count_tenpai_tiles=9,
+            ),
+            False,
+        ),
+        (
+            "123m789m123m789m55m",
+            Yaku.PureTerminalChows,
+            create_default_winning_conditions(winning_tile=Tile.M5, is_discarded=True),
+            False,
+        ),
+        (
+            "222m444p666s888m66p",
+            Yaku.AllEvenPungs,
+            create_default_winning_conditions(winning_tile=Tile.P4, is_discarded=True),
+            False,
+        ),
+        (
+            "11223344667788m",
+            Yaku.SevenPairs,
+            create_default_winning_conditions(winning_tile=Tile.M3, is_discarded=True),
+            True,
+        ),
+        (
+            "123m789m123p789p55s",
+            Yaku.ThreeSuitedTerminalChows,
+            create_default_winning_conditions(winning_tile=Tile.S5, is_discarded=True),
+            False,
+        ),
+        (
+            "222m333p444s555z66p",
+            Yaku.AllPungs,
+            create_default_winning_conditions(winning_tile=Tile.P6, is_discarded=True),
+            False,
+        ),
+        (
+            "123m234m345m456m66m",
+            Yaku.AllChows,
+            create_default_winning_conditions(winning_tile=Tile.M2, is_discarded=True),
+            False,
+        ),
+    ],
+)
+def test_hand_shape_yakus(
+    hand_string,
+    expected_yaku,
+    winning_conditions,
+    use_seven_pairs,
+):
+    hand = raw_string_to_hand_class(hand_string)
+    blocks = (
+        divide_seven_pairs_shape(hand)
+        if use_seven_pairs
+        else divide_general_shape(hand)[0]
+    )
+    assert expected_yaku in HandYakuChecker(blocks, winning_conditions).yakus
+
+
 def test_block_yaku_checker():
     assert [Yaku.MixedDoubleChow] == BlocksYakuChecker([M123, S123]).yakus
     assert [Yaku.PureDoubleChow] == BlocksYakuChecker([M123, M123]).yakus
