@@ -16,6 +16,8 @@ class YakuType(Enum):
     KONG_COUNT = 3
     CONCEALED_PUNG_COUNT = 4
     HAND_SHAPE = 5
+    ALL_GREEN = 6
+    REVERSIBLE_TILES = 7
 
 
 # yaku checker for hand property
@@ -32,6 +34,8 @@ class HandYakuChecker(YakuChecker):
             YakuType.KONG_COUNT: self._get_kong_count_conditions(),
             YakuType.CONCEALED_PUNG_COUNT: self._get_concealed_pung_count_conditions(),
             YakuType.HAND_SHAPE: self._get_hand_shape_conditions(),
+            YakuType.ALL_GREEN: self._get_green_tiles_conditions(),
+            YakuType.REVERSIBLE_TILES: self._get_reversible_tiles_conditions(),
         }
         self.set_yakus()
 
@@ -286,6 +290,39 @@ class HandYakuChecker(YakuChecker):
                 lambda: self.validate_tiles(lambda t: t.is_number)
                 and self.count_blocks_if(lambda b: b.is_sequence or b.is_knitted) == 4,
                 Yaku.AllChows,
+            ),
+        ]
+
+    def _get_green_tiles_conditions(self) -> list[tuple[Callable[[], bool], Yaku]]:
+        green_tiles = {Tile.S2, Tile.S3, Tile.S4, Tile.S6, Tile.S8, Tile.Z6}
+        return [
+            (
+                lambda: self.validate_tiles(lambda t: t in green_tiles),
+                Yaku.AllGreen,
+            ),
+        ]
+
+    def _get_reversible_tiles_conditions(self) -> list[tuple[Callable[[], bool], Yaku]]:
+        reversible_tiles = {
+            Tile.P1,
+            Tile.P2,
+            Tile.P3,
+            Tile.P4,
+            Tile.P5,
+            Tile.P8,
+            Tile.P9,
+            Tile.S2,
+            Tile.S4,
+            Tile.S5,
+            Tile.S6,
+            Tile.S8,
+            Tile.S9,
+            Tile.Z5,
+        }
+        return [
+            (
+                lambda: self.validate_tiles(lambda t: t in reversible_tiles),
+                Yaku.ReversibleTiles,
             ),
         ]
 
