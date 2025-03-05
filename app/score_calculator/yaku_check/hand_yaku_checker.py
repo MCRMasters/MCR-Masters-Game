@@ -236,7 +236,9 @@ class HandYakuChecker(YakuChecker):
     def _get_hand_shape_conditions(self) -> list[tuple[Callable[[], bool], Yaku]]:
         return [
             (
-                lambda: self.count_blocks_if(lambda b: b.type == BlockType.PAIR) == 7
+                lambda: self.validate_tiles(lambda t: t.is_number)
+                and self.num_tile_types_count == 1
+                and self.count_blocks_if(lambda b: b.type == BlockType.PAIR) == 7
                 and self.has_constant_gap(1),
                 Yaku.SevenShiftedPairs,
             ),
@@ -247,7 +249,8 @@ class HandYakuChecker(YakuChecker):
                     self.tiles[t] >= 3 if t.number in {1, 9} else self.tiles[t] >= 1
                     for t in self.tiles
                 )
-                and self.winning_conditions.count_tenpai_tiles == 9,
+                and self.winning_conditions.count_tenpai_tiles == 9
+                and not self.winning_conditions.is_discarded,
                 Yaku.NineGates,
             ),
             (

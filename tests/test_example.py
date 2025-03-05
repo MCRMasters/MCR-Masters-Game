@@ -206,7 +206,7 @@ def test_concealed_pungs(hand_string, expected_yaku, winning_conditions):
             Yaku.NineGates,
             create_default_winning_conditions(
                 winning_tile=Tile.M5,
-                is_discarded=True,
+                is_discarded=False,
                 count_tenpai_tiles=9,
             ),
             False,
