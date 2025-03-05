@@ -46,6 +46,10 @@ class Block:
         return self.type == BlockType.PAIR
 
     @property
+    def is_knitted(self) -> bool:
+        return self.type == BlockType.KNITTED
+
+    @property
     def is_number(self) -> bool:
         return self.tile.is_number
 

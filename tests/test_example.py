@@ -124,12 +124,12 @@ def create_default_winning_conditions(
 )
 def test_hand_yaku_checker(hand_string, expected_yaku, use_seven_pairs):
     hand = raw_string_to_hand_class(hand_string)
-    winning_conditions = create_default_winning_conditions(hand.tiles[-1])
     blocks = (
         divide_seven_pairs_shape(hand)
         if use_seven_pairs
         else divide_general_shape(hand)[0]
     )
+    winning_conditions = create_default_winning_conditions(blocks[0].tile)
     assert expected_yaku in HandYakuChecker(blocks, winning_conditions).yakus
 
 
@@ -143,8 +143,8 @@ def test_hand_yaku_checker(hand_string, expected_yaku, use_seven_pairs):
 )
 def test_hand_yakus_checker_flush(hand_string, expected_yaku):
     hand = raw_string_to_hand_class(hand_string)
-    winning_conditions = create_default_winning_conditions(hand.tiles[-1])
     blocks = divide_general_shape(hand)[0]
+    winning_conditions = create_default_winning_conditions(blocks[0].tile)
     assert expected_yaku in HandYakuChecker(blocks, winning_conditions).yakus
 
 
@@ -161,8 +161,8 @@ def test_hand_yakus_checker_flush(hand_string, expected_yaku):
 )
 def test_hand_yakus_checker_kong(hand_string, expected_yaku):
     hand = raw_string_to_hand_class(hand_string)
-    winning_conditions = create_default_winning_conditions(hand.tiles[-1])
     blocks = divide_general_shape(hand)[0]
+    winning_conditions = create_default_winning_conditions(blocks[0].tile)
     assert expected_yaku in HandYakuChecker(blocks, winning_conditions).yakus
 
 
