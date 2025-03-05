@@ -83,13 +83,13 @@ class BlocksYakuChecker(YakuChecker):
         return [block.tile for block in self.blocks]
 
     @cached_property
-    def tile_numbers(self) -> list[int]:
+    def first_tile_numbers(self) -> list[int]:
         return sorted(block.tile.number for block in self.blocks)
 
     def has_constant_gap(self, gap: int) -> bool:
         return all(
             gap == abs(pair[0] - pair[1])
-            for pair in zip(self.tile_numbers, self.tile_numbers[1:])
+            for pair in zip(self.first_tile_numbers, self.first_tile_numbers[1:])
         )
 
     def validate_blocks(self, condition: Callable[[Block], bool]) -> bool:
