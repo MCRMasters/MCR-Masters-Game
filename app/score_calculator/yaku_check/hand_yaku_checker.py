@@ -18,6 +18,7 @@ class YakuType(Enum):
     HAND_SHAPE = 5
     ALL_GREEN = 6
     REVERSIBLE_TILES = 7
+    WAIT = 8
 
 
 # yaku checker for hand property
@@ -36,6 +37,7 @@ class HandYakuChecker(YakuChecker):
             YakuType.HAND_SHAPE: self._get_hand_shape_conditions(),
             YakuType.ALL_GREEN: self._get_green_tiles_conditions(),
             YakuType.REVERSIBLE_TILES: self._get_reversible_tiles_conditions(),
+            YakuType.WAIT: self._get_wait_conditions(),
         }
         self.set_yakus()
 
@@ -326,20 +328,39 @@ class HandYakuChecker(YakuChecker):
             ),
         ]
 
-    def get_hand_shape_yaku(self) -> Yaku:
-        return self._get_yaku_by_type(YakuType.HAND_SHAPE)
-
-    def get_num_compare_yaku(self) -> Yaku:
-        return self._get_yaku_by_type(YakuType.NUM_COMPARE)
-
-    def get_num_condition_yaku(self) -> Yaku:
-        return self._get_yaku_by_type(YakuType.NUM_CONDITION)
-
-    def get_num_flush_yaku(self) -> Yaku:
-        return self._get_yaku_by_type(YakuType.NUM_FLUSH)
-
-    def get_kong_count_yaku(self) -> Yaku:
-        return self._get_yaku_by_type(YakuType.KONG_COUNT)
-
-    def get_concealed_pung_count_yaku(self) -> Yaku:
-        return self._get_yaku_by_type(YakuType.CONCEALED_PUNG_COUNT)
+    def _get_wait_conditions(self) -> list[tuple[Callable[[], bool], Yaku]]:
+        return [
+            (
+                lambda: self.winning_conditions.count_tenpai_tiles == 1
+                and any(
+                    block.tile.type == self.winning_conditions.winning_tile.type
+                    and (
+                        (block.tile.number, self.winning_conditions.winning_tile.number)
+                        in {(1, 3), (7, 7)}
+                    )
+                    for block in self.blocks
+                    if block.is_sequence and not block.is_opened
+                ),
+                Yaku.EdgeWait,
+            ),
+            (
+                lambda: self.winning_conditions.count_tenpai_tiles == 1
+                and any(
+                    block.tile.type == self.winning_conditions.winning_tile.type
+                    and block.tile.number + 1
+                    == self.winning_conditions.winning_tile.number
+                    for block in self.blocks
+                    if block.is_sequence and not block.is_opened
+                ),
+                Yaku.ClosedWait,
+            ),
+            (
+                lambda: self.winning_conditions.count_tenpai_tiles == 1
+                and any(
+                    block.tile == self.winning_conditions.winning_tile
+                    for block in self.blocks
+                    if block.is_pair
+                ),
+                Yaku.SingleWait,
+            ),
+        ]
