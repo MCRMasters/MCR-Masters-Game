@@ -264,6 +264,32 @@ def test_hand_shape_yakus(
     assert expected_yaku in HandYakuChecker(blocks, winning_conditions).yakus
 
 
+@pytest.mark.parametrize(
+    "hand_string, expected_yaku, winning_conditions",
+    [
+        (
+            "222m333p123s555z66p",
+            Yaku.EdgeWait,
+            create_default_winning_conditions(winning_tile=Tile.S3, is_discarded=True),
+        ),
+        (
+            "222m333p123s555z66p",
+            Yaku.ClosedWait,
+            create_default_winning_conditions(winning_tile=Tile.S2, is_discarded=True),
+        ),
+        (
+            "222m333p345p456s66p",
+            Yaku.SingleWait,
+            create_default_winning_conditions(winning_tile=Tile.P6, is_discarded=True),
+        ),
+    ],
+)
+def test_wait(hand_string, expected_yaku, winning_conditions):
+    hand = raw_string_to_hand_class(hand_string)
+    blocks = divide_general_shape(hand)[0]
+    assert expected_yaku in HandYakuChecker(blocks, winning_conditions).yakus
+
+
 def test_block_yaku_checker():
     assert [Yaku.MixedDoubleChow] == BlocksYakuChecker([M123, S123]).yakus
     assert [Yaku.PureDoubleChow] == BlocksYakuChecker([M123, M123]).yakus

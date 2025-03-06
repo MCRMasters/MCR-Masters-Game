@@ -16,6 +16,9 @@ class YakuType(Enum):
     KONG_COUNT = 3
     CONCEALED_PUNG_COUNT = 4
     HAND_SHAPE = 5
+    ALL_GREEN = 6
+    REVERSIBLE_TILES = 7
+    WAIT = 8
 
 
 # yaku checker for hand property
@@ -32,6 +35,9 @@ class HandYakuChecker(YakuChecker):
             YakuType.KONG_COUNT: self._get_kong_count_conditions(),
             YakuType.CONCEALED_PUNG_COUNT: self._get_concealed_pung_count_conditions(),
             YakuType.HAND_SHAPE: self._get_hand_shape_conditions(),
+            YakuType.ALL_GREEN: self._get_green_tiles_conditions(),
+            YakuType.REVERSIBLE_TILES: self._get_reversible_tiles_conditions(),
+            YakuType.WAIT: self._get_wait_conditions(),
         }
         self.set_yakus()
 
@@ -289,20 +295,72 @@ class HandYakuChecker(YakuChecker):
             ),
         ]
 
-    def get_hand_shape_yaku(self) -> Yaku:
-        return self._get_yaku_by_type(YakuType.HAND_SHAPE)
+    def _get_green_tiles_conditions(self) -> list[tuple[Callable[[], bool], Yaku]]:
+        green_tiles = {Tile.S2, Tile.S3, Tile.S4, Tile.S6, Tile.S8, Tile.Z6}
+        return [
+            (
+                lambda: self.validate_tiles(lambda t: t in green_tiles),
+                Yaku.AllGreen,
+            ),
+        ]
 
-    def get_num_compare_yaku(self) -> Yaku:
-        return self._get_yaku_by_type(YakuType.NUM_COMPARE)
+    def _get_reversible_tiles_conditions(self) -> list[tuple[Callable[[], bool], Yaku]]:
+        reversible_tiles = {
+            Tile.P1,
+            Tile.P2,
+            Tile.P3,
+            Tile.P4,
+            Tile.P5,
+            Tile.P8,
+            Tile.P9,
+            Tile.S2,
+            Tile.S4,
+            Tile.S5,
+            Tile.S6,
+            Tile.S8,
+            Tile.S9,
+            Tile.Z5,
+        }
+        return [
+            (
+                lambda: self.validate_tiles(lambda t: t in reversible_tiles),
+                Yaku.ReversibleTiles,
+            ),
+        ]
 
-    def get_num_condition_yaku(self) -> Yaku:
-        return self._get_yaku_by_type(YakuType.NUM_CONDITION)
-
-    def get_num_flush_yaku(self) -> Yaku:
-        return self._get_yaku_by_type(YakuType.NUM_FLUSH)
-
-    def get_kong_count_yaku(self) -> Yaku:
-        return self._get_yaku_by_type(YakuType.KONG_COUNT)
-
-    def get_concealed_pung_count_yaku(self) -> Yaku:
-        return self._get_yaku_by_type(YakuType.CONCEALED_PUNG_COUNT)
+    def _get_wait_conditions(self) -> list[tuple[Callable[[], bool], Yaku]]:
+        return [
+            (
+                lambda: self.winning_conditions.count_tenpai_tiles == 1
+                and any(
+                    block.tile.type == self.winning_conditions.winning_tile.type
+                    and (
+                        (block.tile.number, self.winning_conditions.winning_tile.number)
+                        in {(1, 3), (7, 7)}
+                    )
+                    for block in self.blocks
+                    if block.is_sequence and not block.is_opened
+                ),
+                Yaku.EdgeWait,
+            ),
+            (
+                lambda: self.winning_conditions.count_tenpai_tiles == 1
+                and any(
+                    block.tile.type == self.winning_conditions.winning_tile.type
+                    and block.tile.number + 1
+                    == self.winning_conditions.winning_tile.number
+                    for block in self.blocks
+                    if block.is_sequence and not block.is_opened
+                ),
+                Yaku.ClosedWait,
+            ),
+            (
+                lambda: self.winning_conditions.count_tenpai_tiles == 1
+                and any(
+                    block.tile == self.winning_conditions.winning_tile
+                    for block in self.blocks
+                    if block.is_pair
+                ),
+                Yaku.SingleWait,
+            ),
+        ]
