@@ -19,6 +19,9 @@ class YakuType(Enum):
     ALL_GREEN = 6
     REVERSIBLE_TILES = 7
     WAIT = 8
+    DRAGON_PUNG = 9
+    PREVALENT_WIND = 10
+    SEAT_WIND = 11
 
 
 # yaku checker for hand property
@@ -38,6 +41,9 @@ class HandYakuChecker(YakuChecker):
             YakuType.ALL_GREEN: self._get_green_tiles_conditions(),
             YakuType.REVERSIBLE_TILES: self._get_reversible_tiles_conditions(),
             YakuType.WAIT: self._get_wait_conditions(),
+            YakuType.DRAGON_PUNG: self._get_dragon_pung_conditions(),
+            YakuType.PREVALENT_WIND: self._get_prevalent_wind_conditions(),
+            YakuType.SEAT_WIND: self._get_seat_wind_conditions(),
         }
         self.set_yakus()
 
@@ -362,5 +368,43 @@ class HandYakuChecker(YakuChecker):
                     if block.is_pair
                 ),
                 Yaku.SingleWait,
+            ),
+        ]
+
+    def _get_dragon_pung_conditions(self) -> list[tuple[Callable[[], bool], Yaku]]:
+        return [
+            (
+                lambda: self.count_blocks_if(lambda b: b.is_dragon and b.is_pung) == 1,
+                Yaku.DragonPung,
+            ),
+        ]
+
+    def _get_prevalent_wind_conditions(self) -> list[tuple[Callable[[], bool], Yaku]]:
+        for b in self.blocks:
+            print(
+                b.tile,
+                self.winning_conditions.round_wind,
+                int(b.tile) == int(self.winning_conditions.round_wind),
+            )
+        return [
+            (
+                lambda: self.count_blocks_if(
+                    lambda b: b.is_pung
+                    and int(b.tile) == self.winning_conditions.round_wind,
+                )
+                == 1,
+                Yaku.PrevalentWind,
+            ),
+        ]
+
+    def _get_seat_wind_conditions(self) -> list[tuple[Callable[[], bool], Yaku]]:
+        return [
+            (
+                lambda: self.count_blocks_if(
+                    lambda b: b.is_pung
+                    and int(b.tile) == self.winning_conditions.seat_wind,
+                )
+                == 1,
+                Yaku.SeatWind,
             ),
         ]
