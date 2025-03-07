@@ -380,12 +380,6 @@ class HandYakuChecker(YakuChecker):
         ]
 
     def _get_prevalent_wind_conditions(self) -> list[tuple[Callable[[], bool], Yaku]]:
-        for b in self.blocks:
-            print(
-                b.tile,
-                self.winning_conditions.round_wind,
-                int(b.tile) == int(self.winning_conditions.round_wind),
-            )
         return [
             (
                 lambda: self.count_blocks_if(
