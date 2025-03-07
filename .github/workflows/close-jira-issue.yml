@@ -25,7 +25,9 @@ jobs:
         run: |
           ISSUE_TITLE="${{ github.event.issue.title }}"
           JIRA_KEY=$(echo "$ISSUE_TITLE" | grep -oE '[A-Z]+-[0-9]+')
-          echo "JIRA_KEY=$JIRA_KEY" >> $GITHUB_ENV
+          echo "JIRA_KEY<<EOF" >> $GITHUB_ENV
+          echo "$JIRA_KEY" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
 
       - name: Close Jira issue
         if: env.JIRA_KEY != ''
