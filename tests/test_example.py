@@ -291,6 +291,32 @@ def test_wait(hand_string, expected_yaku, winning_conditions):
 
 
 @pytest.mark.parametrize(
+    "hand_string, expected_yaku",
+    [
+        ("222s234s666s888s66z", Yaku.AllGreen),
+    ],
+)
+def test_all_green(hand_string, expected_yaku):
+    hand = raw_string_to_hand_class(hand_string)
+    blocks = divide_general_shape(hand)[0]
+    winning_conditions = create_default_winning_conditions(blocks[0].tile)
+    assert expected_yaku in HandYakuChecker(blocks, winning_conditions).yakus
+
+
+@pytest.mark.parametrize(
+    "hand_string, expected_yaku",
+    [
+        ("888p999p888s555z99s", Yaku.ReversibleTiles),
+    ],
+)
+def test_reversible_tiles(hand_string, expected_yaku):
+    hand = raw_string_to_hand_class(hand_string)
+    blocks = divide_general_shape(hand)[0]
+    winning_conditions = create_default_winning_conditions(blocks[0].tile)
+    assert expected_yaku in HandYakuChecker(blocks, winning_conditions).yakus
+
+
+@pytest.mark.parametrize(
     "hand_string, expected_yaku, winning_conditions",
     [
         (
