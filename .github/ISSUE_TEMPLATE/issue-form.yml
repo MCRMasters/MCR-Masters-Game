@@ -1,6 +1,6 @@
 name: "이슈 생성"
 description: "Repo에 이슈를 생성하며, 생성된 이슈는 Jira와 연동됩니다."
-title: "[Issue]: "
+title: ""
 
 body:
   - type: input
@@ -8,7 +8,7 @@ body:
     attributes:
       label: "🎟️ 상위 작업 (Ticket Number)"
       description: "상위 작업의 Ticket Number를 기입해주세요."
-      placeholder: "MCR-"
+      placeholder: "GAME-"
     validations:
       required: true
 
