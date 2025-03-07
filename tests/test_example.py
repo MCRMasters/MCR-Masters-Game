@@ -316,6 +316,40 @@ def test_reversible_tiles(hand_string, expected_yaku):
     assert expected_yaku in HandYakuChecker(blocks, winning_conditions).yakus
 
 
+@pytest.mark.parametrize(
+    "hand_string, expected_yaku, winning_conditions",
+    [
+        (
+            "222m333p444s555z66p",
+            Yaku.DragonPung,
+            create_default_winning_conditions(winning_tile=Tile.P6, is_discarded=True),
+        ),
+        (
+            "222m333p444s111z66p",
+            Yaku.PrevalentWind,
+            create_default_winning_conditions(
+                winning_tile=Tile.Z5,
+                is_discarded=True,
+                round_wind=Wind.EAST,
+            ),
+        ),
+        (
+            "222m333p345p111z66p",
+            Yaku.SeatWind,
+            create_default_winning_conditions(
+                winning_tile=Tile.P3,
+                is_discarded=True,
+                seat_wind=Wind.EAST,
+            ),
+        ),
+    ],
+)
+def test_one_block_yaku(hand_string, expected_yaku, winning_conditions):
+    hand = raw_string_to_hand_class(hand_string)
+    blocks = divide_general_shape(hand)[0]
+    assert expected_yaku in HandYakuChecker(blocks, winning_conditions).yakus
+
+
 def test_block_yaku_checker():
     assert [Yaku.MixedDoubleChow] == BlocksYakuChecker([M123, S123]).yakus
     assert [Yaku.PureDoubleChow] == BlocksYakuChecker([M123, M123]).yakus

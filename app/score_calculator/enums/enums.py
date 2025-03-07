@@ -11,7 +11,7 @@ class BlockType(Enum):
     KNITTED = 4
 
 
-class Wind(Enum):
+class Wind(IntEnum):
     EAST = 27
     SOUTH = 28
     WEST = 29
