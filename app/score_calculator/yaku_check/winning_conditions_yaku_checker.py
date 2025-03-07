@@ -15,7 +15,7 @@ class YakuType(Enum):
 
 
 # yaku checker for winning conditions
-class HandYakuChecker(YakuChecker):
+class WinningConditionsYakuChecker(YakuChecker):
     def __init__(self, blocks: list[Block], winning_conditions: WinningConditions):
         super().__init__()
         self.blocks: list[Block] = blocks
