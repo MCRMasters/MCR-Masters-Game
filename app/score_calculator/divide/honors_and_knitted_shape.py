@@ -21,11 +21,7 @@ def can_divide_honors_and_knitted_shape(hand: Hand) -> bool:
     for case in KNITTED_CASES:
         case_divide_success: bool = True
         for tile in range(Tile.M1, Tile.Z1):
-            if (
-                hand.tiles[tile]
-                if hand.tiles[tile] not in case
-                else hand.tiles[tile] not in {0, 1}
-            ):
+            if hand.tiles[tile] if tile not in case else hand.tiles[tile] not in {0, 1}:
                 case_divide_success = False
                 break
         for tile in range(Tile.Z1, Tile.F0):
