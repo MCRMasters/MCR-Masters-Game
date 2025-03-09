@@ -8,6 +8,14 @@ def has_opened_blocks(blocks: list[Block]) -> bool:
     return any(block.is_opened for block in blocks)
 
 
+YAKUS_INCLUDING_PUNG_OF_TOH: Final[set[Yaku]] = {
+    Yaku.BigFourWinds,
+    Yaku.NineGates,
+    Yaku.AllTerminals,
+    Yaku.AllHonors,
+    Yaku.AllTerminalsAndHonors,
+}
+
 EXCLUDED_YAKUS: Final[dict[Yaku, list[Yaku]]] = {
     Yaku.BigFourWinds: [
         Yaku.BigThreeWinds,
@@ -125,7 +133,7 @@ EXCLUDED_YAKUS: Final[dict[Yaku, list[Yaku]]] = {
     Yaku.KnittedStraight: [],
     Yaku.UpperFour: [Yaku.NoHonorTiles],
     Yaku.LowerFour: [Yaku.NoHonorTiles],
-    Yaku.BigThreeWinds: [],  # Yaku.PungOfTerminals~ removed by used block flag
+    Yaku.BigThreeWinds: [],
     Yaku.MixedStraight: [],
     Yaku.ReversibleTiles: [Yaku.OneVoidedSuit],
     Yaku.MixedTripleChow: [],
