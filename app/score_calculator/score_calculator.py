@@ -1,3 +1,4 @@
+from collections import defaultdict
 from copy import deepcopy
 
 from app.score_calculator.block.block import Block
@@ -60,52 +61,59 @@ class ScoreCalculator:
             winning_conditions=deepcopy(self.winning_conditions),
         ).yakus
 
-        yaku_set = self._process_yaku_exclusions(yaku_list)
+        yaku_dict = self._process_yaku_exclusions(yaku_list)
 
         score_result: ScoreResult = ScoreResult(yaku_score_list=[])
-        for yaku in yaku_set:
-            score_result.add_yaku(yaku, 1)
-
-        if not (
-            Yaku.SevenPairs in yaku_set
-            and (Yaku.AllTerminals in yaku_set or Yaku.AllGreen in yaku_set)
-        ):
-            score_result.add_yaku(
-                Yaku.TileHog,
-                self.hand.tiles.count(4)
-                - sum(1 for block in self.hand.call_blocks if block.is_quad),
+        for yaku, count in yaku_dict.items():
+            score_result.add_yaku(yaku, count)
+        # 사귀일 예외처리
+        if (
+            not (
+                Yaku.SevenPairs in yaku_dict
+                and (Yaku.AllTerminals in yaku_dict or Yaku.AllGreen in yaku_dict)
             )
+            and (
+                tile_hog_count := self.hand.tiles.count(4)
+                - sum(1 for block in self.hand.call_blocks if block.is_quad)
+            )
+            > 0
+        ):
+            score_result.add_yaku(Yaku.TileHog, tile_hog_count)
 
+        # 요구각 예외처리
         pung_count: int = self._count_pung_of_terminals_and_honors(
             scoring_context,
-            yaku_set,
+            yaku_dict,
         )
-        score_result.add_yaku(Yaku.PungOfTerminalsOrHonors, pung_count)
+        if pung_count > 0:
+            score_result.add_yaku(Yaku.PungOfTerminalsOrHonors, pung_count)
         return score_result
 
-    def _process_yaku_exclusions(self, yaku_list: list[Yaku]) -> set[Yaku]:
-        yaku_set = set(yaku_list)
-        yaku_list.sort(key=lambda y: -YAKU_POINT[y])
+    def _process_yaku_exclusions(self, yaku_list: list[Yaku]) -> defaultdict[Yaku, int]:
+        yaku_dict: defaultdict[Yaku, int] = defaultdict(int)
         for yaku in yaku_list:
-            if yaku in yaku_set:
-                for excluded_yaku in EXCLUDED_YAKUS[yaku]:
-                    yaku_set.discard(excluded_yaku)
-        return yaku_set
+            yaku_dict[yaku] += 1
+
+        sorted_yaku: list[Yaku] = sorted(yaku_dict.keys(), key=lambda y: -YAKU_POINT[y])
+        for yaku in sorted_yaku:
+            for excluded in EXCLUDED_YAKUS.get(yaku, []):
+                yaku_dict.pop(excluded, None)
+        return yaku_dict
 
     def _count_pung_of_terminals_and_honors(
         self,
         scoring_context: ScoringContext,
-        yaku_set: set[Yaku],
+        yaku_dict: defaultdict[Yaku, int],
     ) -> int:
         count = 0
-        if any(yaku in yaku_set for yaku in YAKUS_INCLUDING_PUNG_OF_TOH):
+        if not any(yaku in yaku_dict for yaku in YAKUS_INCLUDING_PUNG_OF_TOH):
             for block in scoring_context.blocks:
                 if not (block.is_outside and block.is_pung):
                     continue
                 if block.is_dragon or (
                     block.is_wind
                     and (
-                        Yaku.LittleFourWinds in yaku_set
+                        Yaku.LittleFourWinds in yaku_dict
                         or block.tile
                         in {
                             self.winning_conditions.round_wind,
