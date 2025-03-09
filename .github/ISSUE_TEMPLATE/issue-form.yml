@@ -19,8 +19,8 @@ body:
       description: "영어로 브랜치명을 작성해주세요."
     validations:
       required: true
-      
-  - type: input
+
+  - type: textarea
     id: description
     attributes:
       label: "📝 상세 내용(Description)"
@@ -33,8 +33,6 @@ body:
     attributes:
       label: "✅ 체크리스트(Tasks)"
       description: "해당 이슈에 대해 필요한 작업목록을 작성해주세요."
-      value: |
-        - [ ] Task1
-        - [ ] Task2
+      value:
     validations:
-      required: true
+      required: false
