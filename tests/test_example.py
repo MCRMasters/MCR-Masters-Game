@@ -13,6 +13,9 @@ from app.score_calculator.hand.hand import Hand
 from app.score_calculator.winning_conditions.winning_conditions import WinningConditions
 from app.score_calculator.yaku_check.blocks_yaku_checker import BlocksYakuChecker
 from app.score_calculator.yaku_check.hand_yaku_checker import HandYakuChecker
+from app.score_calculator.yaku_check.winning_conditions_yaku_checker import (
+    WinningConditionsYakuChecker,
+)
 from tests.test_utils import print_blocks, raw_string_to_hand_class
 
 
@@ -92,18 +95,25 @@ def create_default_winning_conditions(
     count_tenpai_tiles: int = 1,
     seat_wind: Wind = Wind.EAST,
     round_wind: Wind = Wind.EAST,
+    **extra_conditions,
 ):
-    """Create default winning conditions with minimal setup."""
+    defaults = {
+        "is_last_tile_in_the_game": False,
+        "is_last_tile_of_its_kind": False,
+        "is_replacement_tile": False,
+        "is_robbing_the_kong": False,
+    }
+    defaults.update(extra_conditions)
     return WinningConditions(
         winning_tile=winning_tile,
         is_discarded=is_discarded,
-        is_last_tile_in_the_game=False,
-        is_last_tile_of_its_kind=False,
-        is_replacement_tile=False,
-        is_robbing_the_kong=False,
         count_tenpai_tiles=count_tenpai_tiles,
         seat_wind=seat_wind,
         round_wind=round_wind,
+        is_last_tile_in_the_game=defaults["is_last_tile_in_the_game"],
+        is_last_tile_of_its_kind=defaults["is_last_tile_of_its_kind"],
+        is_replacement_tile=defaults["is_replacement_tile"],
+        is_robbing_the_kong=defaults["is_robbing_the_kong"],
     )
 
 
@@ -348,6 +358,94 @@ def test_one_block_yaku(hand_string, expected_yaku, winning_conditions):
     hand = raw_string_to_hand_class(hand_string)
     blocks = divide_general_shape(hand)[0]
     assert expected_yaku in HandYakuChecker(blocks, winning_conditions).yakus
+
+
+@pytest.mark.parametrize(
+    "hand_string, expected_yaku, winning_conditions",
+    [
+        (
+            "222m333p444s555z66p",
+            Yaku.LastTileDraw,
+            create_default_winning_conditions(
+                winning_tile=Tile.P6,
+                is_discarded=False,
+                is_last_tile_in_the_game=True,
+            ),
+        ),
+        (
+            "222m333p444s555z66p",
+            Yaku.LastTileClaim,
+            create_default_winning_conditions(
+                winning_tile=Tile.P6,
+                is_discarded=True,
+                is_last_tile_in_the_game=True,
+            ),
+        ),
+        (
+            "222m333p345p111z66p",
+            Yaku.FullyConcealedHand,
+            create_default_winning_conditions(
+                winning_tile=Tile.P3,
+                is_discarded=False,
+                seat_wind=Wind.EAST,
+            ),
+        ),
+        (
+            "222m333p345p111z66p",
+            Yaku.ConcealedHand,
+            create_default_winning_conditions(
+                winning_tile=Tile.P3,
+                is_discarded=True,
+                seat_wind=Wind.EAST,
+            ),
+        ),
+        (
+            "222m333p345p[111z]66p",
+            Yaku.SelfDrawn,
+            create_default_winning_conditions(
+                winning_tile=Tile.P3,
+                is_discarded=False,
+                seat_wind=Wind.EAST,
+            ),
+        ),
+        (
+            "222m333p345p[111z]66p",
+            Yaku.RobbingTheKong,
+            create_default_winning_conditions(
+                winning_tile=Tile.P6,
+                is_discarded=True,
+                seat_wind=Wind.EAST,
+                is_robbing_the_kong=True,
+            ),
+        ),
+        (
+            "222m333p345p[111z]66p",
+            Yaku.LastTile,
+            create_default_winning_conditions(
+                winning_tile=Tile.P5,
+                is_discarded=True,
+                seat_wind=Wind.EAST,
+                is_last_tile_of_its_kind=True,
+            ),
+        ),
+        (
+            "222m333p345p[1111z]66p",
+            Yaku.OutWithReplacementTile,
+            create_default_winning_conditions(
+                winning_tile=Tile.P6,
+                is_discarded=True,
+                seat_wind=Wind.EAST,
+                is_replacement_tile=True,
+            ),
+        ),
+    ],
+)
+def test_winning_conditions_yaku(hand_string, expected_yaku, winning_conditions):
+    hand = raw_string_to_hand_class(hand_string)
+    blocks = divide_general_shape(hand)[0]
+    assert (
+        expected_yaku in WinningConditionsYakuChecker(blocks, winning_conditions).yakus
+    )
 
 
 def test_block_yaku_checker():
