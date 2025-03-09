@@ -24,7 +24,6 @@ class BlocksYakuChecker(YakuChecker):
             ],
             3: [
                 (self.is_big_three_dragons, Yaku.BigThreeDragons),
-                (self.is_little_three_dragons, Yaku.LittleThreeDragons),
                 (self.is_pure_triple_chow, Yaku.PureTripleChow),
                 (self.is_pure_shifted_pungs, Yaku.PureShiftedPungs),
                 (self.is_pure_shifted_chows, Yaku.PureShiftedChows),
@@ -39,7 +38,6 @@ class BlocksYakuChecker(YakuChecker):
             ],
             4: [
                 (self.is_big_four_winds, Yaku.BigFourWinds),
-                (self.is_little_four_winds, Yaku.LittleFourWinds),
                 (self.is_quadruple_chow, Yaku.QuadrupleChow),
                 (self.is_four_pure_shifted_chows, Yaku.FourPureShiftedChows),
                 (self.is_four_pure_shifted_pungs, Yaku.FourPureShiftedPungs),
@@ -47,6 +45,8 @@ class BlocksYakuChecker(YakuChecker):
             5: [
                 (self.is_all_fives, Yaku.AllFives),
                 (self.is_outside_hand, Yaku.OutsideHand),
+                (self.is_little_four_winds, Yaku.LittleFourWinds),
+                (self.is_little_three_dragons, Yaku.LittleThreeDragons),
             ],
         }
         self.set_yakus()
@@ -59,7 +59,14 @@ class BlocksYakuChecker(YakuChecker):
         return self._yakus
 
     def set_yakus(self) -> None:
-        self._yakus = [self.blocks_checker()]
+        if len(self.blocks) == 5:
+            self._yakus = [
+                yaku for checker, yaku in self.conditions[len(self.blocks)] if checker
+            ]
+        else:
+            self._yakus = (
+                [] if (result := self.blocks_checker()) == Yaku.ERROR else [result]
+            )
 
     def blocks_checker(self) -> Yaku:
         if len(self.blocks) not in self.conditions:
@@ -145,9 +152,8 @@ class BlocksYakuChecker(YakuChecker):
     @property
     def is_little_three_dragons(self) -> bool:
         return (
-            self.validate_blocks(lambda x: x.is_dragon)
-            and self.count_blocks_if(lambda x: x.is_pair) == 1
-            and self.count_blocks_if(lambda x: x.is_pung) == 2
+            self.count_blocks_if(lambda x: x.is_dragon and x.is_pair) == 1
+            and self.count_blocks_if(lambda x: x.is_dragon and x.is_pung) == 2
         )
 
     @property
@@ -267,9 +273,8 @@ class BlocksYakuChecker(YakuChecker):
     @property
     def is_little_four_winds(self) -> bool:
         return (
-            self.validate_blocks(lambda x: x.is_wind)
-            and self.count_blocks_if(lambda x: x.is_pair) == 1
-            and self.count_blocks_if(lambda x: x.is_pung) == 3
+            self.count_blocks_if(lambda x: x.is_wind and x.is_pair) == 1
+            and self.count_blocks_if(lambda x: x.is_wind and x.is_pung) == 3
         )
 
     @property

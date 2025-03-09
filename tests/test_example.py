@@ -469,7 +469,13 @@ def test_block_yaku_checker():
     assert [Yaku.OutsideHand] == BlocksYakuChecker(blocks).yakus
 
     assert [Yaku.BigFourWinds] == BlocksYakuChecker([Z111, Z222, Z333, Z4444]).yakus
-    assert [Yaku.LittleFourWinds] == BlocksYakuChecker([Z11, Z222, Z333, Z4444]).yakus
+    print(BlocksYakuChecker([Z11, Z222, Z333, Z4444, M111]).yakus)
+    assert (
+        Yaku.LittleFourWinds
+        in BlocksYakuChecker(
+            [Z11, Z222, Z333, Z4444, M111],
+        ).yakus
+    )
     assert [Yaku.QuadrupleChow] == BlocksYakuChecker([M123, M123, M123, M123]).yakus
     assert [Yaku.FourPureShiftedPungs] == BlocksYakuChecker(
         [M111, M222, M333, M4444],
@@ -482,7 +488,12 @@ def test_block_yaku_checker():
     ).yakus
 
     assert [Yaku.BigThreeDragons] == BlocksYakuChecker([Z555, Z666, Z777]).yakus
-    assert [Yaku.LittleThreeDragons] == BlocksYakuChecker([Z555, Z666, Z77]).yakus
+    assert (
+        Yaku.LittleThreeDragons
+        in BlocksYakuChecker(
+            [Z555, Z666, Z77, Z111, Z222],
+        ).yakus
+    )
     assert [Yaku.PureTripleChow] == BlocksYakuChecker([M123, M123, M123]).yakus
     assert [Yaku.PureShiftedPungs] == BlocksYakuChecker([M111, M222, M333]).yakus
     assert [Yaku.PureShiftedChows] == BlocksYakuChecker([M123, M234, M345]).yakus
