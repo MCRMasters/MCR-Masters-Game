@@ -38,13 +38,13 @@ class WinningConditionsYakuChecker(YakuChecker):
 
     def blocks_checker(self) -> list[Yaku]:
         return [
-            self._get_yaku_by_type(yaku_type)
+            result
             for yaku_type in YakuType
-            if self._get_yaku_by_type(yaku_type) != Yaku.ERROR
+            if (result := self._get_yaku_by_type(yaku_type)) != Yaku.ERROR
         ]
 
-    def validate_blocks(self, condition: Callable[[Block], bool]) -> bool:
-        return all(condition(block) for block in self.blocks)
+    def is_concealed_hand(self) -> bool:
+        return all(not block.is_opened for block in self.blocks)
 
     def _get_yaku_by_type(self, yaku_type: YakuType) -> Yaku:
         return next(
@@ -72,17 +72,17 @@ class WinningConditionsYakuChecker(YakuChecker):
         return [
             (
                 lambda: not self.winning_conditions.is_discarded
-                and self.validate_blocks(lambda b: not b.is_opened),
+                and self.is_concealed_hand(),
                 Yaku.FullyConcealedHand,
             ),
             (
                 lambda: self.winning_conditions.is_discarded
-                and self.validate_blocks(lambda b: not b.is_opened),
+                and self.is_concealed_hand(),
                 Yaku.ConcealedHand,
             ),
             (
                 lambda: not self.winning_conditions.is_discarded
-                and not self.validate_blocks(lambda b: not b.is_opened),
+                and not self.is_concealed_hand(),
                 Yaku.SelfDrawn,
             ),
         ]

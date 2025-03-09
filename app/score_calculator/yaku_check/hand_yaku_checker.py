@@ -56,9 +56,9 @@ class HandYakuChecker(YakuChecker):
 
     def blocks_checker(self) -> list[Yaku]:
         return [
-            self._get_yaku_by_type(yaku_type)
+            result
             for yaku_type in YakuType
-            if self._get_yaku_by_type(yaku_type) != Yaku.ERROR
+            if (result := self._get_yaku_by_type(yaku_type)) != Yaku.ERROR
         ]
 
     # utils
