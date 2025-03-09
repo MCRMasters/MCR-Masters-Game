@@ -17,6 +17,8 @@ TENPAI_HAND_SIZE: Final[int] = 13
 
 # Get tenpai tile types from tenpai hand(13 tiles).
 def get_tenpai_tiles(tenpai_hand: Hand) -> list[Tile]:
+    if any(not 0 <= tiles_count <= 4 for tiles_count in tenpai_hand.tiles):
+        raise ValueError("Wrong tenpai hand")
     total_tiles_count: int = sum(tenpai_hand.tiles)
     for block in tenpai_hand.call_blocks:
         total_tiles_count -= 1 if block.type == BlockType.QUAD else 0
@@ -26,7 +28,9 @@ def get_tenpai_tiles(tenpai_hand: Hand) -> list[Tile]:
     tenpai_tiles: list[Tile] = []
 
     for tile in range(Tile.M1, Tile.F0):
-        hand = deepcopy(tenpai_hand)
+        if tenpai_hand.tiles[tile] == 4:
+            continue
+        hand = deepcopy(tenpai_hand)  # 이후 최적화 가능(hand가 변동되지 않아야함)
         hand.tiles[tile] += 1
         if (
             divide_general_shape(hand)
