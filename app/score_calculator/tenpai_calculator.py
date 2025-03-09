@@ -27,7 +27,7 @@ def get_tenpai_tiles(tenpai_hand: Hand) -> list[Tile]:
 
     tenpai_tiles: list[Tile] = []
 
-    for tile in range(Tile.M1, Tile.F0):
+    for tile in Tile.all_tiles():
         if tenpai_hand.tiles[tile] == 4:
             continue
         hand = deepcopy(tenpai_hand)  # 이후 최적화 가능(hand가 변동되지 않아야함)

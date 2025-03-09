@@ -14,7 +14,7 @@ def divide_seven_pairs_shape(hand: Hand) -> list[Block]:
     if len(hand.call_blocks) or sum(hand.tiles) != FULLY_HAND_SIZE:
         return []
 
-    for tile in range(Tile.M1, Tile.F0):
+    for tile in Tile.all_tiles():
         if hand.tiles[tile] % PAIR_SIZE:
             return []
         for _ in range(hand.tiles[tile] // PAIR_SIZE):

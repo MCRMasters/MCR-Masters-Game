@@ -18,15 +18,3 @@ class ScoreCalculator:
             ),
         )
         self.highest_result = ScoreResult(yaku_score_list=[], tenpai_tiles=[])
-
-
-"""
-    def general_shape_calculator(self):
-        parsed_hands: list[list[Block]] = divide_general_shape(self.hand)
-        for blocks in parsed_hands:
-            scoring_context: ScoringContext = (
-                ScoringContext.create_from_blocks_and_winning_conditions(
-                    blocks=blocks, winning_conditions=self.winning_conditions
-                )
-            )
-"""

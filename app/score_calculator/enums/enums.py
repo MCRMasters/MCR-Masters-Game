@@ -159,6 +159,36 @@ class Tile(IntEnum):
     def type(self) -> str:
         return self.name[0]
 
+    @classmethod
+    def all_tiles(cls) -> range:
+        return range(cls.M1, cls.F0)
+
+    @classmethod
+    def number_tiles(cls) -> range:
+        return range(cls.M1, cls.Z1)
+
+    @classmethod
+    def honor_tiles(cls) -> range:
+        return range(cls.Z1, cls.F0)
+
+    @classmethod
+    def outside_tiles(cls) -> tuple[Tile, ...]:
+        return (
+            cls.M1,
+            cls.M9,
+            cls.P1,
+            cls.P9,
+            cls.S1,
+            cls.S9,
+            cls.Z1,
+            cls.Z2,
+            cls.Z3,
+            cls.Z4,
+            cls.Z5,
+            cls.Z6,
+            cls.Z7,
+        )
+
     def __add__(self, value: int) -> Tile:
         return Tile(self.value + value)
 
