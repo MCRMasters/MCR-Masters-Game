@@ -37,6 +37,8 @@ class ScoringContext:
                     result += yaku
                     for i in combination:
                         self.used_block_flag[i] = True
+                    if length != 2:
+                        break
         return result
 
     @staticmethod

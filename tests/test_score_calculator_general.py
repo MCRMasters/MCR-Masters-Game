@@ -57,6 +57,27 @@ def create_default_winning_conditions(
             ],
             create_default_winning_conditions(winning_tile=Tile.M1, is_discarded=True),
         ),
+        (
+            "12223456567789p",
+            [
+                (Yaku.FullFlush, 24),
+                (Yaku.PureStraight, 16),
+                (Yaku.ConcealedHand, 2),
+                (Yaku.AllChows, 2),
+                (Yaku.ClosedWait, 1),
+            ],
+            create_default_winning_conditions(winning_tile=Tile.P2, is_discarded=True),
+        ),
+        (
+            "123m234s345p456m77z",
+            [
+                (Yaku.MixedShiftedChows, 6),
+                (Yaku.ConcealedHand, 2),
+                (Yaku.ShortStraight, 1),
+                (Yaku.SingleWait, 1),
+            ],
+            create_default_winning_conditions(winning_tile=Tile.Z7, is_discarded=True),
+        ),
     ],
 )
 def test_tenpai_tiles_checker(hand_string, yaku_score_list, winning_conditions):

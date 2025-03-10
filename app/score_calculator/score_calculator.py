@@ -1,4 +1,4 @@
-from collections import defaultdict
+from collections import Counter
 from copy import deepcopy
 
 from app.score_calculator.block.block import Block
@@ -89,38 +89,37 @@ class ScoreCalculator:
             score_result.add_yaku(Yaku.PungOfTerminalsOrHonors, pung_count)
         return score_result
 
-    def _process_yaku_exclusions(self, yaku_list: list[Yaku]) -> defaultdict[Yaku, int]:
-        yaku_dict: defaultdict[Yaku, int] = defaultdict(int)
-        for yaku in yaku_list:
-            yaku_dict[yaku] += 1
-
-        sorted_yaku: list[Yaku] = sorted(yaku_dict.keys(), key=lambda y: -YAKU_POINT[y])
+    def _process_yaku_exclusions(self, yaku_list: list[Yaku]) -> Counter[Yaku]:
+        yaku_counter = Counter(yaku_list)
+        sorted_yaku = sorted(yaku_counter, key=lambda y: -YAKU_POINT[y])
         for yaku in sorted_yaku:
             for excluded in EXCLUDED_YAKUS.get(yaku, []):
-                yaku_dict.pop(excluded, None)
-        return yaku_dict
+                yaku_counter.pop(excluded, None)
+        return yaku_counter
+
+    def _check_skip_block(self, block: Block, yaku_counter: Counter[Yaku]) -> bool:
+        return block.is_dragon or (
+            block.is_wind
+            and (
+                Yaku.LittleFourWinds in yaku_counter
+                or block.tile
+                in {
+                    self.winning_conditions.round_wind,
+                    self.winning_conditions.seat_wind,
+                }
+            )
+        )
 
     def _count_pung_of_terminals_and_honors(
         self,
         scoring_context: ScoringContext,
-        yaku_dict: defaultdict[Yaku, int],
+        yaku_counter: Counter[Yaku],
     ) -> int:
-        count = 0
-        if not any(yaku in yaku_dict for yaku in YAKUS_INCLUDING_PUNG_OF_TOH):
-            for block in scoring_context.blocks:
-                if not (block.is_outside and block.is_pung):
-                    continue
-                if block.is_dragon or (
-                    block.is_wind
-                    and (
-                        Yaku.LittleFourWinds in yaku_dict
-                        or block.tile
-                        in {
-                            self.winning_conditions.round_wind,
-                            self.winning_conditions.seat_wind,
-                        }
-                    )
-                ):
-                    continue
-                count += 1
-        return count
+        if any(yaku in yaku_counter for yaku in YAKUS_INCLUDING_PUNG_OF_TOH):
+            return 0
+        return sum(
+            1
+            for block in scoring_context.blocks
+            if (block.is_outside and block.is_pung)
+            and not self._check_skip_block(block, yaku_counter)
+        )
