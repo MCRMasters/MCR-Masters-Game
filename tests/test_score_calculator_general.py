@@ -148,6 +148,6 @@ def create_default_winning_conditions(
 def test_score_checker(hand_string, yaku_score_list, winning_conditions):
     hand = raw_string_to_hand_class(hand_string)
     sc = ScoreCalculator(hand=hand, winning_conditions=winning_conditions)
-    print(sc.highest_result.yaku_score_list)
+    print(sc._highest_result.yaku_score_list)
     print(hand)
-    assert set(sc.highest_result.yaku_score_list) == set(yaku_score_list)
+    assert set(sc._highest_result.yaku_score_list) == set(yaku_score_list)
