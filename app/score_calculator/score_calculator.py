@@ -41,7 +41,6 @@ class ScoreCalculator:
                 tenpai_hand=tenpai_hand,
             ),
         )
-        # print("tenpai tiles: ", self.winning_conditions.count_tenpai_tiles)
         self.highest_result = ScoreResult(yaku_score_list=[])
         self.is_blocks_divided = False
         self._calculate()
