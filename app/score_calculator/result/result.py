@@ -1,37 +1,52 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from itertools import combinations
 
 from app.score_calculator.block.block import Block
 from app.score_calculator.enums.enums import Yaku
-from app.score_calculator.winning_conditions.winning_conditions import WinningConditions
+from app.score_calculator.utility.utility import YAKU_POINT
+from app.score_calculator.yaku_check.blocks_yaku_checker import BlocksYakuChecker
 
 
-@dataclass
+@dataclass(order=True)
 class ScoreResult:
-    yaku_score_list: list[tuple[int, int]]
-    tenpai_tiles: list[int]
-    highest_score: int = 0
-    is_blocks_divided: bool = False
+    total_score: int = field(default=0, compare=True)
+    yaku_score_list: list[tuple[Yaku, int]] = field(default_factory=list, compare=False)
+
+    def add_yaku(self, yaku: Yaku, count: int) -> None:
+        score = YAKU_POINT[yaku] * count
+        self.yaku_score_list.append((yaku, score))
+        self.total_score += score
 
 
 @dataclass
 class ScoringContext:
     blocks: list[Block]
     used_block_flag: list[bool]
-    checked_yaku: dict[Yaku, bool]
-    winning_conditions: WinningConditions
+
+    def get_yakus(self) -> list[Yaku]:
+        result: list[Yaku] = []
+        for length in (4, 3, 2):
+            for combination in combinations(range(4), length):
+                if all(self.used_block_flag[i] for i in combination):
+                    continue
+                if yaku := BlocksYakuChecker(
+                    [self.blocks[i] for i in combination],
+                ).yakus:
+                    result += yaku
+                    for i in combination:
+                        self.used_block_flag[i] = True
+                    if length != 2:
+                        break
+        return result
 
     @staticmethod
-    def create_from_blocks_and_winning_conditions(
+    def create_from_blocks(
         blocks: list[Block],
-        winning_conditions: WinningConditions,
     ) -> ScoringContext:
         used_block_flag: list[bool] = [False] * len(blocks)
-        checked_yaku: dict[Yaku, bool] = {yaku: False for yaku in Yaku}
         return ScoringContext(
             blocks=blocks,
             used_block_flag=used_block_flag,
-            checked_yaku=checked_yaku,
-            winning_conditions=winning_conditions,
         )
