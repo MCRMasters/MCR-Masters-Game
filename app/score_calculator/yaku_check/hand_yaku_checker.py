@@ -263,14 +263,21 @@ class HandYakuChecker(YakuChecker):
                 Yaku.SevenShiftedPairs,
             ),
             (
-                lambda: self.validate_tiles(lambda t: t.is_number)
-                and self.num_tile_types_count == 1
-                and all(
-                    self.tiles[t] >= 3 if t.number in {1, 9} else self.tiles[t] >= 1
-                    for t in self.tiles
-                )
-                and self.winning_conditions.count_tenpai_tiles == 9
-                and self.validate_blocks(lambda b: not b.is_opened),
+                lambda: (
+                    (first_key := next(iter(self.tiles.keys()))) is not None
+                    and self.validate_tiles(lambda t: t.is_number)
+                    and self.num_tile_types_count == 1
+                    and all(
+                        self.tiles.get(
+                            (tile := Tile(first_key - first_key.number + i)),
+                            0,
+                        )
+                        >= (3 if tile.number in {1, 9} else 1)
+                        for i in range(1, 10)
+                    )
+                    and self.winning_conditions.count_tenpai_tiles == 9
+                    and self.validate_blocks(lambda b: not b.is_opened)
+                ),
                 Yaku.NineGates,
             ),
             (
