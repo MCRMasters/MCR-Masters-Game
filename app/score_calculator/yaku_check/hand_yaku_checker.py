@@ -77,6 +77,14 @@ class HandYakuChecker(YakuChecker):
             for pair in zip(self.first_tile_numbers, self.first_tile_numbers[1:])
         )
 
+    def is_wait_in_knitted(self) -> bool:
+        return any(
+            self.winning_conditions.winning_tile
+            in {block.tile, block.tile + 3, block.tile + 6}
+            for block in self.blocks
+            if block.type == BlockType.KNITTED
+        )
+
     @cached_property
     def tiles(self) -> defaultdict[Tile, int]:
         _tiles: defaultdict[Tile, int] = defaultdict(int)
@@ -262,7 +270,7 @@ class HandYakuChecker(YakuChecker):
                     for t in self.tiles
                 )
                 and self.winning_conditions.count_tenpai_tiles == 9
-                and not self.winning_conditions.is_discarded,
+                and self.validate_blocks(lambda b: not b.is_opened),
                 Yaku.NineGates,
             ),
             (
@@ -362,6 +370,7 @@ class HandYakuChecker(YakuChecker):
             ),
             (
                 lambda: self.winning_conditions.count_tenpai_tiles == 1
+                and not self.is_wait_in_knitted()
                 and any(
                     block.tile == self.winning_conditions.winning_tile
                     for block in self.blocks

@@ -2,8 +2,18 @@ from collections import Counter
 from copy import deepcopy
 
 from app.score_calculator.block.block import Block
-from app.score_calculator.divide.general_shape import divide_general_shape
-from app.score_calculator.enums.enums import BlockType, Yaku
+from app.score_calculator.divide.general_shape import (
+    divide_general_shape,
+    divide_general_shape_knitted_sub,
+)
+from app.score_calculator.divide.honors_and_knitted_shape import (
+    can_divide_honors_and_knitted_shape,
+)
+from app.score_calculator.divide.seven_pairs_shape import divide_seven_pairs_shape
+from app.score_calculator.divide.thirteen_orphans_shape import (
+    can_divide_thirteen_orphans_shape,
+)
+from app.score_calculator.enums.enums import BlockType, Tile, Yaku
 from app.score_calculator.hand.hand import Hand
 from app.score_calculator.result.result import ScoreResult, ScoringContext
 from app.score_calculator.tenpai_calculator import get_tenpai_tiles
@@ -31,31 +41,79 @@ class ScoreCalculator:
                 tenpai_hand=tenpai_hand,
             ),
         )
+        # print("tenpai tiles: ", self.winning_conditions.count_tenpai_tiles)
         self.highest_result = ScoreResult(yaku_score_list=[])
         self.is_blocks_divided = False
+        self._calculate()
 
-    def general_shape_calculator(self) -> None:
-        parsed_hands: list[list[Block]] = divide_general_shape(self.hand)
+    @property
+    def result(self) -> ScoreResult:
+        return self.highest_result
+
+    def _calculate(self) -> None:
+        self._general_and_seven_pairs_shape_calculator()
+        self._thirteen_orphans_shape_calculator()
+        self._honors_and_knitted_shape_calculator()
+        if self.is_blocks_divided and self.highest_result.total_score == 0:
+            self.highest_result.add_yaku(yaku=Yaku.ChickenHand, count=1)
+
+    def _general_and_seven_pairs_shape_calculator(self) -> None:
+        parsed_hands: list[list[Block]] = (
+            divide_general_shape(self.hand)
+            + divide_general_shape_knitted_sub(self.hand)
+            + divide_seven_pairs_shape(self.hand)
+        )
         if parsed_hands:
             self.is_blocks_divided = True
         for blocks in parsed_hands:
-            score_result = self._calculate_score_result(blocks)
+            score_result = self._calculate_score_result(blocks=blocks, yaku_list=[])
             self.highest_result = max(self.highest_result, score_result)
 
-    def _calculate_score_result(self, blocks: list[Block]) -> ScoreResult:
+    def _thirteen_orphans_shape_calculator(self) -> None:
+        if can_divide_thirteen_orphans_shape(self.hand):
+            self.is_blocks_divided = True
+            yaku_list: list[Yaku] = [Yaku.ThirteenOrphans]
+
+            score_result = self._calculate_score_result(blocks=[], yaku_list=yaku_list)
+            self.highest_result = max(self.highest_result, score_result)
+
+    def _honors_and_knitted_shape_calculator(self) -> None:
+        if can_divide_honors_and_knitted_shape(self.hand):
+            self.is_blocks_divided = True
+            yaku_list: list[Yaku] = []
+
+            honor_count = sum(1 for tile in Tile.honor_tiles() if self.hand.tiles[tile])
+            match honor_count:
+                case 7:
+                    yaku_list.append(Yaku.GreaterHonorsAndKnittedTiles)
+                case 5:
+                    yaku_list.extend(
+                        [Yaku.LesserHonorsAndKnittedTiles, Yaku.KnittedStraight],
+                    )
+                case _:
+                    yaku_list.append(Yaku.LesserHonorsAndKnittedTiles)
+
+            score_result = self._calculate_score_result(blocks=[], yaku_list=yaku_list)
+            self.highest_result = max(self.highest_result, score_result)
+
+    def _calculate_score_result(
+        self,
+        blocks: list[Block],
+        yaku_list: list[Yaku],
+    ) -> ScoreResult:
         scoring_context: ScoringContext = ScoringContext.create_from_blocks(
             blocks=[
                 deepcopy(block) for block in blocks if block.type != BlockType.PAIR
             ],
         )
-
-        yaku_list: list[Yaku] = []
-        yaku_list += HandYakuChecker(
-            blocks=deepcopy(blocks),
-            winning_conditions=deepcopy(self.winning_conditions),
-        ).yakus
-        yaku_list += BlocksYakuChecker(blocks=deepcopy(blocks)).yakus
-        yaku_list += scoring_context.get_yakus()
+        if blocks:
+            yaku_list += HandYakuChecker(
+                blocks=deepcopy(blocks),
+                winning_conditions=deepcopy(self.winning_conditions),
+            ).yakus
+        if len(blocks) == 5:
+            yaku_list += BlocksYakuChecker(blocks=deepcopy(blocks)).yakus
+            yaku_list += scoring_context.get_yakus()
         yaku_list += WinningConditionsYakuChecker(
             blocks=deepcopy(blocks),
             winning_conditions=deepcopy(self.winning_conditions),
@@ -69,8 +127,11 @@ class ScoreCalculator:
         # 사귀일 예외처리
         if (
             not (
-                Yaku.SevenPairs in yaku_dict
-                and (Yaku.AllTerminals in yaku_dict or Yaku.AllGreen in yaku_dict)
+                Yaku.QuadrupleChow in yaku_dict
+                or (
+                    Yaku.SevenPairs in yaku_dict
+                    and (Yaku.AllTerminals in yaku_dict or Yaku.AllGreen in yaku_dict)
+                )
             )
             and (
                 tile_hog_count := self.hand.tiles.count(4)
@@ -102,6 +163,7 @@ class ScoreCalculator:
             block.is_wind
             and (
                 Yaku.LittleFourWinds in yaku_counter
+                or Yaku.BigThreeWinds in yaku_counter
                 or block.tile
                 in {
                     self.winning_conditions.round_wind,

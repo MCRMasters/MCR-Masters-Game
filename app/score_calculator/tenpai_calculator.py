@@ -1,7 +1,10 @@
 from copy import deepcopy
 from typing import Final
 
-from app.score_calculator.divide.general_shape import divide_general_shape
+from app.score_calculator.divide.general_shape import (
+    divide_general_shape,
+    divide_general_shape_knitted_sub,
+)
 from app.score_calculator.divide.honors_and_knitted_shape import (
     can_divide_honors_and_knitted_shape,
 )
@@ -34,6 +37,7 @@ def get_tenpai_tiles(tenpai_hand: Hand) -> list[Tile]:
         hand.tiles[tile] += 1
         if (
             divide_general_shape(hand)
+            or divide_general_shape_knitted_sub(hand)
             or divide_seven_pairs_shape(hand)
             or can_divide_thirteen_orphans_shape(hand)
             or can_divide_honors_and_knitted_shape(hand)

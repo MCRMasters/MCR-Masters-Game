@@ -47,6 +47,7 @@ class BlocksYakuChecker(YakuChecker):
                 (self.is_outside_hand, Yaku.OutsideHand),
                 (self.is_little_four_winds, Yaku.LittleFourWinds),
                 (self.is_little_three_dragons, Yaku.LittleThreeDragons),
+                (self.is_all_types, Yaku.AllTypes),
             ],
         }
         self.set_yakus()
@@ -227,7 +228,7 @@ class BlocksYakuChecker(YakuChecker):
         return (
             self.validate_blocks(lambda x: x.is_number and x.is_sequence)
             and self.tile_type_count == 3
-            and (self.has_constant_gap(1) or self.has_constant_gap(2))
+            and self.has_constant_gap(1)
         )
 
     # two blocks checker
@@ -255,15 +256,23 @@ class BlocksYakuChecker(YakuChecker):
 
     @property
     def is_short_straight(self) -> bool:
-        return self.validate_blocks(
-            lambda x: x.is_number and x.is_sequence,
-        ) and self.has_constant_gap(self.STRAIGHT_GAP)
+        return (
+            self.validate_blocks(
+                lambda x: x.is_number and x.is_sequence,
+            )
+            and self.tile_type_count == 1
+            and self.has_constant_gap(self.STRAIGHT_GAP)
+        )
 
     @property
     def is_two_terminal_chows(self) -> bool:
-        return self.validate_blocks(
-            lambda x: x.is_number and x.is_sequence,
-        ) and self.has_constant_gap(self.TERMINAL_GAP)
+        return (
+            self.validate_blocks(
+                lambda x: x.is_number and x.is_sequence,
+            )
+            and self.tile_type_count == 1
+            and self.has_constant_gap(self.TERMINAL_GAP)
+        )
 
     # four blocks checker
     @property
@@ -297,3 +306,7 @@ class BlocksYakuChecker(YakuChecker):
     @property
     def is_all_fives(self) -> bool:
         return self.validate_blocks(lambda x: x.has_five)
+
+    @property
+    def is_all_types(self) -> bool:
+        return self.tile_type_count == 5

@@ -98,7 +98,6 @@ EXCLUDED_YAKUS: Final[dict[Yaku, list[Yaku]]] = {
         Yaku.ConcealedKong,
         Yaku.TwoMeldedKongs,
         Yaku.TwoConcealedKongs,
-        Yaku.ThreeKongs,
     ],
     Yaku.AllTerminalsAndHonors: [
         Yaku.AllPungs,
@@ -133,7 +132,7 @@ EXCLUDED_YAKUS: Final[dict[Yaku, list[Yaku]]] = {
     Yaku.KnittedStraight: [],
     Yaku.UpperFour: [Yaku.NoHonorTiles],
     Yaku.LowerFour: [Yaku.NoHonorTiles],
-    Yaku.BigThreeWinds: [],
+    Yaku.BigThreeWinds: [],  # Yaku.PungOfTerminalsOrHonors by used block flag
     Yaku.MixedStraight: [],
     Yaku.ReversibleTiles: [Yaku.OneVoidedSuit],
     Yaku.MixedTripleChow: [],

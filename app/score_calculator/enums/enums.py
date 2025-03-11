@@ -157,7 +157,7 @@ class Tile(IntEnum):
 
     @property
     def type(self) -> str:
-        return self.name[0]
+        return self.name[0] if not self.is_honor else "W" if self.is_wind else "D"
 
     @classmethod
     def all_tiles(cls) -> range:

@@ -78,11 +78,65 @@ def create_default_winning_conditions(
             ],
             create_default_winning_conditions(winning_tile=Tile.Z7, is_discarded=True),
         ),
+        (
+            "19m19s19p12345677z",
+            [
+                (Yaku.ThirteenOrphans, 88),
+                (Yaku.FullyConcealedHand, 4),
+            ],
+            create_default_winning_conditions(winning_tile=Tile.P1, is_discarded=False),
+        ),
+        (
+            "19m19s19p12345677z",
+            [
+                (Yaku.ThirteenOrphans, 88),
+                (Yaku.FullyConcealedHand, 4),
+            ],
+            create_default_winning_conditions(winning_tile=Tile.P1, is_discarded=False),
+        ),
+        (
+            "[234s]147m258s36999p",
+            [
+                (Yaku.KnittedStraight, 12),
+                (Yaku.AllChows, 2),
+                (Yaku.SelfDrawn, 1),
+            ],
+            create_default_winning_conditions(winning_tile=Tile.P9, is_discarded=False),
+        ),
+        (
+            "[234s]147m258s369p11z",
+            [
+                (Yaku.KnittedStraight, 12),
+                (Yaku.SingleWait, 1),
+                (Yaku.SelfDrawn, 1),
+            ],
+            create_default_winning_conditions(winning_tile=Tile.Z1, is_discarded=False),
+        ),
+        (
+            "147m258p369s12345z",
+            [
+                (Yaku.KnittedStraight, 12),
+                (Yaku.LesserHonorsAndKnittedTiles, 12),
+                (Yaku.FullyConcealedHand, 4),
+            ],
+            create_default_winning_conditions(winning_tile=Tile.Z1, is_discarded=False),
+        ),
+        (
+            "[4444m][5555m][2222s]222p66p",
+            [
+                (Yaku.ThreeKongs, 32),
+                (Yaku.AllPungs, 6),
+                (Yaku.AllSimples, 2),
+                (Yaku.DoublePung, 2),
+                (Yaku.SingleWait, 1),
+            ],
+            create_default_winning_conditions(winning_tile=Tile.P6, is_discarded=True),
+        ),
     ],
 )
-def test_tenpai_tiles_checker(hand_string, yaku_score_list, winning_conditions):
+def test_score_checker(hand_string, yaku_score_list, winning_conditions):
     hand = raw_string_to_hand_class(hand_string)
-    sc = ScoreCalculator(hand, winning_conditions=winning_conditions)
-    sc.general_shape_calculator()
+    sc = ScoreCalculator(hand=hand, winning_conditions=winning_conditions)
     print(sc.highest_result.yaku_score_list)
+    print(hand)
     assert set(sc.highest_result.yaku_score_list) == set(yaku_score_list)

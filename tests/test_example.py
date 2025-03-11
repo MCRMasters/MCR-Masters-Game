@@ -135,7 +135,7 @@ def create_default_winning_conditions(
 def test_hand_yaku_checker(hand_string, expected_yaku, use_seven_pairs):
     hand = raw_string_to_hand_class(hand_string)
     blocks = (
-        divide_seven_pairs_shape(hand)
+        divide_seven_pairs_shape(hand)[0]
         if use_seven_pairs
         else divide_general_shape(hand)[0]
     )
@@ -267,7 +267,7 @@ def test_hand_shape_yakus(
 ):
     hand = raw_string_to_hand_class(hand_string)
     blocks = (
-        divide_seven_pairs_shape(hand)
+        divide_seven_pairs_shape(hand)[0]
         if use_seven_pairs
         else divide_general_shape(hand)[0]
     )
@@ -466,7 +466,7 @@ def test_block_yaku_checker():
     print(hand)
     blocks = divide_general_shape(hand)[0]
     print_blocks(blocks=blocks)
-    assert [Yaku.OutsideHand] == BlocksYakuChecker(blocks).yakus
+    assert Yaku.OutsideHand in BlocksYakuChecker(blocks).yakus
 
     assert [Yaku.BigFourWinds] == BlocksYakuChecker([Z111, Z222, Z333, Z4444]).yakus
     print(BlocksYakuChecker([Z11, Z222, Z333, Z4444, M111]).yakus)

@@ -23,20 +23,35 @@ class ScoreResult:
 @dataclass
 class ScoringContext:
     blocks: list[Block]
-    used_block_flag: list[bool]
+    used_block_flag: list[set[Yaku]]
 
     def get_yakus(self) -> list[Yaku]:
         result: list[Yaku] = []
         for length in (4, 3, 2):
-            for combination in combinations(range(4), length):
+            stack: list[tuple[int, ...]] = list(combinations(range(4), length))
+            while stack:
+                combination: tuple[int, ...] = stack.pop()
+                # print([self.used_block_flag[i] for i in combination])
                 if all(self.used_block_flag[i] for i in combination):
                     continue
-                if yaku := BlocksYakuChecker(
-                    [self.blocks[i] for i in combination],
-                ).yakus:
-                    result += yaku
+                if (
+                    yakus := BlocksYakuChecker(
+                        [self.blocks[i] for i in combination],
+                    ).yakus
+                ) and not any(yakus[0] in self.used_block_flag[i] for i in combination):
+                    result += yakus
+                    if length == 2:
+                        stack.extend(
+                            new_combination
+                            for new_combination in list(combinations(range(4), length))
+                            if (
+                                new_combination != combination
+                                and combination[0] not in set(new_combination)
+                            )
+                            or combination[1] not in set(new_combination)
+                        )
                     for i in combination:
-                        self.used_block_flag[i] = True
+                        self.used_block_flag[i].add(yakus[0])
                     if length != 2:
                         break
         return result
@@ -45,7 +60,7 @@ class ScoringContext:
     def create_from_blocks(
         blocks: list[Block],
     ) -> ScoringContext:
-        used_block_flag: list[bool] = [False] * len(blocks)
+        used_block_flag: list[set[Yaku]] = [set() for _ in range(len(blocks))]
         return ScoringContext(
             blocks=blocks,
             used_block_flag=used_block_flag,

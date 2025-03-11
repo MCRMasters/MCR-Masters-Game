@@ -65,7 +65,6 @@ class BlockDivisionState:
 def divide_general_shape_knitted_sub(hand: Hand) -> list[list[Block]]:
     has_knitted_blocks: bool
     parsed_hands: list[list[Block]] = []
-
     for case in KNITTED_CASES:
         has_knitted_blocks = all(hand.tiles[tile] > 0 for tile in case)
         if not has_knitted_blocks:
@@ -75,7 +74,6 @@ def divide_general_shape_knitted_sub(hand: Hand) -> list[list[Block]]:
             Block(type=BlockType.KNITTED, tile=start_tile, is_opened=False)
             for start_tile in case[::KNITTED_GAP]
         )
-
         parsed_hands.extend(divide_general_shape(new_hand))
     return parsed_hands
 
@@ -88,7 +86,6 @@ def divide_general_shape(hand: Hand) -> list[list[Block]]:
     total_tiles_count: int = sum(hand.tiles)
     for block in hand.call_blocks:
         total_tiles_count -= 1 if block.type == BlockType.QUAD else 0
-
     if total_tiles_count != FULLY_HAND_SIZE:
         raise ValueError("Wrong hand size.")
 
