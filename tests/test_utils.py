@@ -1,8 +1,9 @@
 from typing import Final
 
 from app.score_calculator.block.block import Block
-from app.score_calculator.enums.enums import BlockType, Tile
+from app.score_calculator.enums.enums import BlockType, Tile, Wind
 from app.score_calculator.hand.hand import Hand
+from app.score_calculator.winning_conditions.winning_conditions import WinningConditions
 
 
 def tile_to_name(tile: Tile) -> str:
@@ -42,7 +43,7 @@ def raw_string_to_hand_class(string: str) -> Hand:
             blocks_list.append(
                 Block(
                     type=block_type,
-                    tile=name_to_tile("".join(tile_stack[-2:])),
+                    tile=name_to_tile("".join(tile_stack[0] + tile_stack[-1])),
                     is_opened=c == "]",
                 ),
             )
@@ -94,3 +95,31 @@ def print_block(block: Block):
     elif block.type == BlockType.QUAD:
         print("}", end="")
     print(" ", end="")
+
+
+def create_default_winning_conditions(
+    winning_tile: Tile,
+    is_discarded: bool = True,
+    count_tenpai_tiles: int = 1,
+    seat_wind: Wind = Wind.EAST,
+    round_wind: Wind = Wind.EAST,
+    **extra_conditions,
+):
+    defaults = {
+        "is_last_tile_in_the_game": False,
+        "is_last_tile_of_its_kind": False,
+        "is_replacement_tile": False,
+        "is_robbing_the_kong": False,
+    }
+    defaults.update(extra_conditions)
+    return WinningConditions(
+        winning_tile=winning_tile,
+        is_discarded=is_discarded,
+        count_tenpai_tiles=count_tenpai_tiles,
+        seat_wind=seat_wind,
+        round_wind=round_wind,
+        is_last_tile_in_the_game=defaults["is_last_tile_in_the_game"],
+        is_last_tile_of_its_kind=defaults["is_last_tile_of_its_kind"],
+        is_replacement_tile=defaults["is_replacement_tile"],
+        is_robbing_the_kong=defaults["is_robbing_the_kong"],
+    )

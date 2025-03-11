@@ -8,7 +8,7 @@ PAIR_SIZE: Final[int] = 2
 FULLY_HAND_SIZE: Final[int] = 14
 
 
-def divide_seven_pairs_shape(hand: Hand) -> list[Block]:
+def divide_seven_pairs_shape(hand: Hand) -> list[list[Block]]:
     parsed_blocks: list[Block] = []
 
     if len(hand.call_blocks) or sum(hand.tiles) != FULLY_HAND_SIZE:
@@ -21,4 +21,4 @@ def divide_seven_pairs_shape(hand: Hand) -> list[Block]:
             parsed_blocks.append(
                 Block(type=BlockType.PAIR, tile=Tile(tile), is_opened=False),
             )
-    return parsed_blocks
+    return [parsed_blocks]
