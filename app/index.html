@@ -191,7 +191,7 @@
                 resultDiv.appendChild(totalScoreDiv);
 
                 // 2) 점수 내림차순 정렬
-                const sortedList = [...result.yaku_score_list].sort((a, b) => b[1] - a[1]);
+                const sortedList = [...result.yaku_score_list].sort((a, b) => b.score - a.score);
 
                 // 3) yaku_score_list 데이터를 테이블로 구성
                 const table = document.createElement("table");
@@ -209,13 +209,13 @@
                 thead.appendChild(headerRow);
 
                 // 테이블 본문
-                sortedList.forEach(([yakuName, score]) => {
+                sortedList.forEach(({ name, score }) => {
                     const row = document.createElement("tr");
                     const yakuCell = document.createElement("td");
                     const scoreCell = document.createElement("td");
 
                     // 대문자 기준으로 띄어쓰기
-                    yakuCell.textContent = splitCamelCase(yakuName);
+                    yakuCell.textContent = splitCamelCase(name);
                     scoreCell.textContent = score;
 
                     row.appendChild(yakuCell);

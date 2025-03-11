@@ -70,15 +70,14 @@ def score_check(input: ScoreCheckInput) -> JSONResponse:
     )
 
     score_calc = ScoreCalculator(hand=hand, winning_conditions=winning_conditions)
-    score_calc._general_and_seven_pairs_shape_calculator()
 
     return JSONResponse(
         status_code=status.HTTP_200_OK,
         content={
-            "total_score": score_calc.highest_result.total_score,
+            "total_score": score_calc.result.total_score,
             "yaku_score_list": [
                 {"name": yaku.name, "score": score}
-                for yaku, score in score_calc.highest_result.yaku_score_list
+                for yaku, score in score_calc.result.yaku_score_list
             ],
         },
     )
