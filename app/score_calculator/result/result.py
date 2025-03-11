@@ -31,7 +31,6 @@ class ScoringContext:
             stack: list[tuple[int, ...]] = list(combinations(range(4), length))
             while stack:
                 combination: tuple[int, ...] = stack.pop()
-                # print([self.used_block_flag[i] for i in combination])
                 if all(self.used_block_flag[i] for i in combination):
                     continue
                 if (
@@ -46,9 +45,11 @@ class ScoringContext:
                             for new_combination in list(combinations(range(4), length))
                             if (
                                 new_combination != combination
-                                and combination[0] not in set(new_combination)
+                                and (
+                                    combination[0] in set(new_combination)
+                                    or combination[1] in set(new_combination)
+                                )
                             )
-                            or combination[1] not in set(new_combination)
                         )
                     for i in combination:
                         self.used_block_flag[i].add(yakus[0])

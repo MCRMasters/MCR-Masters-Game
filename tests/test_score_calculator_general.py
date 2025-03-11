@@ -132,6 +132,17 @@ def create_default_winning_conditions(
             ],
             create_default_winning_conditions(winning_tile=Tile.P6, is_discarded=True),
         ),
+        (
+            "345678m67888p45s3s",
+            [
+                (Yaku.FullyConcealedHand, 4),
+                (Yaku.AllChows, 2),
+                (Yaku.AllSimples, 2),
+                (Yaku.MixedDoubleChow, 2),
+                (Yaku.ShortStraight, 1),
+            ],
+            create_default_winning_conditions(winning_tile=Tile.S3, is_discarded=False),
+        ),
     ],
 )
 def test_score_checker(hand_string, yaku_score_list, winning_conditions):
