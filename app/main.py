@@ -1,83 +1,53 @@
-import os
+from fastapi import FastAPI, Request, status
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
-from fastapi import FastAPI, status
-from fastapi.responses import HTMLResponse, JSONResponse
-from pydantic import BaseModel
+from app.api.v1.endpoints import api_router
+from app.core.config import settings
+from app.core.error import DomainErrorCode, MCRDomainError
+from app.schemas.base_response import BaseResponse
 
-from app.score_calculator.enums.enums import Tile, Wind
-from app.score_calculator.score_calculator import ScoreCalculator
-from tests.test_utils import (
-    create_default_winning_conditions,
-    name_to_tile,
-    raw_string_to_hand_class,
+app = FastAPI(
+    title="MCRMasters-Game-Server",
+    description="A FastAPI backend application for MCRMasters Game Logic",
+    version="1.0.0",
 )
 
-app = FastAPI()
+# CORS 설정
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(api_router, prefix=settings.API_V1_STR)
 
 
-class ScoreCheckInput(BaseModel):
-    raw_hand: str
-    winning_tile: str
-    is_discarded: bool
-    seat_wind: str = Wind.EAST.name
-    round_wind: str = Wind.EAST.name
-    is_last_tile_in_the_game: bool = False
-    is_last_tile_of_its_kind: bool = False
-    is_replacement_tile: bool = False
-    is_robbing_the_kong: bool = False
+@app.get("/health", status_code=status.HTTP_200_OK)
+async def health_check() -> BaseResponse:
+    return BaseResponse(message="healthy")
 
 
-@app.get("/", response_class=HTMLResponse)
-def read_root() -> str:
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    html_path = os.path.join(base_dir, "index.html")
-    with open(html_path, encoding="utf-8") as f:
-        return f.read()
-
-
-@app.post("/score-check")
-def score_check(input: ScoreCheckInput) -> JSONResponse:
-    hand = raw_string_to_hand_class(input.raw_hand)
-    if (winning_tile := name_to_tile(input.winning_tile)) == Tile.F0:
-        return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            content={"error": f"Invalid winning_tile: {input.winning_tile}"},
-        )
-    try:
-        seat_wind = Wind[input.seat_wind]
-    except KeyError:
-        return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            content={"error": f"Invalid seat_wind: {input.seat_wind}"},
-        )
-    try:
-        round_wind = Wind[input.round_wind]
-    except KeyError:
-        return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            content={"error": f"Invalid round_wind: {input.round_wind}"},
-        )
-
-    winning_conditions = create_default_winning_conditions(
-        winning_tile=winning_tile,
-        is_discarded=input.is_discarded,
-        seat_wind=seat_wind,
-        round_wind=round_wind,
-        is_last_tile_in_the_game=input.is_last_tile_in_the_game,
-        is_last_tile_of_its_kind=input.is_last_tile_of_its_kind,
-        is_replacement_tile=input.is_replacement_tile,
-        is_robbing_the_kong=input.is_robbing_the_kong,
-    )
-
-    score_calc = ScoreCalculator(hand=hand, winning_conditions=winning_conditions)
+@app.exception_handler(MCRDomainError)
+async def mcr_domain_error_handler(
+    _request: Request,
+    exc: MCRDomainError,
+) -> JSONResponse:
+    domain_error_code_mapper = {
+        DomainErrorCode.NICKNAME_ALREADY_SET: status.HTTP_400_BAD_REQUEST,
+        DomainErrorCode.USER_NOT_FOUND: status.HTTP_404_NOT_FOUND,
+        DomainErrorCode.INVALID_UID: status.HTTP_422_UNPROCESSABLE_ENTITY,
+        DomainErrorCode.INVALID_NICKNAME: status.HTTP_422_UNPROCESSABLE_ENTITY,
+    }
+    status_code = domain_error_code_mapper[exc.code]
 
     return JSONResponse(
-        status_code=status.HTTP_200_OK,
+        status_code=status_code,
         content={
-            "total_score": score_calc.result.total_score,
-            "yaku_score_list": [
-                {"name": yaku.name, "score": score}
-                for yaku, score in score_calc.result.yaku_score_list
-            ],
+            "detail": exc.message,
+            "code": exc.code,
+            "error_details": exc.details,
         },
     )

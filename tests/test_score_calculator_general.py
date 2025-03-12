@@ -1,8 +1,10 @@
 import pytest
 
-from app.score_calculator.enums.enums import Tile, Wind, Yaku
-from app.score_calculator.score_calculator import ScoreCalculator
-from app.score_calculator.winning_conditions.winning_conditions import WinningConditions
+from app.services.score_calculator.enums.enums import Tile, Wind, Yaku
+from app.services.score_calculator.score_calculator import ScoreCalculator
+from app.services.score_calculator.winning_conditions.winning_conditions import (
+    WinningConditions,
+)
 from tests.test_utils import raw_string_to_hand_class
 
 
