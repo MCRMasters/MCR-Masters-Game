@@ -1,11 +1,11 @@
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from schemas.base_response import BaseResponse
 
 from app.api.v1.endpoints import api_router
 from app.core.config import settings
 from app.core.error import DomainErrorCode, MCRDomainError
+from app.schemas.base_response import BaseResponse
 
 app = FastAPI(
     title="MCRMasters-Game-Server",
