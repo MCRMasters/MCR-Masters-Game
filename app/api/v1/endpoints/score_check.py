@@ -5,7 +5,7 @@ from fastapi.responses import HTMLResponse
 
 from app.schemas.score_check_input import ScoreCheckInput
 from app.schemas.score_check_response import ScoreCheckResponse, YakuScore
-from app.services.score_calculator.enums.enums import Tile, Wind
+from app.services.score_calculator.enums.enums import Tile
 from app.services.score_calculator.score_calculator import ScoreCalculator
 from tests.test_utils import (
     create_default_winning_conditions,
@@ -32,14 +32,14 @@ def score_check(input: ScoreCheckInput) -> ScoreCheckResponse:
             detail=f"Invalid winning_tile: {input.winning_tile}",
         )
     try:
-        seat_wind = Wind[input.seat_wind]
+        seat_wind = input.seat_wind
     except KeyError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid seat_wind: {input.seat_wind}",
         )
     try:
-        round_wind = Wind[input.round_wind]
+        round_wind = input.round_wind
     except KeyError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
