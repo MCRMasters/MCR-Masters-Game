@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Score Checker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 2rem;
+        }
+
+        h1 {
+            margin-bottom: 1rem;
+        }
+
+        form {
+            /* 폼 자체는 왼쪽 정렬로 두고, 모바일 대응 위해 너비 제한 X */
+        }
+
+        .form-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .form-row label {
+            width: 180px;
+            margin-right: 0.5rem;
+        }
+
+        .form-row input,
+        .form-row select {
+            /* 기본적으로 auto 크기 */
+        }
+
+        table {
+            border-collapse: collapse;
+            margin-top: 1rem;
+            table-layout: auto;
+            /* 자동 레이아웃 */
+            width: auto;
+            /* 내용에 맞춰 자동으로 */
+        }
+
+        table,
+        th,
+        td {
+            border: 1px solid #ccc;
+        }
+
+        th,
+        td {
+            padding: 8px;
+            text-align: center;
+            white-space: nowrap;
+            /* 줄바꿈 없이 한 줄로 표시 */
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+
+        /* 모바일 화면에서 너무 좁아지면 세로로 전환 */
+        @media (max-width: 600px) {
+            .form-row {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .form-row label {
+                margin-right: 0;
+                margin-bottom: 0.3rem;
+                width: auto;
+                /* 레이블 너비 해제 */
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Score Checker</h1>
+    <form id="scoreForm">
+        <div class="form-row">
+            <label for="raw_hand">Raw Hand:</label>
+            <input type="text" id="raw_hand" name="raw_hand" required />
+        </div>
+        <div class="form-row">
+            <label for="winning_tile">Winning Tile:</label>
+            <input type="text" id="winning_tile" name="winning_tile" required />
+        </div>
+        <div class="form-row">
+            <label for="is_discarded">Is Discarded:</label>
+            <input type="checkbox" id="is_discarded" name="is_discarded" checked />
+        </div>
+        <div class="form-row">
+            <label for="seat_wind">Seat Wind:</label>
+            <select id="seat_wind" name="seat_wind">
+                <option value="EAST" selected>EAST</option>
+                <option value="SOUTH">SOUTH</option>
+                <option value="WEST">WEST</option>
+                <option value="NORTH">NORTH</option>
+            </select>
+        </div>
+        <div class="form-row">
+            <label for="round_wind">Round Wind:</label>
+            <select id="round_wind" name="round_wind">
+                <option value="EAST" selected>EAST</option>
+                <option value="SOUTH">SOUTH</option>
+                <option value="WEST">WEST</option>
+                <option value="NORTH">NORTH</option>
+            </select>
+        </div>
+        <div class="form-row">
+            <label for="is_last_tile_in_the_game">Last Tile in Game:</label>
+            <input type="checkbox" id="is_last_tile_in_the_game" name="is_last_tile_in_the_game" />
+        </div>
+        <div class="form-row">
+            <label for="is_last_tile_of_its_kind">Last Tile of Its Kind:</label>
+            <input type="checkbox" id="is_last_tile_of_its_kind" name="is_last_tile_of_its_kind" />
+        </div>
+        <div class="form-row">
+            <label for="is_replacement_tile">Is Replacement Tile:</label>
+            <input type="checkbox" id="is_replacement_tile" name="is_replacement_tile" />
+        </div>
+        <div class="form-row">
+            <label for="is_robbing_the_kong">Is Robbing the Kong:</label>
+            <input type="checkbox" id="is_robbing_the_kong" name="is_robbing_the_kong" />
+        </div>
+        <button type="submit">Check Score</button>
+    </form>
+
+    <h2>Result</h2>
+    <div id="result"></div>
+
+    <script>
+        // 대문자를 기준으로 띄어쓰기 (CamelCase -> "Camel Case")
+        function splitCamelCase(str) {
+            return str.replace(/([A-Z])/g, " $1").trim();
+        }
+
+        const form = document.getElementById("scoreForm");
+        const resultDiv = document.getElementById("result");
+
+        form.addEventListener("submit", async (e) => {
+            e.preventDefault();
+
+            const raw_hand = document.getElementById("raw_hand").value;
+            const winning_tile = document.getElementById("winning_tile").value;
+            const is_discarded = document.getElementById("is_discarded").checked;
+            const seat_wind = document.getElementById("seat_wind").value;
+            const round_wind = document.getElementById("round_wind").value;
+            const is_last_tile_in_the_game = document.getElementById("is_last_tile_in_the_game").checked;
+            const is_last_tile_of_its_kind = document.getElementById("is_last_tile_of_its_kind").checked;
+            const is_replacement_tile = document.getElementById("is_replacement_tile").checked;
+            const is_robbing_the_kong = document.getElementById("is_robbing_the_kong").checked;
+
+            const data = {
+                raw_hand,
+                winning_tile,
+                is_discarded,
+                seat_wind,
+                round_wind,
+                is_last_tile_in_the_game,
+                is_last_tile_of_its_kind,
+                is_replacement_tile,
+                is_robbing_the_kong,
+            };
+
+            try {
+                const response = await fetch("/api/v1/score-check", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(data),
+                });
+                const result = await response.json();
+
+                if (result.error) {
+                    resultDiv.textContent = result.error;
+                    return;
+                }
+
+                // 결과 영역 초기화
+                resultDiv.innerHTML = "";
+
+                // 1) Total Score 표시
+                const totalScoreDiv = document.createElement("div");
+                totalScoreDiv.style.marginBottom = "1rem";
+                totalScoreDiv.textContent = "Total Score: " + result.total_score;
+                resultDiv.appendChild(totalScoreDiv);
+
+                // 2) 점수 내림차순 정렬
+                const sortedList = [...result.yaku_score_list].sort((a, b) => b.score - a.score);
+
+                // 3) yaku_score_list 데이터를 테이블로 구성
+                const table = document.createElement("table");
+                const thead = document.createElement("thead");
+                const tbody = document.createElement("tbody");
+
+                // 테이블 헤더
+                const headerRow = document.createElement("tr");
+                const yakuHeader = document.createElement("th");
+                yakuHeader.textContent = "Yaku";
+                const scoreHeader = document.createElement("th");
+                scoreHeader.textContent = "Score";
+                headerRow.appendChild(yakuHeader);
+                headerRow.appendChild(scoreHeader);
+                thead.appendChild(headerRow);
+
+                // 테이블 본문
+                sortedList.forEach(({ name, score }) => {
+                    const row = document.createElement("tr");
+                    const yakuCell = document.createElement("td");
+                    const scoreCell = document.createElement("td");
+
+                    // 대문자 기준으로 띄어쓰기
+                    yakuCell.textContent = splitCamelCase(name);
+                    scoreCell.textContent = score;
+
+                    row.appendChild(yakuCell);
+                    row.appendChild(scoreCell);
+                    tbody.appendChild(row);
+                });
+
+                table.appendChild(thead);
+                table.appendChild(tbody);
+
+                // 결과 영역에 테이블 추가
+                resultDiv.appendChild(table);
+            } catch (err) {
+                resultDiv.textContent = "Error: " + err;
+            }
+        });
+    </script>
+</body>
+
+</html>

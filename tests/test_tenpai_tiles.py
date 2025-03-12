@@ -1,7 +1,7 @@
 import pytest
 
-from app.score_calculator.enums.enums import Tile
-from app.score_calculator.tenpai_calculator import get_tenpai_tiles
+from app.services.score_calculator.enums.enums import Tile
+from app.services.score_calculator.tenpai_calculator import get_tenpai_tiles
 from tests.test_utils import raw_string_to_hand_class
 
 

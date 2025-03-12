@@ -2,18 +2,24 @@ from typing import Final
 
 import pytest
 
-from app.score_calculator.block.block import Block
-from app.score_calculator.divide.general_shape import (
+from app.services.score_calculator.block.block import Block
+from app.services.score_calculator.divide.general_shape import (
     divide_general_shape,
     divide_general_shape_knitted_sub,
 )
-from app.score_calculator.divide.seven_pairs_shape import divide_seven_pairs_shape
-from app.score_calculator.enums.enums import BlockType, Tile, Wind, Yaku
-from app.score_calculator.hand.hand import Hand
-from app.score_calculator.winning_conditions.winning_conditions import WinningConditions
-from app.score_calculator.yaku_check.blocks_yaku_checker import BlocksYakuChecker
-from app.score_calculator.yaku_check.hand_yaku_checker import HandYakuChecker
-from app.score_calculator.yaku_check.winning_conditions_yaku_checker import (
+from app.services.score_calculator.divide.seven_pairs_shape import (
+    divide_seven_pairs_shape,
+)
+from app.services.score_calculator.enums.enums import BlockType, Tile, Wind, Yaku
+from app.services.score_calculator.hand.hand import Hand
+from app.services.score_calculator.winning_conditions.winning_conditions import (
+    WinningConditions,
+)
+from app.services.score_calculator.yaku_check.blocks_yaku_checker import (
+    BlocksYakuChecker,
+)
+from app.services.score_calculator.yaku_check.hand_yaku_checker import HandYakuChecker
+from app.services.score_calculator.yaku_check.winning_conditions_yaku_checker import (
     WinningConditionsYakuChecker,
 )
 from tests.test_utils import print_blocks, raw_string_to_hand_class

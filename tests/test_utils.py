@@ -1,9 +1,11 @@
 from typing import Final
 
-from app.score_calculator.block.block import Block
-from app.score_calculator.enums.enums import BlockType, Tile, Wind
-from app.score_calculator.hand.hand import Hand
-from app.score_calculator.winning_conditions.winning_conditions import WinningConditions
+from app.services.score_calculator.block.block import Block
+from app.services.score_calculator.enums.enums import BlockType, Tile, Wind
+from app.services.score_calculator.hand.hand import Hand
+from app.services.score_calculator.winning_conditions.winning_conditions import (
+    WinningConditions,
+)
 
 
 def tile_to_name(tile: Tile) -> str:
