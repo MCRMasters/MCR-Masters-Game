@@ -22,6 +22,7 @@ class RoundManager:
         self.tile_draw_index_right: int = GameManager.TOTAL_TILES
         self.seat_to_index: dict[Seat, int] = {}
         self.action_id: int = 0
+        self.action_manager: ActionManager
 
 
 class GameManager:
