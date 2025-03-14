@@ -1,4 +1,8 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
+
+from pydantic import BaseModel
 
 
 # 필요한 필드 추후 추가
@@ -7,3 +11,15 @@ class Player:
     uid: str
     index: int
     score: int
+
+    @staticmethod
+    def create_from_received_data(
+        player_data: PlayerDataReceived,
+        index: int,
+    ) -> Player:
+        return Player(uid=player_data.uid, index=index, score=0)
+
+
+# Core Server에서 넘어오는 정보에 따라 필드 추후 추가, api 구현시 schema로 이동
+class PlayerDataReceived(BaseModel):
+    uid: str
