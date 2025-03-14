@@ -5,6 +5,7 @@ from typing import Final
 from app.services.game_manager.models.action import Action
 from app.services.game_manager.models.deck import Deck
 from app.services.game_manager.models.enums import GameTile, RelativeSeat, Round, Wind
+from app.services.game_manager.models.hand import GameHand
 from app.services.game_manager.models.player import Player
 from app.services.game_manager.models.winning_conditions import GameWinningConditions
 
@@ -12,8 +13,9 @@ from app.services.game_manager.models.winning_conditions import GameWinningCondi
 class RoundManager:
     def __init__(self) -> None:
         self.tile_deck: Deck = Deck()
-        self.hand_list: list[list[GameTile]] = [
-            self.tile_deck.draw_haipai() for _ in range(GameManager.MAX_PLAYERS)
+        self.hand_list: list[GameHand] = [
+            GameHand(tiles=Counter(self.tile_deck.draw_haipai()), call_blocks=[])
+            for _ in range(GameManager.MAX_PLAYERS)
         ]
         self.kawa_list: list[list[GameTile]] = [
             [] for _ in range(GameManager.MAX_PLAYERS)
