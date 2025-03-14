@@ -33,7 +33,8 @@ class RoundManager:
             정보를 주거나, action_id를 받아오기 위함
         tile_deck (Deck): 패산
         hand_list (list[GameHand]): 각 플레이어(절대 위치 자리(동가, 남가, 서가, 북가))
-        의 손패 리스트kawa_list (list[list[GameTile]]): 각 플레이어의 강
+        의 손패 리스트
+        kawa_list (list[list[GameTile]]): 각 플레이어의 강
         visible_tiles_count (Counter[GameTile]): 보이는 타일의 개수를 관리하는 카운터
             (화절장 조건을 알기 위해 존재)
         winning_conditions (GameWinningConditions): 화료 조건 flag들
