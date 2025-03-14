@@ -16,22 +16,24 @@ from app.services.game_manager.models.winning_conditions import GameWinningCondi
 class RoundManager:
     def __init__(self, game_manager: GameManager) -> None:
         self.game_manager: GameManager = game_manager
-        self.tile_deck: Deck = Deck()
-        self.hand_list: list[GameHand] = [
-            GameHand(tiles=Counter(self.tile_deck.draw_haipai()), call_blocks=[])
-            for _ in range(GameManager.MAX_PLAYERS)
-        ]
-        self.kawa_list: list[list[GameTile]] = [
-            [] for _ in range(GameManager.MAX_PLAYERS)
-        ]
-        self.visible_tiles_count: Counter[GameTile] = Counter()
+        self.tile_deck: Deck
+        self.hand_list: list[GameHand]
+        self.kawa_list: list[list[GameTile]]
+        self.visible_tiles_count: Counter[GameTile]
         self.winning_conditions: GameWinningConditions
         self.wind_to_player_index: dict[Wind, int] = {}
-        self.action_manager: ActionManager
+        self.action_manager: ActionManager | None
 
-    # TODO
     def init_round(self) -> None:
-        pass
+        self.tile_deck = Deck()
+        self.hand_list = [
+            GameHand.create_from_tiles(self.tile_deck.draw_haipai())
+            for _ in range(GameManager.MAX_PLAYERS)
+        ]
+        self.kawa_list = [[] for _ in range(GameManager.MAX_PLAYERS)]
+        self.visible_tiles_count = Counter()
+        self.winning_conditions = GameWinningConditions.create_default_conditions()
+        self.action_manager = None
 
 
 class GameManager:
@@ -44,7 +46,7 @@ class GameManager:
         self.current_round: Round
         self.action_id: int
 
-    def initialize_game(self, player_datas: list[PlayerDataReceived]) -> None:
+    def init_game(self, player_datas: list[PlayerDataReceived]) -> None:
         if len(player_datas) != GameManager.MAX_PLAYERS:
             raise ValueError(
                 f"[GameManager] {GameManager.MAX_PLAYERS} players needed, "
