@@ -28,9 +28,7 @@ class GameHand:
     def apply_discard(self, tile: GameTile) -> None:
         if tile not in self.tiles:
             raise ValueError(f"Cannot apply discard: hand doesn't have tile {tile}")
-        self.tiles[tile] -= 1
-        if self.tiles[tile] == 0:
-            del self.tiles[tile]
+        self._remove_tiles(tile, 1)
         self.tsumo_tile = None
 
     def apply_call(self, block: CallBlock) -> None:
@@ -46,6 +44,11 @@ class GameHand:
             case CallBlockType.SHOMIN_KONG:
                 self._apply_shomin_kong(block=block)
 
+    def _remove_tiles(self, tile: GameTile, count: int) -> None:
+        self.tiles[tile] -= count
+        if self.tiles[tile] == 0:
+            del self.tiles[tile]
+
     def _apply_chii(self, block: CallBlock) -> None:
         delete_tile_list: list[GameTile] = [
             GameTile(block.first_tile + index)
@@ -56,10 +59,8 @@ class GameHand:
             raise ValueError(
                 "Cannot apply chii: not enough valid tiles to chii",
             )
-        for tile in delete_tile_list:
-            self.tiles[tile] -= 1
-            if self.tiles[tile] == 0:
-                del self.tiles[tile]
+        for delete_tile in delete_tile_list:
+            self._remove_tiles(delete_tile, 1)
         self.call_blocks.append(deepcopy(block))
 
     def _apply_pung(self, block: CallBlock) -> None:
@@ -67,9 +68,7 @@ class GameHand:
             raise ValueError(
                 "Cannot apply pung: not enough valid tiles to pung",
             )
-        self.tiles[block.first_tile] -= 2
-        if self.tiles[block.first_tile] == 0:
-            del self.tiles[block.first_tile]
+        self._remove_tiles(block.first_tile, 2)
         self.call_blocks.append(deepcopy(block))
 
     def _apply_an_kong(self, block: CallBlock) -> None:
@@ -77,9 +76,7 @@ class GameHand:
             raise ValueError(
                 "Cannot apply ankong: not enough valid tiles to ankong",
             )
-        self.tiles[block.first_tile] -= 4
-        if self.tiles[block.first_tile] == 0:
-            del self.tiles[block.first_tile]
+        self._remove_tiles(block.first_tile, 4)
         self.call_blocks.append(deepcopy(block))
         self.tsumo_tile = None
 
@@ -88,9 +85,7 @@ class GameHand:
             raise ValueError(
                 "Cannot apply daiminkong: not enough valid tiles to daiminkong",
             )
-        self.tiles[block.first_tile] -= 3
-        if self.tiles[block.first_tile] == 0:
-            del self.tiles[block.first_tile]
+        self._remove_tiles(block.first_tile, 3)
         self.call_blocks.append(deepcopy(block))
 
     def _apply_shomin_kong(self, block: CallBlock) -> None:
@@ -110,8 +105,6 @@ class GameHand:
             raise ValueError(
                 "Cannot apply shominkong: hand doesn't have valid pung block",
             )
-        self.tiles[block.first_tile] -= 1
-        if self.tiles[block.first_tile] == 0:
-            del self.tiles[block.first_tile]
+        self._remove_tiles(block.first_tile, 1)
         target_block.type = CallBlockType.SHOMIN_KONG
         self.tsumo_tile = None
