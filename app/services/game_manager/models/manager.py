@@ -4,7 +4,7 @@ from typing import Final
 
 from app.services.game_manager.models.action import Action
 from app.services.game_manager.models.deck import Deck
-from app.services.game_manager.models.enums import GameTile, Round, Seat, Wind
+from app.services.game_manager.models.enums import GameTile, RelativeSeat, Round, Wind
 from app.services.game_manager.models.player import Player
 from app.services.game_manager.models.winning_conditions import GameWinningConditions
 from app.services.score_calculator.hand.hand import Hand
@@ -39,7 +39,7 @@ class ActionManager:
         self.action_heap: list[Action] = action_list
         heapq.heapify(self.action_heap)
         self.selected_action_heap: list[Action] = []
-        self.finished_players: set[Seat] = set()
+        self.finished_players: set[RelativeSeat] = set()
         self.final_action: Action | None = None
 
     def empty(self) -> bool:

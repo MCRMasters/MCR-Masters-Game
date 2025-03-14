@@ -49,7 +49,7 @@ class Wind(IntEnum):
     NORTH = 3
 
 
-class Seat(IntEnum):
+class RelativeSeat(IntEnum):
     SELF = 0
     SHIMO = 1
     TOI = 2

@@ -1,7 +1,7 @@
 import pytest
 
 from app.services.game_manager.models.action import Action
-from app.services.game_manager.models.enums import ActionType, Seat
+from app.services.game_manager.models.enums import ActionType, RelativeSeat
 from app.services.game_manager.models.manager import ActionManager
 
 
@@ -10,18 +10,18 @@ from app.services.game_manager.models.manager import ActionManager
     [
         (
             [
-                Action(type=ActionType.CHII, seat_priority=Seat.SHIMO),
-                Action(type=ActionType.PON, seat_priority=Seat.KAMI),
+                Action(type=ActionType.CHII, seat_priority=RelativeSeat.SHIMO),
+                Action(type=ActionType.PON, seat_priority=RelativeSeat.KAMI),
             ],
-            [Action(type=ActionType.PON, seat_priority=Seat.KAMI)],
-            Action(type=ActionType.PON, seat_priority=Seat.KAMI),
+            [Action(type=ActionType.PON, seat_priority=RelativeSeat.KAMI)],
+            Action(type=ActionType.PON, seat_priority=RelativeSeat.KAMI),
         ),
         (
             [
-                Action(type=ActionType.CHII, seat_priority=Seat.SHIMO),
-                Action(type=ActionType.PON, seat_priority=Seat.KAMI),
+                Action(type=ActionType.CHII, seat_priority=RelativeSeat.SHIMO),
+                Action(type=ActionType.PON, seat_priority=RelativeSeat.KAMI),
             ],
-            [Action(type=ActionType.CHII, seat_priority=Seat.KAMI)],
+            [Action(type=ActionType.CHII, seat_priority=RelativeSeat.KAMI)],
             None,
         ),
     ],
