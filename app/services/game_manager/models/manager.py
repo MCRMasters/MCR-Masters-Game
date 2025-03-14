@@ -29,7 +29,7 @@ class RoundManager:
     Game의 한 국(Round)의 로직을 관리하는 Class
 
     Attributes:
-        game_manager (GameManager): GameManager에 대한 참조. end_round에 대한
+        game_manager (GameManager): GameManager에 대한 참조 end_round에 대한
             정보를 주거나, action_id를 받아오기 위함
         tile_deck (Deck): 패산
         hand_list (list[GameHand]): 각 플레이어(절대 위치 자리(동가, 남가, 서가, 북가))
@@ -102,7 +102,7 @@ class RoundManager:
         previous_action: Action | None = None,
     ) -> None:
         """
-        이전 TurnType과 수행한 Action에 따라 다음 턴으로 진행합니다.
+        이전 TurnType과 수행한 Action에 따라 다음 턴으로 진행함
 
         Args:
             previous_turn_type (TurnType): 이전 턴의 타입
@@ -222,7 +222,7 @@ class RoundManager:
         previous_turn_type: TurnType,
     ) -> None:
         """
-        현재 포커싱된 화료패 후보와 이전 TurnType에 따라 WinningCondition을 설정합니다.
+        현재 포커싱된 화료패 후보와 이전 TurnType에 따라 WinningCondition을 설정함
 
         Args:
             winning_tile (GameTile): 화료패 후보
@@ -243,9 +243,9 @@ class RoundManager:
 
     def do_tsumo(self, previous_turn_type: TurnType) -> None:
         """
-        현재 플레이어의 Tsumo 액션을 수행한다.
+        현재 플레이어의 Tsumo 액션을 수행함
 
-        이전 TurnType에 따라 패산의 왼쪽 또는 오른쪽에서 타일을 뽑음. 뽑은 타일을
+        이전 TurnType에 따라 패산의 왼쪽 또는 오른쪽에서 타일을 뽑음 뽑은 타일을
         현재 플레이어의 손패에 추가하고, Winning Condition을 설정한 후 가능한 action
         list들을 확인하고 플레이어에게 전송
 
