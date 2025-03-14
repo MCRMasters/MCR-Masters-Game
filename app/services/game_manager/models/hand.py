@@ -9,5 +9,4 @@ from app.services.game_manager.models.enums import GameTile
 class GameHand:
     tiles: Counter[GameTile]
     call_blocks: list[CallBlock]
-    tiles_left_to_draw: int
     tsumo_tile: GameTile | None = None

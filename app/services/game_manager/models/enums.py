@@ -108,3 +108,15 @@ class GameTile(IntEnum):
     F5 = 39
     F6 = 40
     F7 = 41
+
+    @classmethod
+    def all_tiles(cls) -> range:
+        return range(cls.M1, cls.F7 + 1)
+
+    @classmethod
+    def normal_tiles(cls) -> range:
+        return range(cls.M1, cls.F0)
+
+    @classmethod
+    def flower_tiles(cls) -> range:
+        return range(cls.F0, cls.F7 + 1)
