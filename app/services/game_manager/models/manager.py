@@ -1,17 +1,21 @@
+from __future__ import annotations
+
 import heapq
 from collections import Counter
+from random import shuffle
 from typing import Final
 
 from app.services.game_manager.models.action import Action
 from app.services.game_manager.models.deck import Deck
 from app.services.game_manager.models.enums import GameTile, RelativeSeat, Round, Wind
 from app.services.game_manager.models.hand import GameHand
-from app.services.game_manager.models.player import Player
+from app.services.game_manager.models.player import Player, PlayerDataReceived
 from app.services.game_manager.models.winning_conditions import GameWinningConditions
 
 
 class RoundManager:
-    def __init__(self) -> None:
+    def __init__(self, game_manager: GameManager) -> None:
+        self.game_manager: GameManager = game_manager
         self.tile_deck: Deck = Deck()
         self.hand_list: list[GameHand] = [
             GameHand(tiles=Counter(self.tile_deck.draw_haipai()), call_blocks=[])
@@ -23,18 +27,44 @@ class RoundManager:
         self.visible_tiles_count: Counter[GameTile] = Counter()
         self.winning_conditions: GameWinningConditions
         self.wind_to_player_index: dict[Wind, int] = {}
-        self.action_id: int = 0
         self.action_manager: ActionManager
+
+    # TODO
+    def init_round(self) -> None:
+        pass
 
 
 class GameManager:
-    def __init__(self, player_list: list[Player]):
-        self.player_list: list[Player] = player_list
-        self.round_manager: RoundManager
-        self.current_round: Round = Round.E1
-
     MINIMUM_HU_SCORE: Final[int] = 8
     MAX_PLAYERS: Final[int] = 4
+
+    def __init__(self) -> None:
+        self.player_list: list[Player]
+        self.round_manager: RoundManager
+        self.current_round: Round
+        self.action_id: int
+
+    def initialize_game(self, player_datas: list[PlayerDataReceived]) -> None:
+        if len(player_datas) != GameManager.MAX_PLAYERS:
+            raise ValueError(
+                f"[GameManager] {GameManager.MAX_PLAYERS} players needed, "
+                f"{len(player_datas)} players received",
+            )
+        self.player_list = []
+        index_mapping: list[int] = list(range(GameManager.MAX_PLAYERS))
+        shuffle(index_mapping)
+        for i, player_data in enumerate(player_datas):
+            self.player_list.append(
+                Player.create_from_received_data(
+                    player_data=player_data,
+                    index=index_mapping[i],
+                ),
+            )
+
+        self.round_manager = RoundManager(self)
+        self.round_manager.init_round()
+        self.current_round = Round.E1
+        self.action_id = 0
 
 
 class ActionManager:
