@@ -6,6 +6,7 @@ from app.services.game_manager.models.enums import GameTile
 
 class Deck:
     TOTAL_TILES: Final[int] = 144
+    HAIPAI_TILES: Final[int] = 13
 
     def __init__(self) -> None:
         self.tiles: list[GameTile]
@@ -44,3 +45,9 @@ class Deck:
         ]
         self.draw_index_right -= count
         return drawn_tiles
+
+    def draw_haipai(self) -> list[GameTile]:
+        tiles = self.draw_tiles(Deck.HAIPAI_TILES)
+        if tiles is None:
+            raise ValueError("Not enough tiles in the deck to draw haipai")
+        return tiles
