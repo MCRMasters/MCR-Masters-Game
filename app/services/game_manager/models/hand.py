@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections import Counter
 from copy import deepcopy
 from dataclasses import dataclass
@@ -14,6 +16,14 @@ class GameHand:
     tsumo_tile: GameTile | None = None
 
     FULL_HAND_SIZE: Final[int] = 14
+
+    @staticmethod
+    def create_from_tiles(tiles: list[GameTile]) -> GameHand:
+        return GameHand(
+            tiles=Counter(tiles),
+            call_blocks=[],
+            tsumo_tile=None,
+        )
 
     @property
     def hand_size(self) -> int:
