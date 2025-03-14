@@ -1,4 +1,10 @@
+from __future__ import annotations
+
 from enum import IntEnum
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.services.game_manager.models.action import Action
 
 
 class Round(IntEnum):
@@ -25,28 +31,18 @@ class Round(IntEnum):
     END = 16
 
 
-class ActionType(IntEnum):
-    SKIP = 0
-    HU = 1
-    KAN = 2
-    PON = 3
-    CHII = 4
-    FLOWER = 5
-
-
-class CallBlockType(IntEnum):
-    CHII = 0
-    PUNG = 1
-    AN_KONG = 2
-    SHOMIN_KONG = 3
-    DAIMIN_KONG = 4
-
-
-class Wind(IntEnum):
+class AbsoluteSeat(IntEnum):
     EAST = 0
     SOUTH = 1
     WEST = 2
     NORTH = 3
+
+    @property
+    def next_seat(self) -> AbsoluteSeat:
+        return AbsoluteSeat((self + 1) % 4)
+
+    def next_seat_after_action(self, action: Action) -> AbsoluteSeat:
+        return AbsoluteSeat((self + action.seat_priority) % 4)
 
 
 class RelativeSeat(IntEnum):

@@ -6,7 +6,8 @@ from dataclasses import dataclass
 from typing import Final
 
 from app.services.game_manager.models.call_block import CallBlock
-from app.services.game_manager.models.enums import CallBlockType, GameTile
+from app.services.game_manager.models.enums import GameTile
+from app.services.game_manager.models.types import CallBlockType
 
 
 @dataclass
