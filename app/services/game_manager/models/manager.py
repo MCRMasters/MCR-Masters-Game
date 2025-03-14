@@ -3,7 +3,7 @@ from collections import Counter
 from typing import Final
 
 from app.services.game_manager.models.action import Action
-from app.services.game_manager.models.enums import GameTile, Round, Seat
+from app.services.game_manager.models.enums import GameTile, Round, Seat, Wind
 from app.services.game_manager.models.player import Player
 from app.services.game_manager.models.winning_conditions import GameWinningConditions
 from app.services.score_calculator.hand.hand import Hand
@@ -20,7 +20,7 @@ class RoundManager:
         self.winning_conditions: GameWinningConditions
         self.tile_draw_index_left: int = 0
         self.tile_draw_index_right: int = GameManager.TOTAL_TILES
-        self.seat_to_index: dict[Seat, int] = {}
+        self.wind_to_index: dict[Wind, int] = {}
         self.action_id: int = 0
         self.action_manager: ActionManager
 

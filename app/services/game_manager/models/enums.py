@@ -42,6 +42,13 @@ class CallBlockType(IntEnum):
     DAIMIN_KONG = 4
 
 
+class Wind(IntEnum):
+    EAST = 0
+    SOUTH = 1
+    WEST = 2
+    NORTH = 3
+
+
 class Seat(IntEnum):
     SELF = 0
     SHIMO = 1

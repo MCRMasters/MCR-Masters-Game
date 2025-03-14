@@ -6,3 +6,4 @@ from dataclasses import dataclass
 class Player:
     uid: str
     index: int
+    score: int
