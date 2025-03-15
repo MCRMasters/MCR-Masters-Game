@@ -27,11 +27,11 @@ class Deck:
             self.tiles[i], self.tiles[j] = self.tiles[j], self.tiles[i]
 
     @property
-    def tiles_left(self) -> int:
+    def tiles_remaining(self) -> int:
         return self.draw_index_right - self.draw_index_left
 
     def draw_tiles(self, count: int) -> list[GameTile] | None:
-        remaining: int = self.tiles_left
+        remaining: int = self.tiles_remaining
         if remaining < count:
             return None
         drawn_tiles: list[GameTile] = self.tiles[
@@ -41,7 +41,7 @@ class Deck:
         return drawn_tiles
 
     def draw_tiles_right(self, count: int) -> list[GameTile] | None:
-        remaining: int = self.tiles_left
+        remaining: int = self.tiles_remaining
         if remaining < count:
             return None
         drawn_tiles: list[GameTile] = self.tiles[
