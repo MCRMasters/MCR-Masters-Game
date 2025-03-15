@@ -114,12 +114,7 @@ class RoundManager:
             ValueError: 다음 턴 타입이 유효하지 않을 경우. (next_seat_after_action의
                 현재 구조상 도달할 수 없으나 이후 해당함수의 변경에 대비해 설정)
         """
-        if previous_turn_type == TurnType.DISCARD:
-            self.current_player_seat = self.current_player_seat.next_seat
-        elif previous_action is not None:
-            self.current_player_seat = self.current_player_seat.next_seat_after_action(
-                action=previous_action,
-            )
+        self.move_current_player_seat_to_next(previous_action=previous_action)
         match previous_turn_type.next_turn:
             case TurnType.TSUMO:
                 self.do_tsumo(previous_turn_type=previous_turn_type)
