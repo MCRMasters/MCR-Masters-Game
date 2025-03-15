@@ -316,9 +316,6 @@ class GameManager:
         self.action_id = 0
 
     def increase_action_id(self) -> None:
-        """
-        action_id를 1 증가
-        """
         self.action_id += 1
 
 
