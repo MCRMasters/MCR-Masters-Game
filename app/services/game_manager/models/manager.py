@@ -250,6 +250,8 @@ class RoundManager:
         이전 TurnType에 따라 패산의 왼쪽 또는 오른쪽에서 타일을 뽑음 뽑은 타일을
         현재 플레이어의 손패에 추가하고, Winning Condition을 설정한 후 가능한 action
         list들을 확인하고 플레이어에게 전송
+        is_next_replacement일 경우 tile_deck.tiles_left > 0 인 상황에서 previous
+            action이 실행됨이 이 함수 외부에서 보장되어야 함
 
         Args:
             previous_turn_type (TurnType): 이전 턴의 타입
