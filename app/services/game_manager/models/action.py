@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 
-from app.services.game_manager.models.enums import ActionType, RelativeSeat
+from app.services.game_manager.models.enums import RelativeSeat
+from app.services.game_manager.models.types import ActionType
 
 
 @dataclass(order=True)

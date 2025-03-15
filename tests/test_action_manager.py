@@ -1,8 +1,9 @@
 import pytest
 
 from app.services.game_manager.models.action import Action
-from app.services.game_manager.models.enums import ActionType, RelativeSeat
+from app.services.game_manager.models.enums import RelativeSeat
 from app.services.game_manager.models.manager import ActionManager
+from app.services.game_manager.models.types import ActionType
 
 
 @pytest.mark.parametrize(
