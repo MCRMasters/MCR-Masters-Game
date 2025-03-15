@@ -151,7 +151,10 @@ class RoundManager:
         # TODO: Discard 후 Action 확인 로직 구현
         return []
 
-    def send_discard_actions_and_wait(self, actions_lists: list[list[Action]]) -> None:
+    def call_discard_actions_and_wait_api(
+        self,
+        actions_lists: list[list[Action]],
+    ) -> None:
         """
         Discard 후 Action들을 플레이어에게 전송하고 응답을 대기
 
@@ -201,7 +204,10 @@ class RoundManager:
         return []
 
     # TODO
-    def send_tsumo_actions_and_wait(self, actions_lists: list[list[Action]]) -> None:
+    def call_send_tsumo_actions_and_wait_api(
+        self,
+        actions_lists: list[list[Action]],
+    ) -> None:
         """
         Tsumo 후 수행 가능한 Action list 플레이어에게 전송하고 응답을 대기
 
@@ -264,7 +270,7 @@ class RoundManager:
             previous_turn_type=previous_turn_type,
         )
         actions_lists: list[list[Action]] = self.check_actions_after_tsumo()
-        self.send_tsumo_actions_and_wait(actions_lists=actions_lists)
+        self.call_send_tsumo_actions_and_wait_api(actions_lists=actions_lists)
 
 
 class GameManager:
