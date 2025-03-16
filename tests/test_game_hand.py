@@ -4,8 +4,9 @@ from copy import deepcopy
 import pytest
 
 from app.services.game_manager.models.call_block import CallBlock
-from app.services.game_manager.models.enums import CallBlockType, GameTile
+from app.services.game_manager.models.enums import GameTile
 from app.services.game_manager.models.hand import GameHand
+from app.services.game_manager.models.types import CallBlockType
 
 
 @pytest.mark.parametrize(

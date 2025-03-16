@@ -26,20 +26,30 @@ class Deck:
             j = randbelow(i + 1)
             self.tiles[i], self.tiles[j] = self.tiles[j], self.tiles[i]
 
-    def draw_tiles(self, count: int) -> list[GameTile] | None:
-        remaining: int = self.draw_index_right - self.draw_index_left
+    @property
+    def tiles_remaining(self) -> int:
+        return self.draw_index_right - self.draw_index_left
+
+    def draw_tiles(self, count: int) -> list[GameTile]:
+        remaining: int = self.tiles_remaining
         if remaining < count:
-            return None
+            raise ValueError(
+                "Not enough tiles remaining. Requested: "
+                "{count}, Available: {remaining}",
+            )
         drawn_tiles: list[GameTile] = self.tiles[
             self.draw_index_left : self.draw_index_left + count
         ]
         self.draw_index_left += count
         return drawn_tiles
 
-    def draw_tiles_right(self, count: int) -> list[GameTile] | None:
-        remaining: int = self.draw_index_right - self.draw_index_left
+    def draw_tiles_right(self, count: int) -> list[GameTile]:
+        remaining: int = self.tiles_remaining
         if remaining < count:
-            return None
+            raise ValueError(
+                "Not enough tiles remaining. Requested: "
+                "{count}, Available: {remaining}",
+            )
         drawn_tiles: list[GameTile] = self.tiles[
             self.draw_index_right - count : self.draw_index_right
         ]
@@ -47,7 +57,9 @@ class Deck:
         return drawn_tiles
 
     def draw_haipai(self) -> list[GameTile]:
-        tiles = self.draw_tiles(Deck.HAIPAI_TILES)
-        if tiles is None:
-            raise ValueError("Not enough tiles in the deck to draw haipai")
-        return tiles
+        if self.tiles_remaining < Deck.HAIPAI_TILES:
+            raise ValueError(
+                "Not enough tiles in the deck to draw haipai. Requested: "
+                "{Deck.HAIPAI_TILES}, Available: {self.tiles_remaining}",
+            )
+        return self.draw_tiles(Deck.HAIPAI_TILES)
