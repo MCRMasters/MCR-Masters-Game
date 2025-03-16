@@ -257,6 +257,11 @@ class RoundManager:
             previous_turn_type (TurnType): 이전 턴의 타입
         """
         drawn_tiles: list[GameTile] | None
+        if self.tile_deck.HAIPAI_TILES < 1:
+            raise ValueError(
+                "Not enough tiles remaining. "
+                "Requested: {1}, Available: {self.tile_deck.HAIPAI_TILES}",
+            )
         if previous_turn_type.is_next_replacement:
             drawn_tiles = self.tile_deck.draw_tiles_right(1)
         else:
