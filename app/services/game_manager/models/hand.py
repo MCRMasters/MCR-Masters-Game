@@ -99,18 +99,21 @@ class GameHand:
         priority: RelativeSeat,
         winning_condition: GameWinningConditions,
     ) -> list[Action]:
+        result: list[Action] = []
         if winning_condition.winning_tile is None:
             raise ValueError(
-                "[GameHand.get_possible_chii_actions]tile is none",
+                "[GameHand.get_possible_pon_actions]tile is none",
             )
         tile: GameTile = winning_condition.winning_tile
-        return (
-            [Action(type=ActionType.PON, seat_priority=priority, tile=tile)]
-            if self.tiles.get(tile, 0) >= 2
+        if (
+            self.tiles.get(tile, 0) >= 2
             and not winning_condition.is_last_tile_in_the_game
             and winning_condition.is_discarded
-            else []
-        )
+        ):
+            result.append(
+                Action(type=ActionType.PON, seat_priority=priority, tile=tile),
+            )
+        return result
 
     def get_possible_kan_actions(
         self,
@@ -120,7 +123,7 @@ class GameHand:
         result: list[Action] = []
         if winning_condition.winning_tile is None:
             raise ValueError(
-                "[GameHand.get_possible_chii_actions]tile is none",
+                "[GameHand.get_possible_kan_actions]tile is none",
             )
         tile: GameTile = winning_condition.winning_tile
         if winning_condition.is_last_tile_in_the_game:
