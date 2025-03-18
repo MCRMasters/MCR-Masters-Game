@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from enum import Enum, IntEnum
 
+from app.services.game_manager.models.enums import AbsoluteSeat, GameTile
+
 
 class BlockType(Enum):
     SEQUENCE = 0
@@ -16,6 +18,10 @@ class Wind(IntEnum):
     SOUTH = 28
     WEST = 29
     NORTH = 30
+
+    @staticmethod
+    def create_from_absolute_seat(seat: AbsoluteSeat) -> Wind:
+        return Wind(seat + Wind.EAST)
 
 
 class Tile(IntEnum):
@@ -114,6 +120,10 @@ class Tile(IntEnum):
 
     # Flower tile (F)
     F0 = 34
+
+    @staticmethod
+    def create_from_game_tile(game_tile: GameTile) -> Tile:
+        return Tile.F0 if game_tile.is_flower else Tile(game_tile.value)
 
     @property
     def is_honor(self) -> bool:

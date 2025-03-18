@@ -4,6 +4,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from itertools import batched
 
+from app.services.game_manager.models.hand import GameHand
 from app.services.score_calculator.block.block import Block
 from app.services.score_calculator.enums.enums import Tile
 
@@ -26,6 +27,16 @@ class Hand:
         for tile_index in tiles:
             _tiles[tile_index] += 1
         return Hand(tiles=_tiles, call_blocks=deepcopy(call_blocks))
+
+    @staticmethod
+    def create_from_game_hand(hand: GameHand) -> Hand:
+        _tiles = [0] * 34
+        _call_blocks = []
+        for tile in hand.tiles:
+            _tiles[tile] += hand.tiles[tile]
+        for call_block in hand.call_blocks:
+            _call_blocks.append(Block.create_from_call_block(call_block))
+        return Hand(tiles=_tiles, call_blocks=_call_blocks)
 
     def __repr__(self) -> str:
         """Return a string representation of the Hand.

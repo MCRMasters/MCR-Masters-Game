@@ -1,6 +1,10 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Final
 
+from app.services.game_manager.models.call_block import CallBlock
+from app.services.game_manager.models.types import CallBlockType
 from app.services.score_calculator.enums.enums import BlockType, Tile
 
 SEQUENCE_SIZE: Final[int] = 3
@@ -28,6 +32,28 @@ class Block:
     type: BlockType
     tile: Tile
     is_opened: bool = False
+
+    @staticmethod
+    def create_from_call_block(block: CallBlock) -> Block:
+        _type: BlockType
+        match block.type:
+            case CallBlockType.CHII:
+                _type = BlockType.SEQUENCE
+            case CallBlockType.PUNG:
+                _type = BlockType.TRIPLET
+            case (
+                CallBlockType.AN_KONG
+                | CallBlockType.DAIMIN_KONG
+                | CallBlockType.SHOMIN_KONG
+            ):
+                _type = BlockType.QUAD
+            case _:
+                raise ValueError("Unknown Call Block Type.")
+        return Block(
+            type=_type,
+            tile=Tile(block.first_tile),
+            is_opened=(block.type == CallBlockType.AN_KONG),
+        )
 
     @property
     def is_sequence(self) -> bool:

@@ -78,6 +78,9 @@ ignore = [
     "PLR2004",  # Magic value using in comparision
 ]
 
+[tool.ruff.lint.per-file-ignores]
+"**/tests/*.py" = ["ARG001", "PLR0913"]
+
 [tool.ruff.lint.mccabe]
 max-complexity = 10
 

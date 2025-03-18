@@ -12,13 +12,16 @@ class TurnType(IntEnum):
     CHII = 5
     PON = 6
     FLOWER = 7
+    ROBBING_KONG = 8
 
     @property
     def next_turn(self) -> TurnType:
         return (
             TurnType.DISCARD
             if self in {TurnType.TSUMO, TurnType.CHII, TurnType.PON}
-            else TurnType.TSUMO
+            else (
+                TurnType.ROBBING_KONG if self == TurnType.SHOMIN_KAN else TurnType.TSUMO
+            )
         )
 
     @property
@@ -28,6 +31,7 @@ class TurnType(IntEnum):
             TurnType.DAIMIN_KAN,
             TurnType.AN_KAN,
             TurnType.FLOWER,
+            TurnType.ROBBING_KONG,
         }
 
     @property

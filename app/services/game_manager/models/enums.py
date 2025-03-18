@@ -51,6 +51,10 @@ class RelativeSeat(IntEnum):
     TOI = 2
     KAMI = 3
 
+    @staticmethod
+    def create_from_absolute_seats(current_seat: int, target_seat: int) -> RelativeSeat:
+        return RelativeSeat((target_seat - current_seat + 4) % 4)
+
 
 class GameTile(IntEnum):
     # Manzu tiles (M)
@@ -104,6 +108,26 @@ class GameTile(IntEnum):
     F5 = 39
     F6 = 40
     F7 = 41
+
+    @property
+    def is_honor(self) -> bool:
+        return GameTile.Z1 <= self.value <= GameTile.Z7
+
+    @property
+    def is_number(self) -> bool:
+        return GameTile.M1 <= self.value <= GameTile.S9
+
+    @property
+    def is_flower(self) -> bool:
+        return GameTile.F0 <= self.value <= GameTile.F7
+
+    @property
+    def number(self) -> int:
+        return self.value % 9 + 1 if self.is_number else 0
+
+    @property
+    def type(self) -> str:
+        return self.name[0]
 
     @classmethod
     def all_tiles(cls) -> range:
