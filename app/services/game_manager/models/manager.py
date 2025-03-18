@@ -18,9 +18,14 @@ from app.services.game_manager.models.player import (
     Player,
     PlayerDataReceived,
 )
-from app.services.game_manager.models.types import TurnType
+from app.services.game_manager.models.types import ActionType, TurnType
 from app.services.game_manager.models.winning_conditions import (
     GameWinningConditions,
+)
+from app.services.score_calculator.hand.hand import Hand
+from app.services.score_calculator.score_calculator import ScoreCalculator
+from app.services.score_calculator.winning_conditions.winning_conditions import (
+    WinningConditions,
 )
 
 
@@ -55,8 +60,8 @@ class RoundManager:
         """
         self.game_manager: GameManager = game_manager
         self.tile_deck: Deck
-        self.hand_list: list[GameHand]
-        self.kawa_list: list[list[GameTile]]
+        self.hands: list[GameHand]
+        self.kawas: list[list[GameTile]]
         self.visible_tiles_count: Counter[GameTile]
         self.winning_conditions: GameWinningConditions
         self.seat_to_player_index: dict[AbsoluteSeat, int] = {}
@@ -70,11 +75,11 @@ class RoundManager:
         패산, 손패, default Winning Condition 등 Round에 필요한 기본 데이터들을 설정
         """
         self.tile_deck = Deck()
-        self.hand_list = [
+        self.hands = [
             GameHand.create_from_tiles(tiles=self.tile_deck.draw_haipai())
             for _ in range(GameManager.MAX_PLAYERS)
         ]
-        self.kawa_list = [[] for _ in range(GameManager.MAX_PLAYERS)]
+        self.kawas = [[] for _ in range(GameManager.MAX_PLAYERS)]
         self.visible_tiles_count = Counter()
         self.winning_conditions = GameWinningConditions.create_default_conditions()
         self.action_manager = None
@@ -101,9 +106,11 @@ class RoundManager:
         self,
         previous_turn_type: TurnType,
         previous_action: Action | None = None,
+        discarded_tile: GameTile | None = None,
     ) -> None:
         """
         이전 TurnType과 수행한 Action에 따라 다음 턴으로 진행함
+        쯔모 해야하는데 패산에 남은 타일이 없는 경우 유국
 
         Args:
             previous_turn_type (TurnType): 이전 턴의 타입
@@ -117,46 +124,109 @@ class RoundManager:
         self.move_current_player_seat_to_next(previous_action=previous_action)
         match previous_turn_type.next_turn:
             case TurnType.TSUMO:
+                if self.tile_deck.tiles_remaining == 0:
+                    self.end_round_as_draw()
+                    return
                 self.do_tsumo(previous_turn_type=previous_turn_type)
             case TurnType.DISCARD:
-                self.do_discard(previous_turn_type=previous_turn_type)
+                if discarded_tile is None:
+                    raise ValueError(
+                        "[GameHand.get_possible_chii_actions]tile is none",
+                    )
+                self.do_discard(
+                    previous_turn_type=previous_turn_type,
+                    discarded_tile=discarded_tile,
+                )
+            case TurnType.ROBBING_KONG:
+                if previous_action is None:
+                    raise ValueError(
+                        "[GameHand.get_possible_chii_actions]action is none",
+                    )
+                self.do_robbing_kong(
+                    previous_turn_type=previous_turn_type,
+                    robbing_tile=previous_action.tile,
+                )
             case _:
                 raise ValueError(
                     "[RoundManager.proceed_next_turn] Invalid next turn type.",
                 )
 
-    def do_discard(self, previous_turn_type: TurnType) -> None:
+    def do_robbing_kong(
+        self,
+        previous_turn_type: TurnType,
+        robbing_tile: GameTile,
+    ) -> None:
+        self.set_winning_conditions(
+            winning_tile=robbing_tile,
+            previous_turn_type=previous_turn_type,
+        )
+        actions_lists: list[list[Action]] = self.check_actions_after_shomin_kong()
+        self.send_actions_and_wait_api(actions_lists=actions_lists)
+
+    def check_actions_after_shomin_kong(self) -> list[list[Action]]:
+        result: list[list[Action]] = [[] for _ in range(GameManager.MAX_PLAYERS)]
+        for player_seat in AbsoluteSeat:
+            if player_seat == self.current_player_seat:
+                continue
+            result[player_seat].extend(
+                self.get_possible_hu_choices(player_seat=player_seat),
+            )
+        return result
+
+    def do_discard(
+        self,
+        previous_turn_type: TurnType,
+        discarded_tile: GameTile,
+    ) -> None:
         """
         현재 턴에 Discard를 수행
-
-        이 메서드는 추후 구현되어야 함
 
         Args:
             previous_turn_type (TurnType): 이전 턴의 타입
         """
-        # TODO: Discard 로직 구현, 이후 check_action_after_discard로 진입
-        pass
+        self.hands[self.current_player_seat].apply_discard(discarded_tile)
+        self.visible_tiles_count[discarded_tile] += 1
+        self.set_winning_conditions(
+            winning_tile=discarded_tile,
+            previous_turn_type=previous_turn_type,
+        )
+
+        actions_lists: list[list[Action]] = self.check_actions_after_discard()
+        self.send_actions_and_wait_api(actions_lists=actions_lists)
 
     def check_actions_after_discard(self) -> list[list[Action]]:
         """
         Discard 후 가능한 Action들을 확인
-
-        이 메서드는 추후 구현되어야 함
 
         Returns:
             list[list[Action]]: Discard 후 가능한 Action들의 플레이어별 list,
             lst[player_absolute_seat_index]로 해당 플레이어의 Action list에
             접근가능
         """
-        # TODO: Discard 후 Action 확인 로직 구현
-        return []
+        result: list[list[Action]] = [[] for _ in range(GameManager.MAX_PLAYERS)]
+        for player_seat in AbsoluteSeat:
+            if player_seat == self.current_player_seat:
+                continue
+            result[player_seat].extend(
+                self.get_possible_hu_choices(player_seat=player_seat),
+            )
+            result[player_seat].extend(
+                self.get_possible_kan_choices(player_seat=player_seat),
+            )
+            result[player_seat].extend(
+                self.get_possible_pon_choices(player_seat=player_seat),
+            )
+            result[player_seat].extend(
+                self.get_possible_chii_choices(player_seat=player_seat),
+            )
+        return result
 
-    def call_discard_actions_and_wait_api(
+    def send_actions_and_wait_api(
         self,
         actions_lists: list[list[Action]],
     ) -> None:
         """
-        Discard 후 Action들을 플레이어에게 전송하고 응답을 대기
+        Discard/Robbing Kong 후 Action들을 플레이어에게 전송하고 응답을 대기
 
         이 메서드는 추후 구현되어야 함
         """
@@ -191,20 +261,136 @@ class RoundManager:
         # TODO: 유국 처리 로직 구현
         pass
 
-    # TODO
     def check_actions_after_tsumo(self) -> list[list[Action]]:
         """
-        Tsumo 후 가능한 Action들을 확인합니다.
+        Tsumo 후 가능한 Action들을 확인
 
         Returns:
             list[list[Action]]: Tsumo 후 가능한 Action들의 플레이어별 list,
             lst[player_absolute_seat_index]로 해당 플레이어의 Action list에 접근가능
         """
-        # TODO: Tsumo 후 Action 확인 로직 구현
-        return []
+        result: list[list[Action]] = [[] for _ in range(GameManager.MAX_PLAYERS)]
+        result[self.current_player_seat].extend(
+            self.get_possible_hu_choices(player_seat=self.current_player_seat),
+        )
+        result[self.current_player_seat].extend(
+            self.get_possible_kan_choices(player_seat=self.current_player_seat),
+        )
+        result[self.current_player_seat].extend(
+            self.get_possible_flower_choices(player_seat=self.current_player_seat),
+        )
+        return result
+
+    def get_possible_hu_choices(self, player_seat: AbsoluteSeat) -> list[Action]:
+        _hand: Hand = Hand.create_from_game_hand(hand=self.hands[player_seat])
+        if self.winning_conditions.winning_tile is None:
+            raise ValueError("[RoundManager.get_possible_hu_choices]tile is none")
+        if self.winning_conditions.is_discarded:
+            _hand.tiles[self.winning_conditions.winning_tile] += 1
+        return (
+            [
+                Action(
+                    type=ActionType.HU,
+                    seat_priority=RelativeSeat.create_from_absolute_seats(
+                        current_seat=self.current_player_seat,
+                        target_seat=player_seat,
+                    ),
+                    tile=self.winning_conditions.winning_tile,
+                ),
+            ]
+            if ScoreCalculator(
+                hand=_hand,
+                winning_conditions=WinningConditions.create_from_game_winning_conditions(
+                    game_winning_conditions=self.winning_conditions,
+                    seat_wind=player_seat,
+                    round_wind=AbsoluteSeat(self.game_manager.current_round // 4),
+                ),
+            ).result.total_score
+            >= GameManager.MINIMUM_HU_SCORE
+            else []
+        )
+
+    def get_possible_flower_choices(self, player_seat: AbsoluteSeat) -> list[Action]:
+        result: list[Action] = []
+        if (
+            self.winning_conditions.is_discarded
+            or self.winning_conditions.is_last_tile_in_the_game
+            or player_seat != self.current_player_seat
+        ):
+            return result
+        for flower_tile in self.hands[player_seat].tiles & Counter(
+            map(GameTile, GameTile.flower_tiles()),
+        ):
+            result.append(
+                Action(
+                    type=ActionType.FLOWER,
+                    seat_priority=RelativeSeat.create_from_absolute_seats(
+                        current_seat=self.current_player_seat,
+                        target_seat=player_seat,
+                    ),
+                    tile=flower_tile,
+                ),
+            )
+        return result
+
+    def get_possible_chii_choices(self, player_seat: AbsoluteSeat) -> list[Action]:
+        result: list[Action] = []
+        relative_seat: RelativeSeat = RelativeSeat.create_from_absolute_seats(
+            current_seat=self.current_player_seat,
+            target_seat=player_seat,
+        )
+        if (
+            not self.winning_conditions.is_discarded
+            or self.winning_conditions.is_last_tile_in_the_game
+            or relative_seat != RelativeSeat.SHIMO
+        ):
+            return result
+        result.extend(
+            self.hands[player_seat].get_possible_chii_actions(
+                priority=relative_seat,
+                winning_condition=self.winning_conditions,
+            ),
+        )
+        return result
+
+    def get_possible_pon_choices(self, player_seat: AbsoluteSeat) -> list[Action]:
+        result: list[Action] = []
+        relative_seat: RelativeSeat = RelativeSeat.create_from_absolute_seats(
+            current_seat=self.current_player_seat,
+            target_seat=player_seat,
+        )
+        if (
+            not self.winning_conditions.is_discarded
+            or self.winning_conditions.is_last_tile_in_the_game
+            or relative_seat == RelativeSeat.SELF
+        ):
+            return result
+        result.extend(
+            self.hands[player_seat].get_possible_pon_actions(
+                priority=relative_seat,
+                winning_condition=self.winning_conditions,
+            ),
+        )
+        return result
+
+    def get_possible_kan_choices(self, player_seat: AbsoluteSeat) -> list[Action]:
+        result: list[Action] = []
+        relative_seat: RelativeSeat = RelativeSeat.create_from_absolute_seats(
+            current_seat=self.current_player_seat,
+            target_seat=player_seat,
+        )
+        if self.winning_conditions.is_last_tile_in_the_game:
+            return result
+        result.extend(
+            self.hands[player_seat].get_possible_kan_actions(
+                priority=relative_seat,
+                winning_condition=self.winning_conditions,
+            ),
+        )
+        return result
 
     # TODO
-    def call_send_tsumo_actions_and_wait_api(
+    def send_tsumo_actions_and_wait_api(
         self,
         actions_lists: list[list[Action]],
     ) -> None:
@@ -250,13 +436,11 @@ class RoundManager:
         이전 TurnType에 따라 패산의 왼쪽 또는 오른쪽에서 타일을 뽑음 뽑은 타일을
         현재 플레이어의 손패에 추가하고, Winning Condition을 설정한 후 가능한 action
         list들을 확인하고 플레이어에게 전송
-        is_next_replacement일 경우 tile_deck.tiles_left > 0 인 상황에서 previous
-            action이 실행됨이 이 함수 외부에서 보장되어야 함
 
         Args:
             previous_turn_type (TurnType): 이전 턴의 타입
         """
-        drawn_tiles: list[GameTile] | None
+        drawn_tiles: list[GameTile]
         if self.tile_deck.HAIPAI_TILES < 1:
             raise ValueError(
                 "Not enough tiles remaining. "
@@ -266,10 +450,7 @@ class RoundManager:
             drawn_tiles = self.tile_deck.draw_tiles_right(1)
         else:
             drawn_tiles = self.tile_deck.draw_tiles(1)
-        if drawn_tiles is None:
-            self.end_round_as_draw()
-            return
-        self.hand_list[self.current_player_seat].apply_tsumo(
+        self.hands[self.current_player_seat].apply_tsumo(
             tile=drawn_tiles[0],
         )
         self.set_winning_conditions(
@@ -277,7 +458,7 @@ class RoundManager:
             previous_turn_type=previous_turn_type,
         )
         actions_lists: list[list[Action]] = self.check_actions_after_tsumo()
-        self.call_send_tsumo_actions_and_wait_api(actions_lists=actions_lists)
+        self.send_tsumo_actions_and_wait_api(actions_lists=actions_lists)
 
 
 class GameManager:
@@ -285,9 +466,6 @@ class GameManager:
     MAX_PLAYERS: Final[int] = 4
 
     def __init__(self) -> None:
-        """
-        GameManager 인스턴스 초기화
-        """
         self.player_list: list[Player]
         self.round_manager: RoundManager
         self.current_round: Round

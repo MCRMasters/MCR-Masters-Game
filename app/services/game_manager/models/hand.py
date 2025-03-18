@@ -5,9 +5,11 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Final
 
+from app.services.game_manager.models.action import Action
 from app.services.game_manager.models.call_block import CallBlock
-from app.services.game_manager.models.enums import GameTile
-from app.services.game_manager.models.types import CallBlockType
+from app.services.game_manager.models.enums import GameTile, RelativeSeat
+from app.services.game_manager.models.types import ActionType, CallBlockType
+from app.services.game_manager.models.winning_conditions import GameWinningConditions
 
 
 @dataclass
@@ -59,6 +61,100 @@ class GameHand:
         self.tiles[tile] -= count
         if self.tiles[tile] == 0:
             del self.tiles[tile]
+
+    def get_possible_chii_actions(
+        self,
+        priority: RelativeSeat,
+        winning_condition: GameWinningConditions,
+    ) -> list[Action]:
+        result: list[Action] = []
+        if winning_condition.winning_tile is None:
+            raise ValueError(
+                "[GameHand.get_possible_chii_actions]tile is none",
+            )
+        tile: GameTile = winning_condition.winning_tile
+        if winning_condition.is_last_tile_in_the_game or not tile.is_number:
+            return result
+        for delta in [-2, -1, 0]:
+            chii_tile_list: list[GameTile] = [
+                GameTile(new_tile)
+                for index in range(3)
+                if (raw_tile := tile + delta + index) in GameTile
+                and (new_tile := GameTile(raw_tile)).type == tile.type
+                and new_tile in self.tiles
+                and new_tile != tile
+            ]
+            if len(chii_tile_list) == 2:
+                result.append(
+                    Action(
+                        type=ActionType.CHII,
+                        seat_priority=priority,
+                        tile=GameTile(tile + delta),
+                    ),
+                )
+        return result
+
+    def get_possible_pon_actions(
+        self,
+        priority: RelativeSeat,
+        winning_condition: GameWinningConditions,
+    ) -> list[Action]:
+        if winning_condition.winning_tile is None:
+            raise ValueError(
+                "[GameHand.get_possible_chii_actions]tile is none",
+            )
+        tile: GameTile = winning_condition.winning_tile
+        return (
+            [Action(type=ActionType.PON, seat_priority=priority, tile=tile)]
+            if self.tiles.get(tile, 0) >= 2
+            and not winning_condition.is_last_tile_in_the_game
+            and winning_condition.is_discarded
+            else []
+        )
+
+    def get_possible_kan_actions(
+        self,
+        priority: RelativeSeat,
+        winning_condition: GameWinningConditions,
+    ) -> list[Action]:
+        result: list[Action] = []
+        if winning_condition.winning_tile is None:
+            raise ValueError(
+                "[GameHand.get_possible_chii_actions]tile is none",
+            )
+        tile: GameTile = winning_condition.winning_tile
+        if winning_condition.is_last_tile_in_the_game:
+            return result
+        # 대명깡
+        if winning_condition.is_discarded:
+            if self.tiles.get(tile, 0) >= 3:
+                result.append(
+                    Action(type=ActionType.KAN, seat_priority=priority, tile=tile),
+                )
+        else:
+            # 안깡
+            for an_kan_tile, count in self.tiles.items():
+                if count == 4 or (count == 3 and an_kan_tile == tile):
+                    result.append(
+                        Action(
+                            type=ActionType.KAN,
+                            seat_priority=priority,
+                            tile=an_kan_tile,
+                        ),
+                    )
+            # 소명깡
+            for block in self.call_blocks:
+                if block.type == CallBlockType.PUNG and (
+                    block.first_tile == tile or block.first_tile in self.tiles
+                ):
+                    result.append(
+                        Action(
+                            type=ActionType.KAN,
+                            seat_priority=priority,
+                            tile=block.first_tile,
+                        ),
+                    )
+        return result
 
     def _apply_chii(self, block: CallBlock) -> None:
         delete_tile_list: list[GameTile] = [

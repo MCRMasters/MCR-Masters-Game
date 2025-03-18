@@ -1,7 +1,7 @@
 import pytest
 
 from app.services.game_manager.models.action import Action
-from app.services.game_manager.models.enums import RelativeSeat
+from app.services.game_manager.models.enums import GameTile, RelativeSeat
 from app.services.game_manager.models.manager import ActionManager
 from app.services.game_manager.models.types import ActionType
 
@@ -11,18 +11,50 @@ from app.services.game_manager.models.types import ActionType
     [
         (
             [
-                Action(type=ActionType.CHII, seat_priority=RelativeSeat.SHIMO),
-                Action(type=ActionType.PON, seat_priority=RelativeSeat.KAMI),
+                Action(
+                    type=ActionType.CHII,
+                    seat_priority=RelativeSeat.SHIMO,
+                    tile=GameTile.M1,
+                ),
+                Action(
+                    type=ActionType.PON,
+                    seat_priority=RelativeSeat.KAMI,
+                    tile=GameTile.M1,
+                ),
             ],
-            [Action(type=ActionType.PON, seat_priority=RelativeSeat.KAMI)],
-            Action(type=ActionType.PON, seat_priority=RelativeSeat.KAMI),
+            [
+                Action(
+                    type=ActionType.PON,
+                    seat_priority=RelativeSeat.KAMI,
+                    tile=GameTile.M1,
+                ),
+            ],
+            Action(
+                type=ActionType.PON,
+                seat_priority=RelativeSeat.KAMI,
+                tile=GameTile.M1,
+            ),
         ),
         (
             [
-                Action(type=ActionType.CHII, seat_priority=RelativeSeat.SHIMO),
-                Action(type=ActionType.PON, seat_priority=RelativeSeat.KAMI),
+                Action(
+                    type=ActionType.CHII,
+                    seat_priority=RelativeSeat.SHIMO,
+                    tile=GameTile.M1,
+                ),
+                Action(
+                    type=ActionType.PON,
+                    seat_priority=RelativeSeat.KAMI,
+                    tile=GameTile.M1,
+                ),
             ],
-            [Action(type=ActionType.CHII, seat_priority=RelativeSeat.KAMI)],
+            [
+                Action(
+                    type=ActionType.CHII,
+                    seat_priority=RelativeSeat.KAMI,
+                    tile=GameTile.M1,
+                ),
+            ],
             None,
         ),
     ],
