@@ -1,6 +1,5 @@
 import asyncio
 from typing import Any
-from uuid import UUID
 
 from fastapi import WebSocket, status
 
@@ -11,12 +10,12 @@ from app.services.game_manager.models.player import PlayerData
 
 class RoomManager:
     def __init__(self) -> None:
-        self.active_connections: dict[int, dict[UUID, WebSocket]] = {}
+        self.active_connections: dict[int, dict[str, WebSocket]] = {}
         self.game_managers: dict[int, GameManager] = {}
-        self.id_to_player_data: dict[UUID, PlayerData] = {}
+        self.id_to_player_data: dict[str, PlayerData] = {}
         self.lock = asyncio.Lock()
 
-    def is_connected(self, game_id: int, user_id: UUID) -> bool:
+    def is_connected(self, game_id: int, user_id: str) -> bool:
         return (
             game_id in self.active_connections
             and user_id in self.active_connections[game_id]
@@ -26,7 +25,7 @@ class RoomManager:
         self,
         websocket: WebSocket,
         game_id: int,
-        user_id: UUID,
+        user_id: str,
         user_nickname: str,
     ) -> None:
         async with self.lock:
@@ -52,7 +51,7 @@ class RoomManager:
                 self.game_managers[game_id].init_game(player_datas=player_datas)
                 self.game_managers[game_id].start_game()
 
-    async def disconnect(self, game_id: int, user_id: UUID) -> None:
+    async def disconnect(self, game_id: int, user_id: str) -> None:
         async with self.lock:
             if game_id in self.active_connections:
                 self.active_connections[game_id].pop(user_id, None)
@@ -64,7 +63,7 @@ class RoomManager:
         self,
         message: Any,
         game_id: int,
-        exclude_user_id: UUID | None = None,
+        exclude_user_id: str | None = None,
     ) -> None:
         async with self.lock:
             if game_id in self.active_connections:
@@ -79,7 +78,7 @@ class RoomManager:
         self,
         message: Any,
         game_id: int,
-        user_id: UUID,
+        user_id: str,
     ) -> None:
         async with self.lock:
             if (

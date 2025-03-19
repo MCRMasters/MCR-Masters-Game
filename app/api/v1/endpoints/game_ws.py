@@ -1,5 +1,3 @@
-from uuid import UUID
-
 from fastapi import APIRouter, Depends, WebSocket, status
 
 from app.api.v1.endpoints.game_websocket_handler import GameWebSocketHandler
@@ -15,24 +13,16 @@ async def game_websocket_endpoint(
     game_id: int,
     room_manager: RoomManager = Depends(get_room_manager),
 ):
-    user_id_str = websocket.headers.get("user_id")
+    user_id = websocket.headers.get("user_id")
     nickname = websocket.headers.get("nickname")
 
-    if not user_id_str or not nickname:
+    if not user_id or not nickname:
         await websocket.close(
             code=status.WS_1008_POLICY_VIOLATION,
             reason="user_id or nickname header missing",
         )
         return
 
-    try:
-        user_id = UUID(user_id_str)
-    except Exception:
-        await websocket.close(
-            code=status.WS_1008_POLICY_VIOLATION,
-            reason="Invalid user_id format",
-        )
-        return
     handler = GameWebSocketHandler(
         websocket=websocket,
         game_id=game_id,

@@ -1,5 +1,4 @@
 import asyncio
-from uuid import UUID, uuid4
 
 import pytest
 
@@ -30,13 +29,13 @@ class DummyRoomManager:
         self.websocket = None
         self.sent_messages = []
 
-    async def connect(self, websocket, game_id: int, user_id: UUID, user_nickname: str):
+    async def connect(self, websocket, game_id: int, user_id: str, user_nickname: str):
         self.websocket = websocket
 
-    async def disconnect(self, game_id: int, user_id: UUID):
+    async def disconnect(self, game_id: int, user_id: str):
         pass
 
-    async def send_personal_message(self, message, game_id: int, user_id: UUID):
+    async def send_personal_message(self, message, game_id: int, user_id: str):
         self.sent_messages.append(message)
         await self.websocket.send_json(message)
 
@@ -44,7 +43,7 @@ class DummyRoomManager:
         self,
         message,
         game_id: int,
-        exclude_user_id: UUID | None = None,
+        exclude_user_id: str | None = None,
     ):
         self.sent_messages.append(message)
 
@@ -53,8 +52,13 @@ class DummyRoomManager:
 async def test_handle_ping():
     dummy_ws = DummyWebSocket()
     dummy_rm = DummyRoomManager()
-    await dummy_rm.connect(dummy_ws, game_id=1, user_id=uuid4(), user_nickname="Tester")
-    user_id = uuid4()
+    await dummy_rm.connect(
+        dummy_ws,
+        game_id=1,
+        user_id="0123456789",
+        user_nickname="Tester",
+    )
+    user_id = "0123456789"
     handler = GameWebSocketHandler(
         websocket=dummy_ws,
         game_id=1,
@@ -74,8 +78,13 @@ async def test_handle_ping():
 async def test_unknown_action():
     dummy_ws = DummyWebSocket()
     dummy_rm = DummyRoomManager()
-    await dummy_rm.connect(dummy_ws, game_id=1, user_id=uuid4(), user_nickname="Tester")
-    user_id = uuid4()
+    await dummy_rm.connect(
+        dummy_ws,
+        game_id=1,
+        user_id="0123456789",
+        user_nickname="Tester",
+    )
+    user_id = "0123456789"
     handler = GameWebSocketHandler(
         websocket=dummy_ws,
         game_id=1,
@@ -104,7 +113,7 @@ async def test_unknown_action():
 async def test_handle_connection_success():
     dummy_ws = DummyWebSocket()
     dummy_rm = DummyRoomManager()
-    user_id = uuid4()
+    user_id = "0123456789"
     handler = GameWebSocketHandler(
         websocket=dummy_ws,
         game_id=1,

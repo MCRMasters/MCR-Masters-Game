@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -9,7 +8,7 @@ from pydantic import BaseModel
 # 필요한 필드 추후 추가
 @dataclass
 class Player:
-    uid: UUID
+    uid: str
     nickname: str
     index: int
     score: int
@@ -29,5 +28,5 @@ class Player:
 
 # Core Server에서 넘어오는 정보에 따라 필드 추후 추가, 필요시 schema로 이동
 class PlayerData(BaseModel):
-    id: UUID
+    id: str
     nickname: str

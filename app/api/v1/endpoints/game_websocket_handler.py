@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from uuid import UUID
-
 from fastapi import WebSocket, status
 from starlette.websockets import WebSocketDisconnect
 
@@ -16,13 +14,13 @@ class GameWebSocketHandler:
         websocket: WebSocket,
         game_id: int,
         room_manager: RoomManager,
-        user_id: UUID,
+        user_id: str,
         user_nickname: str,
     ):
         self.websocket: WebSocket = websocket
         self.game_id: int = game_id
         self.room_manager: RoomManager = room_manager
-        self.user_id: UUID = user_id
+        self.user_id: str = user_id
         self.user_nickname: str = user_nickname
 
     async def handle_connection(self) -> bool:
