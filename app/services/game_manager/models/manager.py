@@ -16,7 +16,7 @@ from app.services.game_manager.models.enums import (
 from app.services.game_manager.models.hand import GameHand
 from app.services.game_manager.models.player import (
     Player,
-    PlayerDataReceived,
+    PlayerData,
 )
 from app.services.game_manager.models.types import ActionType, TurnType
 from app.services.game_manager.models.winning_conditions import (
@@ -471,7 +471,7 @@ class GameManager:
         self.current_round: Round
         self.action_id: int
 
-    def init_game(self, player_datas: list[PlayerDataReceived]) -> None:
+    def init_game(self, player_datas: list[PlayerData]) -> None:
         """
         주어진 플레이어 데이터를 이용해 게임을 초기화
 
@@ -497,6 +497,9 @@ class GameManager:
         self.round_manager.init_round()
         self.current_round = Round.E1
         self.action_id = 0
+
+    def start_game(self) -> None:
+        self.round_manager.start_round()
 
     def increase_action_id(self) -> None:
         self.action_id += 1
