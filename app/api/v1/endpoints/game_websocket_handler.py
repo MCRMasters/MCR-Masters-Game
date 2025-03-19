@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Callable, Coroutine
+from typing import Any
+
 from fastapi import WebSocket, status
 from starlette.websockets import WebSocketDisconnect
 
@@ -69,7 +72,10 @@ class GameWebSocketHandler:
                     ).model_dump(),
                 )
                 continue
-            message_handlers = {
+            message_handlers: dict[
+                GameWebSocketActionType,
+                Callable[[WebSocketMessage], Coroutine[Any, Any, None]],
+            ] = {
                 GameWebSocketActionType.PING: self.handle_ping,
             }
             handler = message_handlers.get(message.action)
