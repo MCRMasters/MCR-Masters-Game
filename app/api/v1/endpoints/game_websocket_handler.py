@@ -99,7 +99,6 @@ class GameWebSocketHandler:
 
     async def handle_disconnection(self) -> None:
         await self.room_manager.disconnect(game_id=self.game_id, user_id=self.user_id)
-        await self._notify_user_left()
 
     async def handle_error(self, e: Exception) -> None:
         print(f"[GameWebSocketHandler] WebSocket error: {e}")
@@ -119,15 +118,4 @@ class GameWebSocketHandler:
             message=response.model_dump(),
             game_id=self.game_id,
             exclude_user_id=self.user_id,
-        )
-
-    async def _notify_user_left(self) -> None:
-        response = WebSocketResponse(
-            status="success",
-            action=GameWebSocketActionType.USER_LEFT,
-            data={"user_id": str(self.user_id)},
-        )
-        await self.room_manager.broadcast(
-            message=response.model_dump(),
-            game_id=self.game_id,
         )

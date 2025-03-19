@@ -8,7 +8,6 @@ class GameWebSocketActionType(str, Enum):
     PING = "ping"
     PONG = "pong"
     USER_JOINED = "user_joined"
-    USER_LEFT = "user_left"
     ERROR = "error"
     DRAW = "draw"
     DISCARD = "discard"
