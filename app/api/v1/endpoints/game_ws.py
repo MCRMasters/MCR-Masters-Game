@@ -15,9 +15,6 @@ async def game_websocket_endpoint(
     game_id: int,
     room_manager: RoomManager = Depends(get_room_manager),
 ):
-    """
-    /games/{game_id} 경로로 들어오는 WebSocket 연결을 처리
-    """
     user_id_str = websocket.headers.get("user_id")
     nickname = websocket.headers.get("nickname")
 

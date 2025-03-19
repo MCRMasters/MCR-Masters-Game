@@ -11,7 +11,6 @@ from app.services.game_manager.models.player import PlayerData
 
 class RoomManager:
     def __init__(self) -> None:
-        # game_id를 키로, 각 게임의 연결을 {user_id: WebSocket} 형태로 관리합니다.
         self.active_connections: dict[int, dict[UUID, WebSocket]] = {}
         self.game_managers: dict[int, GameManager] = {}
         self.id_to_player_data: dict[UUID, PlayerData] = {}
@@ -30,14 +29,9 @@ class RoomManager:
         user_id: UUID,
         user_nickname: str,
     ) -> None:
-        """
-        WebSocket 연결을 등록합니다.
-        """
         async with self.lock:
-            # 해당 game_id에 연결 목록이 없으면 생성
             if game_id not in self.active_connections:
                 self.active_connections[game_id] = {}
-            # 이미 user_id가 연결되어 있다면 기존 연결 닫기
             if self.is_connected(game_id, user_id):
                 existing_ws = self.active_connections[game_id][user_id]
                 await existing_ws.close(
@@ -59,14 +53,10 @@ class RoomManager:
                 self.game_managers[game_id].start_game()
 
     async def disconnect(self, game_id: int, user_id: UUID) -> None:
-        """
-        WebSocket 연결을 해제합니다.
-        """
         async with self.lock:
             if game_id in self.active_connections:
                 self.active_connections[game_id].pop(user_id, None)
                 self.id_to_player_data.pop(user_id, None)
-                # 해당 게임에 연결된 클라이언트가 없으면 game_id 제거
                 if not self.active_connections[game_id]:
                     del self.active_connections[game_id]
 
@@ -76,10 +66,6 @@ class RoomManager:
         game_id: int,
         exclude_user_id: UUID | None = None,
     ) -> None:
-        """
-        해당 game_id에 연결된 모든 WebSocket에 메시지를 전송합니다.
-        필요하면 exclude_user_id에 해당하는 클라이언트는 제외합니다.
-        """
         async with self.lock:
             if game_id in self.active_connections:
                 for uid, connection in self.active_connections[game_id].items():
@@ -95,9 +81,6 @@ class RoomManager:
         game_id: int,
         user_id: UUID,
     ) -> None:
-        """
-        특정 user_id에게만 메시지를 전송합니다.
-        """
         async with self.lock:
             if (
                 game_id in self.active_connections
@@ -109,5 +92,4 @@ class RoomManager:
                     print(f"Failed to send personal message to {user_id}: {e}")
 
 
-# 전역 room_manager 인스턴스를 생성해서 의존성 주입을 통해 사용
 room_manager = RoomManager()

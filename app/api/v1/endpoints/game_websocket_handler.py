@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from uuid import UUID
 
 from fastapi import WebSocket, status
@@ -20,26 +22,19 @@ class GameWebSocketHandler:
         self.websocket: WebSocket = websocket
         self.game_id: int = game_id
         self.room_manager: RoomManager = room_manager
-
         self.user_id: UUID = user_id
         self.user_nickname: str = user_nickname
 
     async def handle_connection(self) -> bool:
         try:
-            # room manager에 등록
             await self.room_manager.connect(
                 websocket=self.websocket,
                 game_id=self.game_id,
                 user_id=self.user_id,
                 user_nickname=self.user_nickname,
             )
-
-            # 연결 알림
             await self._notify_user_joined()
-
-            # 메시지 처리 루프
             await self.handle_messages()
-
         except MCRDomainError as e:
             await self.websocket.close(
                 code=status.WS_1008_POLICY_VIOLATION,
@@ -53,7 +48,6 @@ class GameWebSocketHandler:
             await self.handle_error(e)
             return False
         finally:
-            # 예외/연결종료 등으로 빠져나올 때 정리
             await self.room_manager.disconnect(
                 game_id=self.game_id,
                 user_id=self.user_id,
@@ -77,13 +71,9 @@ class GameWebSocketHandler:
                     ).model_dump(),
                 )
                 continue
-
-            # 메시지 액션별 처리
             message_handlers = {
                 GameWebSocketActionType.PING: self.handle_ping,
-                # 필요하다면 추가 액션: DRAW, DISCARD 등...
             }
-
             handler = message_handlers.get(message.action)
             if handler:
                 await handler(message)
@@ -97,7 +87,6 @@ class GameWebSocketHandler:
                 )
 
     async def handle_ping(self, _: WebSocketMessage) -> None:
-        """PING 요청에 대한 PONG 응답"""
         await self.room_manager.send_personal_message(
             WebSocketResponse(
                 status="success",
@@ -109,14 +98,10 @@ class GameWebSocketHandler:
         )
 
     async def handle_disconnection(self) -> None:
-        """연결 해제 처리"""
-        # 연결 해제에 따른 게임 상태 업데이트 등
         await self.room_manager.disconnect(game_id=self.game_id, user_id=self.user_id)
-        # 다른 유저에게 알림
         await self._notify_user_left()
 
     async def handle_error(self, e: Exception) -> None:
-        """내부 에러 처리"""
         print(f"[GameWebSocketHandler] WebSocket error: {e}")
         if self.websocket.client_state.CONNECTED:
             await self.websocket.close(
@@ -125,9 +110,6 @@ class GameWebSocketHandler:
             )
 
     async def _notify_user_joined(self) -> None:
-        """
-        특정 유저가 게임에 들어왔음을 브로드캐스트 하는 예시
-        """
         response = WebSocketResponse(
             status="success",
             action=GameWebSocketActionType.USER_JOINED,
@@ -140,9 +122,6 @@ class GameWebSocketHandler:
         )
 
     async def _notify_user_left(self) -> None:
-        """
-        특정 유저가 게임에서 나갔음을 브로드캐스트 하는 예시
-        """
         response = WebSocketResponse(
             status="success",
             action=GameWebSocketActionType.USER_LEFT,
