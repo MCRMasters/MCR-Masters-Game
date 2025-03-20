@@ -93,67 +93,44 @@ class GameWebSocketHandler:
                     ).model_dump(),
                 )
 
+    async def send_error(self, message: str) -> None:
+        error_response = WebSocketResponse(
+            status="error",
+            action=GameWebSocketActionType.ERROR,
+            data={"message": message},
+        ).model_dump()
+        await self.room_manager.send_personal_message(
+            error_response,
+            self.game_id,
+            self.user_id,
+        )
+
     async def handle_discard(self, message: WebSocketMessage) -> None:
         game_manager: GameManager = self.room_manager.game_managers[self.game_id]
 
         if not message.data or "tile" not in message.data:
-            error_response = WebSocketResponse(
-                status="error",
-                action=GameWebSocketActionType.ERROR,
-                data={"message": "No Tile in message"},
-            ).model_dump()
-            await self.room_manager.send_personal_message(
-                error_response,
-                self.game_id,
-                self.user_id,
-            )
+            await self.send_error("No Tile in message")
             return
 
         try:
             tile_int = int(message.data["tile"])
         except (ValueError, TypeError):
-            error_response = WebSocketResponse(
-                status="error",
-                action=GameWebSocketActionType.ERROR,
-                data={"message": "Tile is not integer"},
-            ).model_dump()
-            await self.room_manager.send_personal_message(
-                error_response,
-                self.game_id,
-                self.user_id,
-            )
+            await self.send_error("Tile is not integer")
             return
 
         try:
             tile = GameTile(tile_int)
         except ValueError:
-            error_response = WebSocketResponse(
-                status="error",
-                action=GameWebSocketActionType.ERROR,
-                data={"message": "Tile is not valid"},
-            ).model_dump()
-            await self.room_manager.send_personal_message(
-                error_response,
-                self.game_id,
-                self.user_id,
-            )
+            await self.send_error("Tile is not valid")
             return
+
         result_dict: dict[str, AbsoluteSeat] = game_manager.get_valid_discard_result(
             self.user_id,
             tile,
         )
 
         if not result_dict:
-            error_response = WebSocketResponse(
-                status="error",
-                action=GameWebSocketActionType.ERROR,
-                data={"message": "No tile in hand"},
-            ).model_dump()
-            await self.room_manager.send_personal_message(
-                error_response,
-                self.game_id,
-                self.user_id,
-            )
+            await self.send_error("No tile in hand")
             return
 
         discard_response = WebSocketResponse(
