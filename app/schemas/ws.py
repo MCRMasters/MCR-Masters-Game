@@ -11,8 +11,6 @@ class GameWebSocketActionType(str, Enum):
     ERROR = "error"
     DRAW = "draw"
     DISCARD = "discard"
-    GAME_STARTED = "game_started"
-    WEBSOCKET_URL = "websocket_url"
 
 
 class WebSocketResponse(BaseModel):
