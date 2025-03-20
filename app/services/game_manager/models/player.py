@@ -19,7 +19,7 @@ class Player:
         index: int,
     ) -> Player:
         return Player(
-            uid=player_data.id,
+            uid=player_data.uid,
             nickname=PlayerData.nickname,
             index=index,
             score=0,
@@ -28,5 +28,5 @@ class Player:
 
 # Core Server에서 넘어오는 정보에 따라 필드 추후 추가, 필요시 schema로 이동
 class PlayerData(BaseModel):
-    id: str
+    uid: str
     nickname: str
