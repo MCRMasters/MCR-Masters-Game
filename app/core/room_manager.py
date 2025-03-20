@@ -14,6 +14,13 @@ class RoomManager:
         self.game_managers: dict[int, GameManager] = {}
         self.id_to_player_data: dict[str, PlayerData] = {}
         self.lock = asyncio.Lock()
+        self.next_game_id: int = 1
+
+    async def generate_game_id(self) -> int:
+        async with self.lock:
+            game_id = self.next_game_id
+            self.next_game_id += 1
+            return game_id
 
     def is_connected(self, game_id: int, user_id: str) -> bool:
         return (
