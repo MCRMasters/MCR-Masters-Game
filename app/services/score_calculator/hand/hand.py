@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from itertools import batched
 
 from app.services.game_manager.models.hand import GameHand
+from app.services.game_manager.models.types import CallBlockType
 from app.services.score_calculator.block.block import Block
 from app.services.score_calculator.enums.enums import Tile
 
@@ -36,6 +37,18 @@ class Hand:
             _tiles[tile] += hand.tiles[tile]
         for call_block in hand.call_blocks:
             _call_blocks.append(Block.create_from_call_block(call_block))
+            match call_block.type:
+                case CallBlockType.CHII:
+                    for i in range(3):
+                        _tiles[call_block.first_tile + i] += 1
+                case CallBlockType.PUNG:
+                    _tiles[call_block.first_tile] += 3
+                case (
+                    CallBlockType.AN_KONG
+                    | CallBlockType.SHOMIN_KONG
+                    | CallBlockType.DAIMIN_KONG
+                ):
+                    _tiles[call_block.first_tile] += 4
         return Hand(tiles=_tiles, call_blocks=_call_blocks)
 
     def __repr__(self) -> str:

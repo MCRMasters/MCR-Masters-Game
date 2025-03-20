@@ -65,6 +65,7 @@ class RoundManager:
         self.visible_tiles_count: Counter[GameTile]
         self.winning_conditions: GameWinningConditions
         self.seat_to_player_index: dict[AbsoluteSeat, int] = {}
+        self.player_index_to_seat: dict[int, AbsoluteSeat] = {}
         self.action_manager: ActionManager | None
         self.current_player_seat: AbsoluteSeat
 
@@ -467,6 +468,7 @@ class GameManager:
 
     def __init__(self) -> None:
         self.player_list: list[Player]
+        self.player_uid_to_index: dict[str, int]
         self.round_manager: RoundManager
         self.current_round: Round
         self.action_id: int
@@ -493,10 +495,25 @@ class GameManager:
                     index=index,
                 ),
             )
+            self.player_uid_to_index[player_data.uid] = index
         self.round_manager = RoundManager(self)
         self.round_manager.init_round()
         self.current_round = Round.E1
         self.action_id = 0
+
+    def get_valid_discard_result(
+        self,
+        uid: str,
+        tile: GameTile,
+    ) -> dict[str, AbsoluteSeat]:
+        player_seat: AbsoluteSeat = self.round_manager.player_index_to_seat[
+            self.player_uid_to_index[uid]
+        ]
+        return (
+            {"seat": player_seat}
+            if tile in self.round_manager.hands[player_seat].tiles
+            else {}
+        )
 
     def start_game(self) -> None:
         self.round_manager.start_round()

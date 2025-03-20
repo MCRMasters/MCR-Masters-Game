@@ -46,7 +46,7 @@ class RoomManager:
                 )
             self.active_connections[game_id][user_id] = websocket
             self.id_to_player_data[user_id] = PlayerData(
-                id=user_id,
+                uid=user_id,
                 nickname=user_nickname,
             )
             if len(self.active_connections[game_id]) == GameManager.MAX_PLAYERS:
