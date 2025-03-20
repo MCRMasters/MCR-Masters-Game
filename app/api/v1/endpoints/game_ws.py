@@ -15,10 +15,7 @@ async def start_game(
 ) -> JSONResponse:
     try:
         game_id: int = await room_manager.generate_game_id()
-
-        websocket_url: str = (
-            f"ws://{request.url.hostname}:{request.url.port}/api/v1/games/{game_id}"
-        )
+        websocket_url: str = f"ws://{request.url.netloc}/api/v1/games/{game_id}"
         return JSONResponse(content={"websocket_url": websocket_url})
     except Exception as e:
         raise HTTPException(
