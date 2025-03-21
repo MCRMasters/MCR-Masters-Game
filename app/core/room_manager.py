@@ -4,14 +4,13 @@ from typing import Any
 from fastapi import WebSocket, status
 
 from app.dependencies.game_manager import get_game_manager
-from app.services.game_manager.models.manager import GameManager
 from app.services.game_manager.models.player import PlayerData
 
 
 class RoomManager:
     def __init__(self) -> None:
         self.active_connections: dict[int, dict[str, WebSocket]] = {}
-        self.game_managers: dict[int, GameManager] = {}
+        self.game_managers: dict[int, Any] = {}  # GameManager
         self.id_to_player_data: dict[str, PlayerData] = {}
         self.lock = asyncio.Lock()
         self.next_game_id: int = 1
@@ -49,12 +48,14 @@ class RoomManager:
                 uid=user_id,
                 nickname=user_nickname,
             )
+            from app.services.game_manager.models.manager import GameManager
+
             if len(self.active_connections[game_id]) == GameManager.MAX_PLAYERS:
                 player_datas: list[PlayerData] = [
                     self.id_to_player_data[uid]
                     for uid in self.active_connections[game_id]
                 ]
-                self.game_managers[game_id] = get_game_manager()
+                self.game_managers[game_id] = get_game_manager(game_id=game_id)
                 self.game_managers[game_id].init_game(player_datas=player_datas)
                 self.game_managers[game_id].start_game()
 

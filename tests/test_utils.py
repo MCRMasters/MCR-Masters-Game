@@ -21,7 +21,7 @@ def name_to_tile(name: str) -> Tile:
 def raw_string_to_hand_class(string: str) -> Hand:
     tile_stack: list[str] = []
     block_type: BlockType
-    tiles_count: list[int] = [0] * 34
+    tiles_count: list[int] = [0] * 35
     blocks_list: list[Block] = []
     four: int = 4
     call_mode: bool = False
