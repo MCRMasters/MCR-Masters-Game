@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import Counter
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Final
+from typing import ClassVar, Final
 
 from app.services.game_manager.models.action import Action
 from app.services.game_manager.models.call_block import CallBlock
@@ -19,6 +19,9 @@ class GameHand:
     tsumo_tile: GameTile | None = None
 
     FULL_HAND_SIZE: Final[int] = 14
+    FLOWER_TILES: ClassVar[Counter[GameTile]] = Counter(
+        map(GameTile, GameTile.flower_tiles()),
+    )
 
     @staticmethod
     def create_from_tiles(tiles: list[GameTile]) -> GameHand:
@@ -29,14 +32,37 @@ class GameHand:
         )
 
     @property
+    def has_flower(self) -> bool:
+        return bool(self.FLOWER_TILES & self.tiles)
+
+    def apply_flower(self) -> None:
+        if not (self.FLOWER_TILES & self.tiles):
+            raise ValueError("Cannot apply flower: hand doesn't have flower tile")
+        if self.tsumo_tile and self.tsumo_tile.is_flower:
+            self.apply_discard(self.tsumo_tile)
+        else:
+            for flower_tile in GameTile.flower_tiles():
+                if flower_tile in self.tiles:
+                    self.apply_discard(GameTile(flower_tile))
+                    break
+
+    @property
     def hand_size(self) -> int:
         return sum(self.tiles.values()) + len(self.call_blocks) * 3
 
-    def apply_tsumo(self, tile: GameTile) -> None:
+    def apply_tsumo(self, tile: GameTile) -> GameTile:
         if self.hand_size >= GameHand.FULL_HAND_SIZE:
             raise ValueError("Cannot apply tsumo: hand is already full.")
         self.tiles[tile] += 1
         self.tsumo_tile = tile
+        return tile
+
+    def get_rightmost_tile(self) -> GameTile | None:
+        if self.tsumo_tile:
+            return self.tsumo_tile
+        if not self.tiles:
+            return None
+        return sorted(self.tiles.keys())[-1]
 
     def apply_discard(self, tile: GameTile) -> None:
         if tile not in self.tiles:

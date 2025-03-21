@@ -43,6 +43,11 @@ class ScoreCalculator:
     def __init__(self, hand: Hand, winning_conditions: WinningConditions):
         self.hand: Hand = hand
         self.winning_conditions: WinningConditions = winning_conditions
+        self._highest_result = ScoreResult(yaku_score_list=[])
+        self.is_blocks_divided = False
+        print(self.hand)
+        if self.hand.tiles[Tile.F0] > 0:
+            return
         tenpai_hand = deepcopy(hand)
         tenpai_hand.tiles[self.winning_conditions.winning_tile] -= 1
         self.winning_conditions.count_tenpai_tiles = len(
@@ -50,8 +55,7 @@ class ScoreCalculator:
                 tenpai_hand=tenpai_hand,
             ),
         )
-        self._highest_result = ScoreResult(yaku_score_list=[])
-        self.is_blocks_divided = False
+
         self._calculate()
 
     @property

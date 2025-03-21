@@ -24,17 +24,20 @@ class Hand:
 
     @staticmethod
     def create_from_tiles(tiles: list[Tile], call_blocks: list[Block]) -> Hand:
-        _tiles = [0] * 34
+        _tiles = [0] * 35
         for tile_index in tiles:
             _tiles[tile_index] += 1
         return Hand(tiles=_tiles, call_blocks=deepcopy(call_blocks))
 
     @staticmethod
     def create_from_game_hand(hand: GameHand) -> Hand:
-        _tiles = [0] * 34
+        _tiles = [0] * 35
         _call_blocks = []
         for tile in hand.tiles:
-            _tiles[tile] += hand.tiles[tile]
+            if not tile.is_flower:
+                _tiles[tile] += hand.tiles[tile]
+            else:
+                _tiles[Tile.F0] += hand.tiles[tile]
         for call_block in hand.call_blocks:
             _call_blocks.append(Block.create_from_call_block(call_block))
             match call_block.type:

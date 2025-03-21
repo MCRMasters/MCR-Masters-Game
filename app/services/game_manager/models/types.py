@@ -3,6 +3,21 @@ from __future__ import annotations
 from enum import IntEnum
 
 
+class GameEventType(IntEnum):
+    TIMEOUT = -1
+    DISCARD = 0
+    TSUMO = 1
+    SHOMIN_KAN = 2
+    DAIMIN_KAN = 3
+    AN_KAN = 4
+    CHII = 5
+    PON = 6
+    FLOWER = 7
+    INIT_HAIPAI = 8
+    INIT_FLOWER = 9
+    HU = 10
+
+
 class TurnType(IntEnum):
     TSUMO = 0
     DISCARD = 1
