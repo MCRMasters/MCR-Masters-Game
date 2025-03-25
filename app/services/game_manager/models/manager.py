@@ -211,7 +211,7 @@ class RoundManager:
             )
         return result
 
-    # TODO async로 바꾸기
+    # TODO event queue를 해 action을 처리하는 방식으로 바꾸기
     async def do_discard(
         self,
         previous_turn_type: TurnType,
