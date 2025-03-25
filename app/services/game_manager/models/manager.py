@@ -1,10 +1,18 @@
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import heapq
 from collections import Counter
+from collections.abc import Awaitable
 from random import shuffle
-from typing import Final
+from typing import Any, Final, TypeVar
 
+from fastapi import Depends
+
+from app.core.room_manager import RoomManager
+from app.dependencies.room_manager import get_room_manager
+from app.schemas.ws import MessageEventType
 from app.services.game_manager.models.action import Action
 from app.services.game_manager.models.deck import Deck
 from app.services.game_manager.models.enums import (
@@ -13,12 +21,13 @@ from app.services.game_manager.models.enums import (
     RelativeSeat,
     Round,
 )
+from app.services.game_manager.models.event import GameEvent
 from app.services.game_manager.models.hand import GameHand
 from app.services.game_manager.models.player import (
     Player,
     PlayerData,
 )
-from app.services.game_manager.models.types import ActionType, TurnType
+from app.services.game_manager.models.types import ActionType, GameEventType, TurnType
 from app.services.game_manager.models.winning_conditions import (
     GameWinningConditions,
 )
@@ -86,24 +95,52 @@ class RoundManager:
         self.action_manager = None
         self.current_player_seat = AbsoluteSeat.EAST
 
-    def start_round(self) -> None:
+    async def start_round(self, event_queue: asyncio.Queue) -> None:
         """
         Round의 진입점
 
         배패의 화패를 빼는것으로부터 시작
         """
-        self.do_flower_action_in_init_hand()
+        for seat in AbsoluteSeat:
+            init_data = {
+                "hand": self.hands[seat].tiles.elements(),
+            }
+            init_event = GameEvent(
+                event_type=GameEventType.INIT_HAIPAI,
+                player_seat=seat,
+                data=init_data,
+                action_id=self.game_manager.action_id,
+            )
+            await event_queue.put(init_event)
+        await self.do_flower_action_in_init_hand(event_queue)
 
     # TODO
-    def do_flower_action_in_init_hand(self) -> None:
+    async def do_flower_action_in_init_hand(self, event_queue: asyncio.Queue) -> None:
         """
         배패의 화패를 동->남->서->북 순으로 전부 빼는 함수
 
         이후 self.do_tsumo()로 진입
         """
-        pass
+        for seat in AbsoluteSeat:
+            data: dict[str, Any] = {
+                "new_tiles": [],
+            }
+            while self.hands[seat].has_flower:
+                self.hands[seat].apply_flower()
+                new_tile: GameTile = self.tile_deck.draw_tiles_right(1)[0]
+                self.hands[seat].apply_tsumo(tile=new_tile)
+                data["new_tiles"].append(new_tile)
+            self.game_manager.increase_action_id()
+            event = GameEvent(
+                event_type=GameEventType.INIT_FLOWER,
+                player_seat=seat,
+                data=data,
+                action_id=self.game_manager.action_id,
+            )
+            await event_queue.put(event)
+        await self.do_tsumo(previous_turn_type=TurnType.DISCARD)
 
-    def proceed_next_turn(
+    async def proceed_next_turn(
         self,
         previous_turn_type: TurnType,
         previous_action: Action | None = None,
@@ -128,13 +165,13 @@ class RoundManager:
                 if self.tile_deck.tiles_remaining == 0:
                     self.end_round_as_draw()
                     return
-                self.do_tsumo(previous_turn_type=previous_turn_type)
+                await self.do_tsumo(previous_turn_type=previous_turn_type)
             case TurnType.DISCARD:
                 if discarded_tile is None:
                     raise ValueError(
                         "[GameHand.get_possible_chii_actions]tile is none",
                     )
-                self.do_discard(
+                await self.do_discard(
                     previous_turn_type=previous_turn_type,
                     discarded_tile=discarded_tile,
                 )
@@ -143,7 +180,7 @@ class RoundManager:
                     raise ValueError(
                         "[GameHand.get_possible_chii_actions]action is none",
                     )
-                self.do_robbing_kong(
+                await self.do_robbing_kong(
                     previous_turn_type=previous_turn_type,
                     robbing_tile=previous_action.tile,
                 )
@@ -152,7 +189,7 @@ class RoundManager:
                     "[RoundManager.proceed_next_turn] Invalid next turn type.",
                 )
 
-    def do_robbing_kong(
+    async def do_robbing_kong(
         self,
         previous_turn_type: TurnType,
         robbing_tile: GameTile,
@@ -162,7 +199,7 @@ class RoundManager:
             previous_turn_type=previous_turn_type,
         )
         actions_lists: list[list[Action]] = self.check_actions_after_shomin_kong()
-        self.send_actions_and_wait_api(actions_lists=actions_lists)
+        await self.send_actions_and_wait_api(actions_lists=actions_lists)
 
     def check_actions_after_shomin_kong(self) -> list[list[Action]]:
         result: list[list[Action]] = [[] for _ in range(GameManager.MAX_PLAYERS)]
@@ -174,17 +211,12 @@ class RoundManager:
             )
         return result
 
-    def do_discard(
+    # TODO event queue를 해 action을 처리하는 방식으로 바꾸기
+    async def do_discard(
         self,
         previous_turn_type: TurnType,
         discarded_tile: GameTile,
     ) -> None:
-        """
-        현재 턴에 Discard를 수행
-
-        Args:
-            previous_turn_type (TurnType): 이전 턴의 타입
-        """
         self.hands[self.current_player_seat].apply_discard(discarded_tile)
         self.visible_tiles_count[discarded_tile] += 1
         self.set_winning_conditions(
@@ -193,7 +225,7 @@ class RoundManager:
         )
 
         actions_lists: list[list[Action]] = self.check_actions_after_discard()
-        self.send_actions_and_wait_api(actions_lists=actions_lists)
+        await self.send_actions_and_wait_api(actions_lists=actions_lists)
 
     def check_actions_after_discard(self) -> list[list[Action]]:
         """
@@ -222,7 +254,8 @@ class RoundManager:
             )
         return result
 
-    def send_actions_and_wait_api(
+    # TODO
+    async def send_actions_and_wait_api(
         self,
         actions_lists: list[list[Action]],
     ) -> None:
@@ -390,20 +423,123 @@ class RoundManager:
         )
         return result
 
+    T = TypeVar("T")
+    DEFAULT_TURN_TIMEOUT: Final[float] = 60.0
+
+    async def safe_wait_for(
+        self,
+        coroutine: Awaitable[T],
+        timeout: float,
+    ) -> tuple[T | None, float]:
+        loop: asyncio.AbstractEventLoop = asyncio.get_running_loop()
+        start: float = loop.time()
+        try:
+            result = await asyncio.wait_for(coroutine, timeout=timeout)
+        except TimeoutError:
+            result = None
+        elapsed = loop.time() - start
+        return result, elapsed
+
     # TODO
-    def send_tsumo_actions_and_wait_api(
+    async def send_tsumo_actions_and_wait_api(
         self,
         actions_lists: list[list[Action]],
+        previous_turn_type: TurnType,
     ) -> None:
-        """
-        Tsumo 후 수행 가능한 Action list 플레이어에게 전송하고 응답을 대기
+        self.game_manager.increase_action_id()
+        if actions_lists[self.current_player_seat]:
+            message: dict[str, Any] = {
+                "event": MessageEventType.TSUMO_ACTIONS,
+                "actions": actions_lists[self.current_player_seat],
+                "action_id": self.game_manager.action_id,
+            }
+            await self.game_manager.room_manager.send_personal_message(
+                message=message,
+                game_id=self.game_manager.game_id,
+                user_id=self.game_manager.player_list[
+                    self.seat_to_player_index[self.current_player_seat]
+                ].uid,
+            )
 
-        이 메서드는 추후 구현되어야 함
-        """
-        # TODO: Tsumo와 수행 가능한 Action 전송 및 대기 로직 구현
-        # Discard와는 다르게 강제 진행하지 않아도 됨(타패 타이머와 Time을 공유하며
-        # action wait에 대한 timeout은 별도로 없음)
-        pass
+        response_event: GameEvent | None
+        elapsed_time: float
+        response_event, elapsed_time = await self.safe_wait_for(
+            self.game_manager.event_queue.get(),
+            self.DEFAULT_TURN_TIMEOUT,
+        )
+        self.game_manager.event_queue.task_done()
+        elapsed_time  # 나중에 추가시간 관리에 쓸 예정
+        if response_event is None:
+            rightmost_tile: GameTile | None = self.hands[
+                self.current_player_seat
+            ].get_rightmost_tile()
+            if not rightmost_tile:
+                raise ValueError("no tile in hand")
+            response_event = GameEvent(
+                event_type=GameEventType.DISCARD,
+                player_seat=self.current_player_seat,
+                action_id=self.game_manager.action_id,
+                data={
+                    "event": GameEventType.DISCARD,
+                    "tile": rightmost_tile,
+                },
+            )
+
+        await self.send_response_action(
+            response_action=response_event,
+            previous_turn_type=previous_turn_type,
+        )
+
+    # TODO 각종 GameEventType에 대응되는 send, 그리고 action 실행 라인 추가
+    async def send_response_action(
+        self,
+        response_action: GameEvent,
+        previous_turn_type: TurnType,
+    ) -> None:
+        match response_action.event_type:
+            case GameEventType.HU:
+                pass
+            case GameEventType.FLOWER:
+                pass
+            case GameEventType.AN_KAN:
+                await self.game_manager.room_manager.send_personal_message(
+                    message={
+                        "event": MessageEventType.AN_KAN,
+                        "player_seat": response_action.player_seat,
+                        "tile": response_action.data["tile"],
+                    },
+                    game_id=self.game_manager.game_id,
+                    user_id=self.game_manager.player_list[
+                        self.seat_to_player_index[response_action.player_seat]
+                    ].uid,
+                )
+                await self.game_manager.room_manager.broadcast(
+                    message={
+                        "event": MessageEventType.AN_KAN,
+                        "player_seat": response_action.player_seat,
+                        "tile": None,
+                    },
+                    game_id=self.game_manager.game_id,
+                    exclude_user_id=self.game_manager.player_list[
+                        self.seat_to_player_index[response_action.player_seat]
+                    ].uid,
+                )
+                # await self.do_ankan
+            case GameEventType.DISCARD:
+                self.hands[self.current_player_seat].apply_discard(
+                    tile=response_action.data["tile"],
+                )
+                await self.game_manager.room_manager.broadcast(
+                    message={
+                        "event": MessageEventType.DISCARD,
+                        "tile": response_action.data["tile"],
+                    },
+                    game_id=self.game_manager.game_id,
+                )
+                await self.do_discard(
+                    previous_turn_type=previous_turn_type,
+                    discarded_tile=response_action.data["tile"],
+                )
 
     def set_winning_conditions(
         self,
@@ -430,7 +566,7 @@ class RoundManager:
             previous_turn_type == TurnType.SHOMIN_KAN
         )
 
-    def do_tsumo(self, previous_turn_type: TurnType) -> None:
+    async def do_tsumo(self, previous_turn_type: TurnType) -> None:
         """
         현재 플레이어의 Tsumo 액션을 수행함
 
@@ -459,28 +595,32 @@ class RoundManager:
             previous_turn_type=previous_turn_type,
         )
         actions_lists: list[list[Action]] = self.check_actions_after_tsumo()
-        self.send_tsumo_actions_and_wait_api(actions_lists=actions_lists)
+        await self.send_tsumo_actions_and_wait_api(
+            actions_lists=actions_lists,
+            previous_turn_type=TurnType.TSUMO,
+        )
 
 
 class GameManager:
     MINIMUM_HU_SCORE: Final[int] = 8
     MAX_PLAYERS: Final[int] = 4
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        game_id: int,
+        room_manager: RoomManager = Depends(get_room_manager()),
+    ) -> None:
         self.player_list: list[Player]
         self.player_uid_to_index: dict[str, int]
         self.round_manager: RoundManager
         self.current_round: Round
         self.action_id: int
+        self.event_queue: asyncio.Queue[GameEvent]
+        self.game_id: int = game_id
+        self.room_manager: RoomManager = room_manager
+        self.game_end_event: asyncio.Event = asyncio.Event()
 
     def init_game(self, player_datas: list[PlayerData]) -> None:
-        """
-        주어진 플레이어 데이터를 이용해 게임을 초기화
-
-        Args:
-            player_datas (list[PlayerDataReceived]): Core Server에서 받은
-                플레이어 데이터 리스트
-        """
         if len(player_datas) != GameManager.MAX_PLAYERS:
             raise ValueError(
                 f"[GameManager] {GameManager.MAX_PLAYERS} players needed, "
@@ -500,6 +640,7 @@ class GameManager:
         self.round_manager.init_round()
         self.current_round = Round.E1
         self.action_id = 0
+        self.event_queue = asyncio.Queue()
 
     def get_valid_discard_result(
         self,
@@ -515,8 +656,21 @@ class GameManager:
             else {}
         )
 
-    def start_game(self) -> None:
-        self.round_manager.start_round()
+    async def enqueue_event(self, event: GameEvent) -> None:
+        try:
+            await self.event_queue.put(event)
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            print(f"Failed to enqueue event: {e}")
+
+    async def start_game(self) -> None:
+        await self.round_manager.start_round(event_queue=self.event_queue)
+        with contextlib.suppress(asyncio.CancelledError):
+            await self.game_end_event.wait()
+
+    def end_game(self) -> None:
+        self.game_end_event.set()
 
     def increase_action_id(self) -> None:
         self.action_id += 1

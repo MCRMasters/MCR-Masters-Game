@@ -13,6 +13,13 @@ class GameWebSocketActionType(str, Enum):
     DISCARD = "discard"
 
 
+class MessageEventType(str, Enum):
+    TSUMO_ACTIONS = "tsumo_actions"
+    DISCARD = "discard"
+    TSUMO = "tsumo"
+    AN_KAN = "an_kan"
+
+
 class WebSocketResponse(BaseModel):
     status: Literal["success", "error"]
     action: GameWebSocketActionType

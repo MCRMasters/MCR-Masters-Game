@@ -34,7 +34,7 @@ def print_hand(hand1: Hand):
 
 
 def test_print_output():
-    print_hand(Hand([0] * 34, []))
+    print_hand(Hand([0] * 35, []))
     print_hand(Hand.create_from_tiles([0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 8, 8], []))
     assert True
 
