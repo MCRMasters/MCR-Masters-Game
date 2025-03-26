@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import heapq
 from collections import Counter
 from collections.abc import Awaitable
@@ -26,6 +25,14 @@ from app.services.game_manager.models.hand import GameHand
 from app.services.game_manager.models.player import (
     Player,
     PlayerData,
+)
+from app.services.game_manager.models.round_fsm import (
+    DiscardState,
+    DrawState,
+    InitState,
+    RobbingKongState,
+    RoundState,
+    TsumoState,
 )
 from app.services.game_manager.models.types import ActionType, GameEventType, TurnType
 from app.services.game_manager.models.winning_conditions import (
@@ -78,12 +85,12 @@ class RoundManager:
         self.action_manager: ActionManager | None
         self.current_player_seat: AbsoluteSeat
 
-    def init_round(self) -> None:
-        """
-        round 초기화를 수행
+    async def run_round(self) -> None:
+        state: RoundState | None = InitState()
+        while state is not None:
+            state = await state.run(self)
 
-        패산, 손패, default Winning Condition 등 Round에 필요한 기본 데이터들을 설정
-        """
+    def init_round_data(self) -> None:
         self.tile_deck = Deck()
         self.hands = [
             GameHand.create_from_tiles(tiles=self.tile_deck.draw_haipai())
@@ -95,32 +102,18 @@ class RoundManager:
         self.action_manager = None
         self.current_player_seat = AbsoluteSeat.EAST
 
-    async def start_round(self, event_queue: asyncio.Queue) -> None:
-        """
-        Round의 진입점
-
-        배패의 화패를 빼는것으로부터 시작
-        """
+    async def send_init_events(self) -> None:
         for seat in AbsoluteSeat:
-            init_data = {
-                "hand": self.hands[seat].tiles.elements(),
-            }
+            init_data = {"hand": self.hands[seat].tiles.elements()}
             init_event = GameEvent(
                 event_type=GameEventType.INIT_HAIPAI,
                 player_seat=seat,
                 data=init_data,
                 action_id=self.game_manager.action_id,
             )
-            await event_queue.put(init_event)
-        await self.do_flower_action_in_init_hand(event_queue)
+            await self.game_manager.event_queue.put(init_event)
 
-    # TODO
-    async def do_flower_action_in_init_hand(self, event_queue: asyncio.Queue) -> None:
-        """
-        배패의 화패를 동->남->서->북 순으로 전부 빼는 함수
-
-        이후 self.do_tsumo()로 진입
-        """
+    async def do_init_flower_action(self) -> None:
         for seat in AbsoluteSeat:
             data: dict[str, Any] = {
                 "new_tiles": [],
@@ -137,8 +130,33 @@ class RoundManager:
                 data=data,
                 action_id=self.game_manager.action_id,
             )
-            await event_queue.put(event)
-        await self.do_tsumo(previous_turn_type=TurnType.DISCARD)
+            await self.game_manager.event_queue.put(event)
+
+    def get_next_state(
+        self,
+        previous_turn_type: TurnType,
+        previous_action: Action | None = None,
+        discarded_tile: GameTile | None = None,
+    ) -> RoundState:
+        self.move_current_player_seat_to_next(previous_action)
+        next_turn = previous_turn_type.next_turn
+
+        if next_turn == TurnType.TSUMO:
+            if self.tile_deck.tiles_remaining == 0:
+                return DrawState()
+            return TsumoState(previous_turn_type=previous_turn_type)
+        elif next_turn == TurnType.DISCARD:
+            if discarded_tile is None:
+                raise ValueError("Discard tile must be provided for DISCARD turn.")
+            return DiscardState(previous_turn_type, discarded_tile)
+        elif next_turn == TurnType.ROBBING_KONG:
+            if previous_action is None:
+                raise ValueError(
+                    "Previous action must be provided for ROBBING_KONG turn.",
+                )
+            return RobbingKongState(previous_turn_type, previous_action.tile)
+        else:
+            raise ValueError(f"Invalid next turn type: {next_turn}")
 
     async def proceed_next_turn(
         self,
@@ -500,7 +518,14 @@ class RoundManager:
             case GameEventType.HU:
                 pass
             case GameEventType.FLOWER:
-                pass
+                await self.game_manager.room_manager.broadcast(
+                    message={
+                        "event": MessageEventType.FLOWER,
+                        "player_seat": response_action.player_seat,
+                        "tile": None,
+                    },
+                    game_id=self.game_manager.game_id,
+                )
             case GameEventType.AN_KAN:
                 await self.game_manager.room_manager.send_personal_message(
                     message={
@@ -604,21 +629,21 @@ class RoundManager:
 class GameManager:
     MINIMUM_HU_SCORE: Final[int] = 8
     MAX_PLAYERS: Final[int] = 4
+    TOTAL_ROUNDS: Final[int] = 16
 
     def __init__(
         self,
         game_id: int,
         room_manager: RoomManager = Depends(get_room_manager()),
     ) -> None:
+        self.game_id: int = game_id
+        self.room_manager: RoomManager = room_manager
         self.player_list: list[Player]
         self.player_uid_to_index: dict[str, int]
         self.round_manager: RoundManager
         self.current_round: Round
         self.action_id: int
         self.event_queue: asyncio.Queue[GameEvent]
-        self.game_id: int = game_id
-        self.room_manager: RoomManager = room_manager
-        self.game_end_event: asyncio.Event = asyncio.Event()
 
     def init_game(self, player_datas: list[PlayerData]) -> None:
         if len(player_datas) != GameManager.MAX_PLAYERS:
@@ -637,10 +662,18 @@ class GameManager:
             )
             self.player_uid_to_index[player_data.uid] = index
         self.round_manager = RoundManager(self)
-        self.round_manager.init_round()
         self.current_round = Round.E1
         self.action_id = 0
         self.event_queue = asyncio.Queue()
+
+    async def start_game(self) -> None:
+        for _ in range(self.TOTAL_ROUNDS):
+            await self.round_manager.run_round()
+        await self.submit_game_result()
+
+    # TODO submit game result to core sever
+    async def submit_game_result(self) -> None:
+        pass
 
     def get_valid_discard_result(
         self,
@@ -663,14 +696,6 @@ class GameManager:
             raise
         except Exception as e:
             print(f"Failed to enqueue event: {e}")
-
-    async def start_game(self) -> None:
-        await self.round_manager.start_round(event_queue=self.event_queue)
-        with contextlib.suppress(asyncio.CancelledError):
-            await self.game_end_event.wait()
-
-    def end_game(self) -> None:
-        self.game_end_event.set()
 
     def increase_action_id(self) -> None:
         self.action_id += 1
