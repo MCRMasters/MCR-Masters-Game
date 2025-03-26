@@ -18,6 +18,7 @@ class MessageEventType(str, Enum):
     DISCARD = "discard"
     TSUMO = "tsumo"
     AN_KAN = "an_kan"
+    FLOWER = "flower"
 
 
 class WebSocketResponse(BaseModel):
