@@ -9,7 +9,9 @@ from typing import Any, Final, TypeVar
 
 from fastapi import Depends
 
+from app.core.network_service import NetworkService
 from app.core.room_manager import RoomManager
+from app.dependencies.network_service import get_network_service
 from app.dependencies.room_manager import get_room_manager
 from app.schemas.ws import MessageEventType
 from app.services.game_manager.models.action import Action
@@ -337,6 +339,8 @@ class RoundManager:
         _hand: Hand = Hand.create_from_game_hand(hand=self.hands[player_seat])
         if self.winning_conditions.winning_tile is None:
             raise ValueError("[RoundManager.get_possible_hu_choices]tile is none")
+        if self.winning_conditions.winning_tile.is_flower:
+            return []
         if self.winning_conditions.is_discarded:
             _hand.tiles[self.winning_conditions.winning_tile] += 1
         return (
@@ -471,7 +475,7 @@ class RoundManager:
                 "actions": actions_lists[self.current_player_seat],
                 "action_id": self.game_manager.action_id,
             }
-            await self.game_manager.room_manager.send_personal_message(
+            await self.game_manager.network_service.send_personal_message(
                 message=message,
                 game_id=self.game_manager.game_id,
                 user_id=self.game_manager.player_list[
@@ -518,7 +522,7 @@ class RoundManager:
             case GameEventType.HU:
                 pass
             case GameEventType.FLOWER:
-                await self.game_manager.room_manager.broadcast(
+                await self.game_manager.network_service.broadcast(
                     message={
                         "event": MessageEventType.FLOWER,
                         "player_seat": response_action.player_seat,
@@ -527,7 +531,7 @@ class RoundManager:
                     game_id=self.game_manager.game_id,
                 )
             case GameEventType.AN_KAN:
-                await self.game_manager.room_manager.send_personal_message(
+                await self.game_manager.network_service.send_personal_message(
                     message={
                         "event": MessageEventType.AN_KAN,
                         "player_seat": response_action.player_seat,
@@ -538,7 +542,7 @@ class RoundManager:
                         self.seat_to_player_index[response_action.player_seat]
                     ].uid,
                 )
-                await self.game_manager.room_manager.broadcast(
+                await self.game_manager.network_service.broadcast(
                     message={
                         "event": MessageEventType.AN_KAN,
                         "player_seat": response_action.player_seat,
@@ -554,7 +558,7 @@ class RoundManager:
                 self.hands[self.current_player_seat].apply_discard(
                     tile=response_action.data["tile"],
                 )
-                await self.game_manager.room_manager.broadcast(
+                await self.game_manager.network_service.broadcast(
                     message={
                         "event": MessageEventType.DISCARD,
                         "tile": response_action.data["tile"],
@@ -635,9 +639,11 @@ class GameManager:
         self,
         game_id: int,
         room_manager: RoomManager = Depends(get_room_manager()),
+        network_service: NetworkService = Depends(get_network_service()),
     ) -> None:
         self.game_id: int = game_id
         self.room_manager: RoomManager = room_manager
+        self.network_service: NetworkService = network_service
         self.player_list: list[Player]
         self.player_uid_to_index: dict[str, int]
         self.round_manager: RoundManager
