@@ -4,7 +4,8 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
 from app.services.game_manager.models.enums import GameTile
-from app.services.game_manager.models.types import TurnType
+from app.services.game_manager.models.event import GameEvent
+from app.services.game_manager.models.types import GameEventType
 
 if TYPE_CHECKING:
     from app.services.game_manager.models.manager import RoundManager
@@ -26,41 +27,67 @@ class InitState(RoundState):
 class FlowerState(RoundState):
     async def run(self, manager: RoundManager) -> RoundState | None:
         await manager.do_init_flower_action()
-        return TsumoState(previous_turn_type=TurnType.DISCARD)
+        return TsumoState(prev_type=GameEventType.DISCARD)
 
 
 class TsumoState(RoundState):
-    def __init__(self, previous_turn_type: TurnType):
-        self.prev_type = previous_turn_type
+    def __init__(self, prev_type: GameEventType):
+        self.prev_type = prev_type
 
     async def run(self, manager: RoundManager) -> RoundState | None:
-        await manager.do_tsumo(previous_turn_type=self.prev_type)
-        return manager.get_next_state(previous_turn_type=TurnType.TSUMO)
+        next_game_event: GameEvent = await manager.do_tsumo(
+            previous_event_type=self.prev_type,
+        )
+        return manager.get_next_state(
+            previous_event_type=GameEventType.TSUMO,
+            next_event=next_game_event,
+        )
+
+
+class ActionState(RoundState):
+    def __init__(self, current_event: GameEvent):
+        self.current_event = current_event
+
+    async def run(self, manager: RoundManager) -> RoundState | None:
+        next_state: RoundState = await manager.do_action(
+            current_event=self.current_event,
+        )
+        return next_state
 
 
 # TODO
 class DiscardState(RoundState):
-    def __init__(self, prev_type: TurnType, tile: GameTile):
+    def __init__(self, prev_type: GameEventType, tile: GameTile):
         self.prev_type = prev_type
         self.tile = tile
 
     async def run(self, manager: RoundManager) -> RoundState | None:
-        # TODO
-        return manager.get_next_state(
-            previous_turn_type=TurnType.DISCARD,
+        next_game_event: GameEvent | None = await manager.do_discard(
+            previous_turn_type=self.prev_type,
             discarded_tile=self.tile,
+        )
+        if next_game_event is None:
+            return TsumoState(prev_type=GameEventType.DISCARD)
+        return manager.get_next_state(
+            previous_event_type=GameEventType.DISCARD,
+            next_event=next_game_event,
         )
 
 
-# TODO
 class RobbingKongState(RoundState):
-    def __init__(self, prev_type: TurnType, tile: GameTile):
-        self.prev_type = prev_type
+    def __init__(self, tile: GameTile):
         self.tile = tile
 
     async def run(self, manager: RoundManager) -> RoundState | None:
-        # TODO
-        return manager.get_next_state(previous_turn_type=TurnType.ROBBING_KONG)
+        next_game_event: GameEvent | None = await manager.do_robbing_kong(
+            robbing_tile=self.tile,
+        )
+        if next_game_event is None:
+            return TsumoState(prev_type=GameEventType.ROBBING_KONG)
+        return manager.get_next_state(
+            previous_event_type=GameEventType.ROBBING_KONG,
+            next_event=next_game_event,
+        )
 
 
 # TODO

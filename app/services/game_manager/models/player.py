@@ -20,7 +20,7 @@ class Player:
     ) -> Player:
         return Player(
             uid=player_data.uid,
-            nickname=PlayerData.nickname,
+            nickname=player_data.nickname,
             index=index,
             score=0,
         )

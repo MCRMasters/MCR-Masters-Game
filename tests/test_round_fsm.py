@@ -1,112 +1,171 @@
-import asyncio
-
 import pytest
 
-from app.services.game_manager.models.deck import Deck
-from app.services.game_manager.models.enums import AbsoluteSeat, GameTile
+from app.services.game_manager.models.enums import GameTile
 from app.services.game_manager.models.event import GameEvent
-from app.services.game_manager.models.hand import GameHand
 from app.services.game_manager.models.round_fsm import (
+    ActionState,
     DiscardState,
     DrawState,
     FlowerState,
     HuState,
     InitState,
     RobbingKongState,
+    RoundState,
     TsumoState,
 )
-from app.services.game_manager.models.types import GameEventType, TurnType
-from app.services.game_manager.models.winning_conditions import GameWinningConditions
+from app.services.game_manager.models.types import GameEventType
 
 
-class DummyRoundManager:
+class DummyState(RoundState):
+    async def run(self, manager) -> RoundState | None:
+        return None
+
+
+class FakeRoundManager:
     def __init__(self):
-        self.called_methods = []
-        self.tile_deck = None
-        self.hands = None
-        self.kawas = None
-        self.visible_tiles_count = None
-        self.winning_conditions = None
-        self.action_manager = None
-        self.current_player_seat = AbsoluteSeat.EAST
+        self.init_called = False
+        self.send_init_events_called = False
+        self.do_init_flower_action_called = False
+        self.do_tsumo_called = False
+        self.get_next_state_called = False
+        self.do_action_called = False
+        self.do_discard_called = False
+        self.do_robbing_kong_called = False
+        self.end_round_as_draw_called = False
 
-        class DummyGameManager:
-            def __init__(self):
-                self.event_queue = asyncio.Queue()
-                self.action_id = 0
+    def init_round_data(self):
+        self.init_called = True
 
-            MAX_PLAYERS = 4
+    async def send_init_events(self):
+        self.send_init_events_called = True
 
-        self.game_manager = DummyGameManager()
+    async def do_init_flower_action(self):
+        self.do_init_flower_action_called = True
 
-    def init_round_data(self) -> None:
-        self.called_methods.append("init_round_data")
-        self.tile_deck = Deck()
-        self.hands = [
-            GameHand.create_from_tiles(tiles=self.tile_deck.draw_haipai())
-            for _ in range(self.game_manager.MAX_PLAYERS)
-        ]
-        self.kawas = [[] for _ in range(self.game_manager.MAX_PLAYERS)]
-        self.visible_tiles_count = {}
-        self.winning_conditions = GameWinningConditions.create_default_conditions()
-        self.action_manager = None
-        self.current_player_seat = AbsoluteSeat.EAST
+    async def do_tsumo(self, previous_event_type):
+        self.do_tsumo_called = True
+        return GameEvent(
+            event_type=GameEventType.TSUMO,
+            player_seat=0,
+            data={},
+            action_id=1,
+        )
 
-    async def send_init_events(self) -> None:
-        self.called_methods.append("send_init_events")
-        for seat in AbsoluteSeat:
-            init_data = {"hand": self.hands[seat].tiles.elements()}
-            init_event = GameEvent(
-                event_type=GameEventType.INIT_HAIPAI,
-                player_seat=seat,
-                data=init_data,
-                action_id=0,
-            )
-            await self.game_manager.event_queue.put(init_event)
+    def get_next_state(self, previous_event_type, next_event):
+        self.get_next_state_called = True
+        if next_event.event_type == GameEventType.TSUMO:
+            return DummyState()
+        return None
 
-    async def do_init_flower_action(self) -> None:
-        self.called_methods.append("do_init_flower_action")
+    async def do_action(self, current_event):
+        self.do_action_called = True
+        return DummyState()
 
-    async def do_tsumo(self, previous_turn_type: TurnType) -> None:
-        self.called_methods.append(f"do_tsumo:{previous_turn_type}")
+    async def do_discard(self, previous_turn_type, discarded_tile):
+        self.do_discard_called = True
+        return GameEvent(
+            event_type=GameEventType.DISCARD,
+            player_seat=0,
+            data={"tile": discarded_tile},
+            action_id=2,
+        )
 
-    def get_next_state(
-        self,
-        previous_turn_type: TurnType,
-        previous_action=None,
-        discarded_tile: GameTile | None = None,
-    ):
-        self.called_methods.append(f"get_next_state:{previous_turn_type}")
+    async def do_robbing_kong(self, robbing_tile):
+        self.do_robbing_kong_called = True
+        return GameEvent(
+            event_type=GameEventType.ROBBING_KONG,
+            player_seat=0,
+            data={"tile": robbing_tile},
+            action_id=3,
+        )
 
-    def end_round_as_draw(self) -> None:
-        self.called_methods.append("end_round_as_draw")
-
-    def move_current_player_seat_to_next(self, previous_action=None):
-        self.called_methods.append("move_current_player_seat_to_next")
+    def end_round_as_draw(self):
+        self.end_round_as_draw_called = True
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "state_class, init_args, expected_call_substring",
-    [
-        (InitState, (), "init_round_data"),
-        (FlowerState, (), "do_init_flower_action"),
-        (TsumoState, (TurnType.DISCARD,), "do_tsumo"),
-        (DiscardState, (TurnType.DISCARD, GameTile(0)), "get_next_state"),
-        (RobbingKongState, (TurnType.DISCARD, GameTile(0)), "get_next_state"),
-        (DrawState, (), "end_round_as_draw"),
-        (HuState, (), None),
-    ],
-)
-async def test_round_state(state_class, init_args, expected_call_substring):
-    manager = DummyRoundManager()
-    state = state_class(*init_args)
+async def test_init_state():
+    manager = FakeRoundManager()
+    state = InitState()
     next_state = await state.run(manager)
-    if expected_call_substring is None:
-        assert len(manager.called_methods) == 0
-    else:
-        found = any(expected_call_substring in call for call in manager.called_methods)
-        assert found, (
-            f"Expected '{expected_call_substring}' in called "
-            "methods {manager.called_methods}"
-        )
+    assert manager.init_called
+    assert manager.send_init_events_called
+    from app.services.game_manager.models.round_fsm import FlowerState
+
+    assert isinstance(next_state, FlowerState)
+
+
+@pytest.mark.asyncio
+async def test_flower_state():
+    manager = FakeRoundManager()
+    state = FlowerState()
+    next_state = await state.run(manager)
+    assert manager.do_init_flower_action_called
+    from app.services.game_manager.models.round_fsm import TsumoState
+
+    assert isinstance(next_state, TsumoState)
+    assert next_state.prev_type == GameEventType.DISCARD
+
+
+@pytest.mark.asyncio
+async def test_tsumo_state():
+    manager = FakeRoundManager()
+    state = TsumoState(prev_type=GameEventType.DISCARD)
+    next_state = await state.run(manager)
+    assert manager.do_tsumo_called
+    assert manager.get_next_state_called
+    assert isinstance(next_state, DummyState)
+
+
+@pytest.mark.asyncio
+async def test_action_state():
+    manager = FakeRoundManager()
+    dummy_event = GameEvent(
+        event_type=GameEventType.DISCARD,
+        player_seat=0,
+        data={},
+        action_id=1,
+    )
+    state = ActionState(current_event=dummy_event)
+    next_state = await state.run(manager)
+    assert manager.do_action_called
+    assert isinstance(next_state, DummyState)
+
+
+@pytest.mark.asyncio
+async def test_discard_state():
+    manager = FakeRoundManager()
+    dummy_tile = GameTile.M1
+    state = DiscardState(prev_type=GameEventType.DISCARD, tile=dummy_tile)
+    next_state = await state.run(manager)
+    assert manager.do_discard_called
+    if next_state is not None:
+        assert isinstance(next_state, DummyState)
+
+
+@pytest.mark.asyncio
+async def test_robbing_kong_state():
+    manager = FakeRoundManager()
+    dummy_tile = GameTile.M1
+    state = RobbingKongState(tile=dummy_tile)
+    next_state = await state.run(manager)
+    assert manager.do_robbing_kong_called
+    if next_state is not None:
+        assert isinstance(next_state, DummyState)
+
+
+@pytest.mark.asyncio
+async def test_draw_state():
+    manager = FakeRoundManager()
+    state = DrawState()
+    next_state = await state.run(manager)
+    assert manager.end_round_as_draw_called
+    assert next_state is None
+
+
+@pytest.mark.asyncio
+async def test_hu_state():
+    manager = FakeRoundManager()
+    state = HuState()
+    next_state = await state.run(manager)
+    assert next_state is None

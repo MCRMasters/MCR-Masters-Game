@@ -79,7 +79,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"**/tests/*.py" = ["ARG001", "PLR0913", "ARG002", "SIM105", "F841"]
+"**/tests/*.py" = ["ARG001", "PLR0913", "ARG002", "SIM105", "F841", "ARG003", "ARG005"]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 10
