@@ -4,6 +4,7 @@ import asyncio
 import heapq
 from collections import Counter
 from collections.abc import Awaitable
+from copy import deepcopy
 from random import shuffle
 from typing import Any, Final, TypeVar
 
@@ -15,6 +16,7 @@ from app.dependencies.network_service import get_network_service
 from app.dependencies.room_manager import get_room_manager
 from app.schemas.ws import MessageEventType
 from app.services.game_manager.models.action import Action
+from app.services.game_manager.models.call_block import CallBlock
 from app.services.game_manager.models.deck import Deck
 from app.services.game_manager.models.enums import (
     AbsoluteSeat,
@@ -36,7 +38,7 @@ from app.services.game_manager.models.round_fsm import (
     RoundState,
     TsumoState,
 )
-from app.services.game_manager.models.types import ActionType, GameEventType, TurnType
+from app.services.game_manager.models.types import ActionType, GameEventType
 from app.services.game_manager.models.winning_conditions import (
     GameWinningConditions,
 )
@@ -134,35 +136,36 @@ class RoundManager:
             )
             await self.game_manager.event_queue.put(event)
 
+    # TODO previous game event기반 state 추론으로 바꿔야함
     def get_next_state(
         self,
-        previous_turn_type: TurnType,
-        previous_action: Action | None = None,
-        discarded_tile: GameTile | None = None,
+        previous_event_type: GameEventType,
+        next_event: GameEvent,
     ) -> RoundState:
-        self.move_current_player_seat_to_next(previous_action)
-        next_turn = previous_turn_type.next_turn
-
-        if next_turn == TurnType.TSUMO:
-            if self.tile_deck.tiles_remaining == 0:
-                return DrawState()
-            return TsumoState(previous_turn_type=previous_turn_type)
-        elif next_turn == TurnType.DISCARD:
-            if discarded_tile is None:
-                raise ValueError("Discard tile must be provided for DISCARD turn.")
-            return DiscardState(previous_turn_type, discarded_tile)
-        elif next_turn == TurnType.ROBBING_KONG:
-            if previous_action is None:
-                raise ValueError(
-                    "Previous action must be provided for ROBBING_KONG turn.",
-                )
-            return RobbingKongState(previous_turn_type, previous_action.tile)
-        else:
-            raise ValueError(f"Invalid next turn type: {next_turn}")
+        tile: GameTile | None
+        match next_event.event_type:
+            case GameEventType.TSUMO:
+                if self.tile_deck.tiles_remaining == 0:
+                    return DrawState()
+                return TsumoState(prev_type=previous_event_type)
+            case GameEventType.DISCARD:
+                tile = next_event.data.get("tile", None)
+                if tile is None:
+                    raise ValueError("Discard tile must be provided for DISCARD turn.")
+                return DiscardState(prev_type=previous_event_type, tile=tile)
+            case GameEventType.ROBBING_KONG:
+                tile = next_event.data.get("tile", None)
+                if tile is None:
+                    raise ValueError(
+                        "ShominKong tile must be provided for ROBBING KONG turn.",
+                    )
+                return RobbingKongState(tile=tile)
+            case _:
+                raise ValueError(f"Invalid next event type: {next_event.event_type}")
 
     async def proceed_next_turn(
         self,
-        previous_turn_type: TurnType,
+        previous_turn_type: GameEventType,
         previous_action: Action | None = None,
         discarded_tile: GameTile | None = None,
     ) -> None:
@@ -180,13 +183,13 @@ class RoundManager:
                 현재 구조상 도달할 수 없으나 이후 해당함수의 변경에 대비해 설정)
         """
         self.move_current_player_seat_to_next(previous_action=previous_action)
-        match previous_turn_type.next_turn:
-            case TurnType.TSUMO:
+        match previous_turn_type.next_event:
+            case GameEventType.TSUMO:
                 if self.tile_deck.tiles_remaining == 0:
                     self.end_round_as_draw()
                     return
-                await self.do_tsumo(previous_turn_type=previous_turn_type)
-            case TurnType.DISCARD:
+                await self.do_tsumo(previous_event_type=previous_turn_type)
+            case GameEventType.DISCARD:
                 if discarded_tile is None:
                     raise ValueError(
                         "[GameHand.get_possible_chii_actions]tile is none",
@@ -195,13 +198,12 @@ class RoundManager:
                     previous_turn_type=previous_turn_type,
                     discarded_tile=discarded_tile,
                 )
-            case TurnType.ROBBING_KONG:
+            case GameEventType.ROBBING_KONG:
                 if previous_action is None:
                     raise ValueError(
                         "[GameHand.get_possible_chii_actions]action is none",
                     )
                 await self.do_robbing_kong(
-                    previous_turn_type=previous_turn_type,
                     robbing_tile=previous_action.tile,
                 )
             case _:
@@ -211,15 +213,14 @@ class RoundManager:
 
     async def do_robbing_kong(
         self,
-        previous_turn_type: TurnType,
         robbing_tile: GameTile,
-    ) -> None:
+    ) -> GameEvent | None:
         self.set_winning_conditions(
             winning_tile=robbing_tile,
-            previous_turn_type=previous_turn_type,
+            previous_event_type=GameEventType.SHOMIN_KAN,
         )
         actions_lists: list[list[Action]] = self.check_actions_after_shomin_kong()
-        await self.send_actions_and_wait_api(actions_lists=actions_lists)
+        return await self.send_actions_and_wait(actions_lists=actions_lists)
 
     def check_actions_after_shomin_kong(self) -> list[list[Action]]:
         result: list[list[Action]] = [[] for _ in range(GameManager.MAX_PLAYERS)]
@@ -234,18 +235,18 @@ class RoundManager:
     # TODO event queue를 해 action을 처리하는 방식으로 바꾸기
     async def do_discard(
         self,
-        previous_turn_type: TurnType,
+        previous_turn_type: GameEventType,
         discarded_tile: GameTile,
-    ) -> None:
+    ) -> GameEvent | None:
         self.hands[self.current_player_seat].apply_discard(discarded_tile)
         self.visible_tiles_count[discarded_tile] += 1
         self.set_winning_conditions(
             winning_tile=discarded_tile,
-            previous_turn_type=previous_turn_type,
+            previous_event_type=previous_turn_type,
         )
 
         actions_lists: list[list[Action]] = self.check_actions_after_discard()
-        await self.send_actions_and_wait_api(actions_lists=actions_lists)
+        return await self.send_actions_and_wait(actions_lists=actions_lists)
 
     def check_actions_after_discard(self) -> list[list[Action]]:
         """
@@ -274,19 +275,128 @@ class RoundManager:
             )
         return result
 
-    # TODO
-    async def send_actions_and_wait_api(
+    async def send_actions_and_wait(
         self,
         actions_lists: list[list[Action]],
-    ) -> None:
-        """
-        Discard/Robbing Kong 후 Action들을 플레이어에게 전송하고 응답을 대기
+    ) -> GameEvent | None:
+        self.game_manager.increase_action_id()
+        for seat in AbsoluteSeat:
+            if actions_lists[seat]:
+                await self._send_discard_message(
+                    seat=seat,
+                    actions=actions_lists[seat],
+                )
 
-        이 메서드는 추후 구현되어야 함
-        """
-        # TODO: Discard와 그에 따른 Action list 전송 및 Action 선택 대기 로직 구현
-        # Discard에 따른 Action은 timeout후 강제 진행을 고려해줘야 함
-        pass
+        pending_players, remaining_time = await self._initialize_pending_players(
+            actions_lists=actions_lists,
+        )
+
+        self.action_manager = ActionManager(
+            [action for action_list in actions_lists for action in action_list],
+        )
+
+        final_action, selected_events = await self._wait_for_player_actions(
+            pending_players=pending_players,
+            remaining_time=remaining_time,
+        )
+
+        self.game_manager.increase_action_id()
+        self.action_manager = None
+        if final_action is not None:
+            response_event = self.pick_action_from_game_event_list(
+                final_action,
+                selected_events,
+            )
+            if response_event is not None:
+                await self.send_response_action_event(response_action=response_event)
+            return response_event
+        return None
+
+    async def _send_discard_message(
+        self,
+        seat: AbsoluteSeat,
+        actions: list[Action],
+    ) -> None:
+        message = {
+            "event": MessageEventType.DISCARD_ACTIONS,
+            "actions": actions,
+            "action_id": self.game_manager.action_id,
+        }
+        player: Player = self.game_manager.player_list[self.seat_to_player_index[seat]]
+        await self.game_manager.network_service.send_personal_message(
+            message=message,
+            game_id=self.game_manager.game_id,
+            user_id=player.uid,
+        )
+
+    async def _initialize_pending_players(
+        self,
+        actions_lists: list[list[Action]],
+    ) -> tuple[set[AbsoluteSeat], dict[AbsoluteSeat, float]]:
+        pending_players: set[AbsoluteSeat] = set()
+        remaining_time: dict[AbsoluteSeat, float] = {}
+        for seat in AbsoluteSeat:
+            if actions_lists[seat]:
+                pending_players.add(seat)
+                remaining_time[seat] = self.DEFAULT_TURN_TIMEOUT
+                await self._send_discard_message(
+                    seat,
+                    actions_lists[seat],
+                )
+        return pending_players, remaining_time
+
+    async def _wait_for_player_actions(
+        self,
+        pending_players: set[AbsoluteSeat],
+        remaining_time: dict[AbsoluteSeat, float],
+    ) -> tuple[Action | None, list[GameEvent]]:
+        final_action: Action | None = None
+        selected_events: list[GameEvent] = []
+        if self.action_manager is None:
+            raise ValueError("action manager is none")
+        while pending_players:
+            wait_time = min(remaining_time[seat] for seat in pending_players)
+            response_event, elapsed_time = await self.safe_wait_for(
+                self.game_manager.event_queue.get(),
+                wait_time,
+            )
+            self.game_manager.event_queue.task_done()
+
+            epsilon: float = 1e-9
+            for seat in list(pending_players):
+                remaining_time[seat] -= elapsed_time
+                if remaining_time[seat] <= epsilon:
+                    pending_players.remove(seat)
+
+            if response_event is not None:
+                selected_events.append(deepcopy(response_event))
+                final_action = self.action_manager.push_action(
+                    Action.create_from_game_event(
+                        game_event=response_event,
+                        current_player_seat=self.current_player_seat,
+                    ),
+                )
+                if final_action is not None:
+                    break
+        return final_action, selected_events
+
+    def pick_action_from_game_event_list(
+        self,
+        action: Action,
+        game_events: list[GameEvent],
+    ) -> GameEvent | None:
+        for event in game_events:
+            if (
+                action.type == ActionType.create_from_game_event_type(event.event_type)
+                and action.seat_priority
+                == RelativeSeat.create_from_absolute_seats(
+                    current_seat=self.current_player_seat,
+                    target_seat=event.player_seat,
+                )
+                and action.tile == event.data.get("tile", None)
+            ):
+                return event
+        return None
 
     def move_current_player_seat_to_next(
         self,
@@ -462,12 +572,10 @@ class RoundManager:
         elapsed = loop.time() - start
         return result, elapsed
 
-    # TODO
     async def send_tsumo_actions_and_wait_api(
         self,
         actions_lists: list[list[Action]],
-        previous_turn_type: TurnType,
-    ) -> None:
+    ) -> GameEvent:
         self.game_manager.increase_action_id()
         if actions_lists[self.current_player_seat]:
             message: dict[str, Any] = {
@@ -502,25 +610,100 @@ class RoundManager:
                 player_seat=self.current_player_seat,
                 action_id=self.game_manager.action_id,
                 data={
-                    "event": GameEventType.DISCARD,
                     "tile": rightmost_tile,
                 },
             )
+        self.game_manager.increase_action_id()
+        # await self.send_response_event(
+        #     response_action=response_event,
+        # )
+        # self.apply_response_event(response_event=response_event)
+        return response_event
 
-        await self.send_response_action(
-            response_action=response_event,
-            previous_turn_type=previous_turn_type,
+    async def wait_discard_after_call_action(
+        self,
+    ) -> GameEvent:
+        self.game_manager.increase_action_id()
+        response_event: GameEvent | None
+        elapsed_time: float
+        response_event, elapsed_time = await self.safe_wait_for(
+            self.game_manager.event_queue.get(),
+            self.DEFAULT_TURN_TIMEOUT,
         )
+        self.game_manager.event_queue.task_done()
+        elapsed_time  # 나중에 추가시간 관리에 쓸 예정
+        if response_event is None:
+            rightmost_tile: GameTile | None = self.hands[
+                self.current_player_seat
+            ].get_rightmost_tile()
+            if not rightmost_tile:
+                raise ValueError("no tile in hand")
+            response_event = GameEvent(
+                event_type=GameEventType.DISCARD,
+                player_seat=self.current_player_seat,
+                action_id=self.game_manager.action_id,
+                data={
+                    "tile": rightmost_tile,
+                },
+            )
+        self.game_manager.increase_action_id()
+        return response_event
 
-    # TODO 각종 GameEventType에 대응되는 send, 그리고 action 실행 라인 추가
-    async def send_response_action(
+    # TODO
+    async def do_action(self, current_event: GameEvent) -> RoundState:
+        await self.send_response_action_event(
+            response_action=current_event,
+        )
+        self.apply_response_event(response_event=current_event)
+        match current_event.event_type:
+            case GameEventType.SHOMIN_KAN:
+                tile: GameTile | None = current_event.data.get("tile", None)
+                if tile is None:
+                    raise ValueError("tile is None")
+                return RobbingKongState(tile=tile)
+            case GameEventType.DAIMIN_KAN | GameEventType.AN_KAN:
+                return TsumoState(prev_type=current_event.event_type)
+            case GameEventType.CHII | GameEventType.PON:
+                discard_event: GameEvent = await self.wait_discard_after_call_action()
+                discard_tile: GameTile = discard_event.data.get("tile", None)
+                if discard_tile is None:
+                    raise ValueError("Tile is None")
+                return DiscardState(
+                    prev_type=current_event.event_type,
+                    tile=discard_tile,
+                )
+            case _:
+                raise ValueError("invalid action")
+
+    # TODO 각종 GameEventType에 대응하는 apply 추가
+    def apply_response_event(
+        self,
+        response_event: GameEvent,
+    ) -> None:
+        match response_event.event_type:
+            case (
+                GameEventType.SHOMIN_KAN
+                | GameEventType.DAIMIN_KAN
+                | GameEventType.AN_KAN
+                | GameEventType.CHII
+                | GameEventType.PON
+            ):
+                if self.winning_conditions.winning_tile is None:
+                    raise ValueError("discarded tile is None")
+                self.hands[response_event.player_seat].apply_call(
+                    block=CallBlock.create_from_game_event(
+                        game_event=response_event,
+                        current_seat=self.current_player_seat,
+                        source_tile=self.winning_conditions.winning_tile,
+                    ),
+                )
+                self.current_player_seat = response_event.player_seat
+
+    async def send_response_action_event(
         self,
         response_action: GameEvent,
-        previous_turn_type: TurnType,
     ) -> None:
         match response_action.event_type:
-            case GameEventType.HU:
-                pass
             case GameEventType.FLOWER:
                 await self.game_manager.network_service.broadcast(
                     message={
@@ -565,15 +748,11 @@ class RoundManager:
                     },
                     game_id=self.game_manager.game_id,
                 )
-                await self.do_discard(
-                    previous_turn_type=previous_turn_type,
-                    discarded_tile=response_action.data["tile"],
-                )
 
     def set_winning_conditions(
         self,
         winning_tile: GameTile,
-        previous_turn_type: TurnType,
+        previous_event_type: GameEventType,
     ) -> None:
         """
         현재 포커싱된 화료패 후보와 이전 TurnType에 따라 WinningCondition을 설정함
@@ -583,36 +762,26 @@ class RoundManager:
             previous_turn_type (TurnType): 이전 턴의 타입
         """
         self.winning_conditions.winning_tile = winning_tile
-        self.winning_conditions.is_discarded = previous_turn_type.is_next_discard
+        self.winning_conditions.is_discarded = previous_event_type.is_next_discard
         self.winning_conditions.is_last_tile_of_its_kind = (
             self.visible_tiles_count.get(winning_tile, 0) == 3
         )
         self.winning_conditions.is_last_tile_in_the_game = (
             self.tile_deck.tiles_remaining == 0
         )
-        self.winning_conditions.is_replacement_tile = previous_turn_type.is_kong
+        self.winning_conditions.is_replacement_tile = previous_event_type.is_kong
         self.winning_conditions.is_robbing_the_kong = (
-            previous_turn_type == TurnType.SHOMIN_KAN
+            previous_event_type == GameEventType.SHOMIN_KAN
         )
 
-    async def do_tsumo(self, previous_turn_type: TurnType) -> None:
-        """
-        현재 플레이어의 Tsumo 액션을 수행함
-
-        이전 TurnType에 따라 패산의 왼쪽 또는 오른쪽에서 타일을 뽑음 뽑은 타일을
-        현재 플레이어의 손패에 추가하고, Winning Condition을 설정한 후 가능한 action
-        list들을 확인하고 플레이어에게 전송
-
-        Args:
-            previous_turn_type (TurnType): 이전 턴의 타입
-        """
+    async def do_tsumo(self, previous_event_type: GameEventType) -> GameEvent:
         drawn_tiles: list[GameTile]
         if self.tile_deck.HAIPAI_TILES < 1:
             raise ValueError(
                 "Not enough tiles remaining. "
                 "Requested: {1}, Available: {self.tile_deck.HAIPAI_TILES}",
             )
-        if previous_turn_type.is_next_replacement:
+        if previous_event_type.is_next_replacement:
             drawn_tiles = self.tile_deck.draw_tiles_right(1)
         else:
             drawn_tiles = self.tile_deck.draw_tiles(1)
@@ -621,12 +790,11 @@ class RoundManager:
         )
         self.set_winning_conditions(
             winning_tile=drawn_tiles[0],
-            previous_turn_type=previous_turn_type,
+            previous_event_type=previous_event_type,
         )
         actions_lists: list[list[Action]] = self.check_actions_after_tsumo()
-        await self.send_tsumo_actions_and_wait_api(
+        return await self.send_tsumo_actions_and_wait_api(
             actions_lists=actions_lists,
-            previous_turn_type=TurnType.TSUMO,
         )
 
 
