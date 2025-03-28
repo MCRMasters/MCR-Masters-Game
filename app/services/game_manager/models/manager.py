@@ -826,6 +826,7 @@ class GameManager:
                 f"{len(player_datas)} players received",
             )
         self.player_list = []
+        self.player_uid_to_index = {}
         shuffle(player_datas)
         for index, player_data in enumerate(player_datas):
             self.player_list.append(
