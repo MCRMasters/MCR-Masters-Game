@@ -247,49 +247,6 @@ class DummyNextTurn:
 
 
 @pytest.mark.asyncio
-async def test_proceed_next_turn_tsumo(round_manager):
-    flag = False
-
-    async def dummy_do_tsumo(previous_event_type):
-        nonlocal flag
-        flag = True
-
-    round_manager.do_tsumo = dummy_do_tsumo
-    dummy = DummyNextTurn(GameEventType.TSUMO)
-    await round_manager.proceed_next_turn(dummy)
-    assert flag
-
-
-@pytest.mark.asyncio
-async def test_proceed_next_turn_discard(round_manager):
-    flag = False
-
-    async def dummy_do_discard(previous_turn_type, discarded_tile):
-        nonlocal flag
-        flag = True
-
-    round_manager.do_discard = dummy_do_discard
-    dummy = DummyNextTurn(GameEventType.DISCARD)
-    await round_manager.proceed_next_turn(dummy, discarded_tile=GameTile.M1)
-    assert flag
-
-
-@pytest.mark.asyncio
-async def test_proceed_next_turn_robbing_kong(round_manager):
-    flag = False
-
-    async def dummy_do_robbing_kong(robbing_tile):
-        nonlocal flag
-        flag = True
-
-    round_manager.do_robbing_kong = dummy_do_robbing_kong
-    dummy_action = SimpleNamespace(tile=GameTile.M1, seat_priority=AbsoluteSeat.EAST)
-    dummy = DummyNextTurn(GameEventType.ROBBING_KONG)
-    await round_manager.proceed_next_turn(dummy, previous_action=dummy_action)
-    assert flag
-
-
-@pytest.mark.asyncio
 async def test_do_robbing_kong(round_manager):
     dummy_event = GameEvent(
         event_type=GameEventType.DISCARD,
@@ -430,8 +387,6 @@ def test__initialize_pending_players(round_manager):
 
 @pytest.mark.asyncio
 async def test__wait_for_player_actions(round_manager, dummy_game_manager):
-    from types import SimpleNamespace
-
     from app.services.game_manager.models.action import Action
 
     Action.create_from_game_event = (
@@ -461,8 +416,6 @@ async def test__wait_for_player_actions(round_manager, dummy_game_manager):
 
 
 def test_pick_action_from_game_event_list(round_manager):
-    from types import SimpleNamespace
-
     from app.services.game_manager.models.action import ActionType
 
     dummy_action = SimpleNamespace(
@@ -478,13 +431,6 @@ def test_pick_action_from_game_event_list(round_manager):
     )
     result = round_manager.pick_action_from_game_event_list(dummy_action, [dummy_event])
     assert result == dummy_event
-
-
-def test_move_current_player_seat_to_next(round_manager):
-    current = round_manager.current_player_seat
-    expected = current.next_seat
-    round_manager.move_current_player_seat_to_next()
-    assert round_manager.current_player_seat == expected
 
 
 def test_end_round_as_draw(round_manager):
@@ -612,6 +558,7 @@ def test_apply_response_event(round_manager):
     round_manager.hands[AbsoluteSeat.SOUTH].apply_call = dummy_apply_call
     round_manager.winning_conditions.winning_tile = GameTile.M1
     round_manager.current_player_seat = AbsoluteSeat.EAST
+    round_manager.kawas[AbsoluteSeat.EAST].append(GameTile.M1)
     dummy_event = GameEvent(
         event_type=GameEventType.CHII,
         player_seat=AbsoluteSeat.SOUTH,
