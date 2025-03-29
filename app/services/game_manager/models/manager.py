@@ -33,6 +33,7 @@ from app.services.game_manager.models.player import (
 from app.services.game_manager.models.round_fsm import (
     DiscardState,
     DrawState,
+    HuState,
     InitState,
     RobbingKongState,
     RoundState,
@@ -47,6 +48,7 @@ from app.services.game_manager.models.winning_conditions import (
     GameWinningConditions,
 )
 from app.services.score_calculator.hand.hand import Hand
+from app.services.score_calculator.result.result import ScoreResult
 from app.services.score_calculator.score_calculator import ScoreCalculator
 from app.services.score_calculator.winning_conditions.winning_conditions import (
     WinningConditions,
@@ -102,24 +104,61 @@ class RoundManager:
         self.tile_deck = Deck()
         self.hands = [
             GameHand.create_from_tiles(tiles=self.tile_deck.draw_haipai())
-            for _ in range(GameManager.MAX_PLAYERS)
+            for _ in range(self.game_manager.MAX_PLAYERS)
         ]
-        self.kawas = [[] for _ in range(GameManager.MAX_PLAYERS)]
+        self.kawas = [[] for _ in range(self.game_manager.MAX_PLAYERS)]
         self.visible_tiles_count = Counter()
         self.winning_conditions = GameWinningConditions.create_default_conditions()
+        self.init_seat_index_mapping()
         self.action_manager = None
         self.current_player_seat = AbsoluteSeat.EAST
 
+    def init_seat_index_mapping(self) -> None:
+        shift = self.game_manager.current_round.number - 1
+        wind = self.game_manager.current_round.wind
+        base_mapping = {
+            "E": {
+                AbsoluteSeat.EAST: 0,
+                AbsoluteSeat.SOUTH: 1,
+                AbsoluteSeat.WEST: 2,
+                AbsoluteSeat.NORTH: 3,
+            },
+            "S": {
+                AbsoluteSeat.EAST: 1,
+                AbsoluteSeat.SOUTH: 0,
+                AbsoluteSeat.WEST: 3,
+                AbsoluteSeat.NORTH: 2,
+            },
+            "W": {
+                AbsoluteSeat.EAST: 2,
+                AbsoluteSeat.SOUTH: 3,
+                AbsoluteSeat.WEST: 1,
+                AbsoluteSeat.NORTH: 0,
+            },
+            "N": {
+                AbsoluteSeat.EAST: 3,
+                AbsoluteSeat.SOUTH: 2,
+                AbsoluteSeat.WEST: 0,
+                AbsoluteSeat.NORTH: 1,
+            },
+        }[wind]
+        self.seat_to_player_index = {
+            seat: (base + shift) % 4 for seat, base in base_mapping.items()
+        }
+        self.player_index_to_seat = {v: k for k, v in self.seat_to_player_index.items()}
+
     async def send_init_events(self) -> None:
         for seat in AbsoluteSeat:
-            init_data = {"hand": self.hands[seat].tiles.elements()}
-            init_event = GameEvent(
-                event_type=GameEventType.INIT_HAIPAI,
-                player_seat=seat,
-                data=init_data,
-                action_id=self.game_manager.action_id,
+            player: Player = self.get_player_from_seat(seat=seat)
+            await self.game_manager.network_service.send_personal_message(
+                message={
+                    "event": MessageEventType.HU_HAND,
+                    "player_seat": seat,
+                    "data": {"hand": self.hands[seat].tiles.elements()},
+                },
+                game_id=self.game_manager.game_id,
+                user_id=player.uid,
             )
-            await self.game_manager.event_queue.put(init_event)
 
     async def do_init_flower_action(self) -> None:
         for seat in AbsoluteSeat:
@@ -147,6 +186,8 @@ class RoundManager:
     ) -> RoundState:
         tile: GameTile | None
         match next_event.event_type:
+            case GameEventType.HU:
+                return HuState(current_event=next_event)
             case GameEventType.TSUMO:
                 if self.tile_deck.tiles_remaining == 0:
                     return DrawState()
@@ -178,7 +219,7 @@ class RoundManager:
         return await self.send_actions_and_wait(actions_lists=actions_lists)
 
     def check_actions_after_shomin_kong(self) -> list[list[Action]]:
-        result: list[list[Action]] = [[] for _ in range(GameManager.MAX_PLAYERS)]
+        result: list[list[Action]] = [[] for _ in range(self.game_manager.MAX_PLAYERS)]
         for player_seat in AbsoluteSeat:
             if player_seat == self.current_player_seat:
                 continue
@@ -204,7 +245,7 @@ class RoundManager:
         return await self.send_actions_and_wait(actions_lists=actions_lists)
 
     def check_actions_after_discard(self) -> list[list[Action]]:
-        result: list[list[Action]] = [[] for _ in range(GameManager.MAX_PLAYERS)]
+        result: list[list[Action]] = [[] for _ in range(self.game_manager.MAX_PLAYERS)]
         for player_seat in AbsoluteSeat:
             if player_seat == self.current_player_seat:
                 continue
@@ -254,10 +295,11 @@ class RoundManager:
                 final_action,
                 selected_events,
             )
-            if response_event is not None:
-                await self.send_response_action_event(response_action=response_event)
             return response_event
         return None
+
+    def get_player_from_seat(self, seat: AbsoluteSeat) -> Player:
+        return self.game_manager.player_list[self.seat_to_player_index[seat]]
 
     async def _send_discard_message(
         self,
@@ -269,7 +311,7 @@ class RoundManager:
             "actions": actions,
             "action_id": self.game_manager.action_id,
         }
-        player: Player = self.game_manager.player_list[self.seat_to_player_index[seat]]
+        player: Player = self.get_player_from_seat(seat=seat)
         await self.game_manager.network_service.send_personal_message(
             message=message,
             game_id=self.game_manager.game_id,
@@ -345,17 +387,89 @@ class RoundManager:
                 return event
         return None
 
-    def end_round_as_draw(self) -> None:
-        """
-        Round를 유국으로 종료
+    async def end_round_as_hu(self, current_event: GameEvent) -> None:
+        score_result: ScoreResult = self.get_score_result(hu_event=current_event)
+        self.apply_score_result(
+            hu_player_seat=current_event.player_seat,
+            score_result=score_result,
+        )
+        await self.send_hu_hand_info(
+            hu_player_seat=current_event.player_seat,
+            score_result=score_result,
+        )
+        await self.send_an_kan_info()
 
-        이 메서드는 추후 구현되어야 함
-        """
-        # TODO: 유국 처리 로직 구현
-        pass
+    def apply_score_result(
+        self,
+        hu_player_seat: AbsoluteSeat,
+        score_result: ScoreResult,
+    ) -> None:
+        if hu_player_seat == self.current_player_seat:
+            for player in self.game_manager.player_list:
+                if player.index == self.seat_to_player_index[hu_player_seat]:
+                    player.score += (score_result.total_score + 8) * 3
+                else:
+                    player.score -= score_result.total_score + 8
+        else:
+            for player in self.game_manager.player_list:
+                if player.index == self.seat_to_player_index[hu_player_seat]:
+                    player.score += score_result.total_score + 8 * 3
+                elif (
+                    player.index == self.seat_to_player_index[self.current_player_seat]
+                ):
+                    player.score -= score_result.total_score + 8
+                else:
+                    player.score -= 8
+
+    def get_score_result(self, hu_event: GameEvent) -> ScoreResult:
+        return ScoreCalculator(
+            hand=Hand.create_from_game_hand(self.hands[hu_event.player_seat]),
+            winning_conditions=WinningConditions.create_from_game_winning_conditions(
+                game_winning_conditions=self.winning_conditions,
+                seat_wind=hu_event.player_seat,
+                round_wind=AbsoluteSeat(self.game_manager.current_round // 4),
+            ),
+        ).result
+
+    async def send_hu_hand_info(
+        self,
+        hu_player_seat: AbsoluteSeat,
+        score_result: ScoreResult,
+    ) -> None:
+        await self.game_manager.network_service.broadcast(
+            message={
+                "event": MessageEventType.HU_HAND,
+                "player_seat": hu_player_seat,
+                "data": {
+                    "hand": self.hands[hu_player_seat].tiles.elements(),
+                    "score_result": score_result,
+                },
+            },
+            game_id=self.game_manager.game_id,
+        )
+
+    async def end_round_as_draw(self) -> None:
+        await self.send_an_kan_info()
+
+    async def send_an_kan_info(self) -> None:
+        an_kan_infos = [
+            [
+                block.first_tile
+                for block in hand.call_blocks
+                if block.type == CallBlockType.AN_KONG
+            ]
+            for hand in self.hands
+        ]
+        await self.game_manager.network_service.broadcast(
+            message={
+                "event": MessageEventType.FLOWER,
+                "data": {"an_kan_infos": an_kan_infos},
+            },
+            game_id=self.game_manager.game_id,
+        )
 
     def check_actions_after_tsumo(self) -> list[list[Action]]:
-        result: list[list[Action]] = [[] for _ in range(GameManager.MAX_PLAYERS)]
+        result: list[list[Action]] = [[] for _ in range(self.game_manager.MAX_PLAYERS)]
         result[self.current_player_seat].extend(
             self.get_possible_hu_choices(player_seat=self.current_player_seat),
         )
@@ -394,7 +508,7 @@ class RoundManager:
                     round_wind=AbsoluteSeat(self.game_manager.current_round // 4),
                 ),
             ).result.total_score
-            >= GameManager.MINIMUM_HU_SCORE
+            >= self.game_manager.MINIMUM_HU_SCORE
             else []
         )
 
@@ -494,7 +608,7 @@ class RoundManager:
         elapsed = loop.time() - start
         return result, elapsed
 
-    async def send_tsumo_actions_and_wait_api(
+    async def send_tsumo_actions_and_wait(
         self,
         actions_lists: list[list[Action]],
     ) -> GameEvent:
@@ -505,13 +619,13 @@ class RoundManager:
                 "actions": actions_lists[self.current_player_seat],
                 "action_id": self.game_manager.action_id,
             }
+            player: Player = self.get_player_from_seat(self.current_player_seat)
             await self.game_manager.network_service.send_personal_message(
                 message=message,
                 game_id=self.game_manager.game_id,
-                user_id=self.game_manager.player_list[
-                    self.seat_to_player_index[self.current_player_seat]
-                ].uid,
+                user_id=player.uid,
             )
+        self.game_manager.increase_action_id()
 
         response_event: GameEvent | None
         elapsed_time: float
@@ -568,8 +682,8 @@ class RoundManager:
         return response_event
 
     async def do_action(self, current_event: GameEvent) -> RoundState:
-        await self.send_response_action_event(
-            response_action=current_event,
+        await self.send_response_event(
+            response_event=current_event,
         )
         self.apply_response_event(response_event=current_event)
         match current_event.event_type:
@@ -592,7 +706,6 @@ class RoundManager:
             case _:
                 raise ValueError("invalid action")
 
-    # TODO 각종 GameEventType에 대응하는 apply 추가
     def apply_response_event(
         self,
         response_event: GameEvent,
@@ -637,16 +750,16 @@ class RoundManager:
             case CallBlockType.SHOMIN_KONG:
                 self.visible_tiles_count[call_block.first_tile] += 1
 
-    async def send_response_action_event(
+    async def send_response_event(
         self,
-        response_action: GameEvent,
+        response_event: GameEvent,
     ) -> None:
-        match response_action.event_type:
+        match response_event.event_type:
             case GameEventType.FLOWER:
                 await self.game_manager.network_service.broadcast(
                     message={
                         "event": MessageEventType.FLOWER,
-                        "player_seat": response_action.player_seat,
+                        "player_seat": response_event.player_seat,
                         "tile": None,
                     },
                     game_id=self.game_manager.game_id,
@@ -655,33 +768,66 @@ class RoundManager:
                 await self.game_manager.network_service.send_personal_message(
                     message={
                         "event": MessageEventType.AN_KAN,
-                        "player_seat": response_action.player_seat,
-                        "tile": response_action.data["tile"],
+                        "player_seat": response_event.player_seat,
+                        "tile": response_event.data["tile"],
                     },
                     game_id=self.game_manager.game_id,
                     user_id=self.game_manager.player_list[
-                        self.seat_to_player_index[response_action.player_seat]
+                        self.seat_to_player_index[response_event.player_seat]
                     ].uid,
                 )
                 await self.game_manager.network_service.broadcast(
                     message={
                         "event": MessageEventType.AN_KAN,
-                        "player_seat": response_action.player_seat,
+                        "player_seat": response_event.player_seat,
                         "tile": None,
                     },
                     game_id=self.game_manager.game_id,
                     exclude_user_id=self.game_manager.player_list[
-                        self.seat_to_player_index[response_action.player_seat]
+                        self.seat_to_player_index[response_event.player_seat]
                     ].uid,
                 )
-            case GameEventType.DISCARD:
-                self.hands[self.current_player_seat].apply_discard(
-                    tile=response_action.data["tile"],
+            case GameEventType.CHII:
+                await self.game_manager.network_service.broadcast(
+                    message={
+                        "event": MessageEventType.CHII,
+                        "player_seat": response_event.player_seat,
+                        "tile": response_event.data["tile"],
+                    },
+                    game_id=self.game_manager.game_id,
                 )
+            case GameEventType.PON:
+                await self.game_manager.network_service.broadcast(
+                    message={
+                        "event": MessageEventType.PON,
+                        "player_seat": response_event.player_seat,
+                        "tile": response_event.data["tile"],
+                    },
+                    game_id=self.game_manager.game_id,
+                )
+            case GameEventType.DAIMIN_KAN:
+                await self.game_manager.network_service.broadcast(
+                    message={
+                        "event": MessageEventType.DAIMIN_KAN,
+                        "player_seat": response_event.player_seat,
+                        "tile": response_event.data["tile"],
+                    },
+                    game_id=self.game_manager.game_id,
+                )
+            case GameEventType.SHOMIN_KAN:
+                await self.game_manager.network_service.broadcast(
+                    message={
+                        "event": MessageEventType.SHOMIN_KAN,
+                        "player_seat": response_event.player_seat,
+                        "tile": response_event.data["tile"],
+                    },
+                    game_id=self.game_manager.game_id,
+                )
+            case GameEventType.DISCARD:
                 await self.game_manager.network_service.broadcast(
                     message={
                         "event": MessageEventType.DISCARD,
-                        "tile": response_action.data["tile"],
+                        "tile": response_event.data["tile"],
                     },
                     game_id=self.game_manager.game_id,
                 )
@@ -725,7 +871,7 @@ class RoundManager:
             previous_event_type=previous_event_type,
         )
         actions_lists: list[list[Action]] = self.check_actions_after_tsumo()
-        return await self.send_tsumo_actions_and_wait_api(
+        return await self.send_tsumo_actions_and_wait(
             actions_lists=actions_lists,
         )
 
@@ -751,16 +897,16 @@ class GameManager:
         self.action_id: int
         self.event_queue: asyncio.Queue[GameEvent]
 
-    def init_game(self, player_datas: list[PlayerData]) -> None:
-        if len(player_datas) != GameManager.MAX_PLAYERS:
+    def init_game(self, players_data: list[PlayerData]) -> None:
+        if len(players_data) != self.MAX_PLAYERS:
             raise ValueError(
-                f"[GameManager] {GameManager.MAX_PLAYERS} players needed, "
-                f"{len(player_datas)} players received",
+                f"[GameManager] {self.MAX_PLAYERS} players needed, "
+                f"{len(players_data)} players received",
             )
         self.player_list = []
         self.player_uid_to_index = {}
-        shuffle(player_datas)
-        for index, player_data in enumerate(player_datas):
+        shuffle(players_data)
+        for index, player_data in enumerate(players_data):
             self.player_list.append(
                 Player.create_from_received_data(
                     player_data=player_data,
@@ -776,33 +922,12 @@ class GameManager:
     async def start_game(self) -> None:
         for _ in range(self.TOTAL_ROUNDS):
             await self.round_manager.run_round()
+            self.current_round = self.current_round.next_round
         await self.submit_game_result()
 
     # TODO submit game result to core sever
     async def submit_game_result(self) -> None:
         pass
-
-    def get_valid_discard_result(
-        self,
-        uid: str,
-        tile: GameTile,
-    ) -> dict[str, AbsoluteSeat]:
-        player_seat: AbsoluteSeat = self.round_manager.player_index_to_seat[
-            self.player_uid_to_index[uid]
-        ]
-        return (
-            {"seat": player_seat}
-            if tile in self.round_manager.hands[player_seat].tiles
-            else {}
-        )
-
-    async def enqueue_event(self, event: GameEvent) -> None:
-        try:
-            await self.event_queue.put(event)
-        except asyncio.CancelledError:
-            raise
-        except Exception as e:
-            print(f"Failed to enqueue event: {e}")
 
     def increase_action_id(self) -> None:
         self.action_id += 1
@@ -810,12 +935,6 @@ class GameManager:
 
 class ActionManager:
     def __init__(self, action_list: list[Action]):
-        """
-        ActionManager 인스턴스 초기화
-
-        Args:
-            action_list (list[Action]): 전체 Action 리스트
-        """
         self.action_heap: list[Action] = action_list
         heapq.heapify(self.action_heap)
         self.selected_action_heap: list[Action] = []
@@ -823,12 +942,6 @@ class ActionManager:
         self.final_action: Action | None = None
 
     def empty(self) -> bool:
-        """
-        Action heap이 비었는지 여부를 반환
-
-        Returns:
-            bool: Action heap이 비었으면 True, 아니면 False
-        """
         return not self.action_heap
 
     def push_action(self, action: Action) -> Action | None:

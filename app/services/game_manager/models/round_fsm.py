@@ -55,7 +55,6 @@ class ActionState(RoundState):
         return next_state
 
 
-# TODO
 class DiscardState(RoundState):
     def __init__(self, prev_type: GameEventType, tile: GameTile):
         self.prev_type = prev_type
@@ -90,17 +89,16 @@ class RobbingKongState(RoundState):
         )
 
 
-# TODO
 class DrawState(RoundState):
     async def run(self, manager: RoundManager) -> RoundState | None:
-        # TODO
-        manager.end_round_as_draw()
+        await manager.end_round_as_draw()
         return None
 
 
-# TODO
 class HuState(RoundState):
+    def __init__(self, current_event: GameEvent):
+        self.current_event = current_event
+
     async def run(self, manager: RoundManager) -> RoundState | None:
-        # TODO
-        manager
+        await manager.end_round_as_hu(current_event=self.current_event)
         return None

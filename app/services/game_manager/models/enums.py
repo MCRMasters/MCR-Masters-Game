@@ -30,6 +30,24 @@ class Round(IntEnum):
 
     END = 16
 
+    @property
+    def number(self) -> int:
+        if self == Round.END:
+            raise ValueError("game finished")
+        return int(self.name[1])
+
+    @property
+    def wind(self) -> str:
+        if self == Round.END:
+            raise ValueError("game finished")
+        return self.name[0]
+
+    @property
+    def next_round(self) -> Round:
+        if self == Round.END:
+            raise ValueError("game finished")
+        return Round(self.value + 1)
+
 
 class AbsoluteSeat(IntEnum):
     EAST = 0
