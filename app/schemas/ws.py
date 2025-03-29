@@ -14,12 +14,19 @@ class GameWebSocketActionType(str, Enum):
 
 
 class MessageEventType(str, Enum):
+    HAIPAI_HAND = "haipai_hand"
     TSUMO_ACTIONS = "tsumo_actions"
     DISCARD_ACTIONS = "discard_actions"
     DISCARD = "discard"
     TSUMO = "tsumo"
+    CHII = "chii"
+    PON = "pon"
+    DAIMIN_KAN = "daimin_kan"
+    SHOMIN_KAN = "shomin_kan"
     AN_KAN = "an_kan"
     FLOWER = "flower"
+    OPEN_AN_KAN = "open_an_kan"
+    HU_HAND = "hu_hand"
 
 
 class WebSocketResponse(BaseModel):

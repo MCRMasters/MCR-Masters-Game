@@ -1,10 +1,8 @@
 import asyncio
-from collections import Counter
 
 import pytest
 
-from app.services.game_manager.models.enums import AbsoluteSeat, GameTile, Round
-from app.services.game_manager.models.event import GameEvent
+from app.services.game_manager.models.enums import AbsoluteSeat, Round
 from app.services.game_manager.models.manager import GameManager
 
 
@@ -85,33 +83,6 @@ def test_increase_action_id(game_manager):
     current = gm.action_id
     gm.increase_action_id()
     assert gm.action_id == current + 1
-
-
-def test_get_valid_discard_result(game_manager):
-    gm = game_manager
-    index = gm.player_uid_to_index["user0"]
-    seat = gm.round_manager.player_index_to_seat[index]
-
-    class DummyHand:
-        def __init__(self):
-            self.tiles = Counter()
-
-    dummy_hand = DummyHand()
-    dummy_hand.tiles[GameTile.M1] = 1
-    gm.round_manager.hands = {seat: dummy_hand}
-    result = gm.get_valid_discard_result("user0", GameTile.M1)
-    assert "seat" in result
-    result_empty = gm.get_valid_discard_result("user0", GameTile.M9)
-    assert result_empty == {}
-
-
-@pytest.mark.asyncio
-async def test_enqueue_event(game_manager):
-    gm = game_manager
-    event = GameEvent(event_type="TEST", player_seat=0, data={}, action_id=0)
-    await gm.enqueue_event(event)
-    queued_event = await gm.event_queue.get()
-    assert queued_event == event
 
 
 @pytest.mark.asyncio

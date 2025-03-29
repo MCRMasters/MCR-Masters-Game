@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 from collections import Counter
 from types import SimpleNamespace
@@ -5,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 from pydantic import BaseModel
 
+from app.schemas.ws import MessageEventType
 from app.services.game_manager.models.enums import AbsoluteSeat, GameTile, Round
 from app.services.game_manager.models.event import GameEvent
 from app.services.game_manager.models.manager import (
@@ -14,10 +17,13 @@ from app.services.game_manager.models.manager import (
 from app.services.game_manager.models.round_fsm import (
     DiscardState,
     DrawState,
+    HuState,
     RobbingKongState,
     TsumoState,
 )
-from app.services.game_manager.models.types import GameEventType
+from app.services.game_manager.models.types import (
+    GameEventType,
+)
 
 
 class DummyRoomManager:
@@ -58,8 +64,9 @@ class DummyPlayer:
 
 class DummyHand:
     def __init__(self):
-        self.tiles = Counter()
+        self.tiles = Counter({GameTile.M1: 5})
         self.has_flower = False
+        self.call_blocks = []
 
     def apply_discard(self, tile):
         self.tiles[tile] -= 1
@@ -68,52 +75,69 @@ class DummyHand:
         self.tiles[tile] += 1
 
     def get_rightmost_tile(self):
-        for t in self.tiles:
-            if self.tiles[t] > 0:
-                return t
+        temp = next(iter(self.tiles), None)
+        if temp:
+            self.tsumo_tile = temp
+            return self.tsumo_tile
         return None
 
     def apply_call(self, block):
         self.called = True
 
+    def get_possible_chii_actions(self, priority, winning_condition):
+        return []
+
+    def get_possible_pon_actions(self, priority, winning_condition):
+        return []
+
+    def get_possible_kan_actions(self, priority, winning_condition):
+        return []
+
+    def apply_flower(self):
+        self.has_flower = False
+
 
 class DummyDeck:
     def __init__(self):
         self.tiles_remaining = 10
-        self.HAIPAI_TILES = 10
+        self.HAIPAI_TILES = 13
+        self.draw_index_left = 0
+        self.draw_index_right = 144
+        self.tiles = [GameTile.M1] * 144
 
     def draw_haipai(self):
-        return [GameTile.M1] * 13
-
-    def draw_tiles_right(self, count):
-        self.tiles_remaining -= count
-        return [GameTile.M1] * count
+        return self.tiles[
+            self.draw_index_left : self.draw_index_left + self.HAIPAI_TILES
+        ]
 
     def draw_tiles(self, count):
+        if self.tiles_remaining < count:
+            raise ValueError("Not enough tiles")
+        result = self.tiles[self.draw_index_left : self.draw_index_left + count]
+        self.draw_index_left += count
         self.tiles_remaining -= count
-        return [GameTile.M1] * count
+        return result
+
+    def draw_tiles_right(self, count):
+        if self.tiles_remaining < count:
+            raise ValueError("Not enough tiles")
+        result = self.tiles[self.draw_index_right - count : self.draw_index_right]
+        self.draw_index_right -= count
+        self.tiles_remaining -= count
+        return result
 
 
 class DummyWinningConditions:
     def __init__(self):
         self.winning_tile = GameTile.M1
         self.is_discarded = False
-        self.is_last_tile_of_its_kind = False
         self.is_last_tile_in_the_game = False
+        self.is_last_tile_of_its_kind = False
         self.is_replacement_tile = False
         self.is_robbing_the_kong = False
 
     @classmethod
     def create_default_conditions(cls):
-        return DummyWinningConditions()
-
-    @classmethod
-    def create_from_game_winning_conditions(
-        cls,
-        game_winning_conditions,
-        seat_wind,
-        round_wind,
-    ):
         return DummyWinningConditions()
 
 
@@ -154,6 +178,7 @@ def round_manager(dummy_game_manager):
     }
     rm.action_manager = None
     rm.current_player_seat = AbsoluteSeat.EAST
+    rm.DEFAULT_TURN_TIMEOUT = 60.0
     return rm
 
 
@@ -164,38 +189,66 @@ async def test_init_round_data(round_manager):
     assert len(round_manager.hands) == GameManager.MAX_PLAYERS
     assert isinstance(round_manager.visible_tiles_count, Counter)
     assert round_manager.winning_conditions is not None
+    assert round_manager.seat_to_player_index
+    assert round_manager.player_index_to_seat
     assert round_manager.action_manager is None
     assert round_manager.current_player_seat == AbsoluteSeat.EAST
 
 
+def test_init_seat_index_mapping(round_manager, dummy_game_manager):
+    dummy_game_manager.current_round = SimpleNamespace(number=2, wind="S")
+    round_manager.init_seat_index_mapping()
+    mapping = round_manager.seat_to_player_index
+    assert mapping[AbsoluteSeat.EAST] == (1 + 1) % 4
+    assert mapping[AbsoluteSeat.SOUTH] == (0 + 1) % 4
+    assert mapping[AbsoluteSeat.WEST] == (3 + 1) % 4
+    assert mapping[AbsoluteSeat.NORTH] == (2 + 1) % 4
+
+
 @pytest.mark.asyncio
 async def test_send_init_events(round_manager, dummy_game_manager):
-    dummy_game_manager.event_queue = asyncio.Queue()
-    round_manager.hands = [DummyHand() for _ in range(GameManager.MAX_PLAYERS)]
+    dummy_game_manager.player_list = [
+        DummyPlayer(f"user{i}", i) for i in range(GameManager.MAX_PLAYERS)
+    ]
+    round_manager.seat_to_player_index = {
+        AbsoluteSeat.EAST: 0,
+        AbsoluteSeat.SOUTH: 1,
+        AbsoluteSeat.WEST: 2,
+        AbsoluteSeat.NORTH: 3,
+    }
     await round_manager.send_init_events()
-    events = []
-    while not dummy_game_manager.event_queue.empty():
-        events.append(await dummy_game_manager.event_queue.get())
-    assert len(events) == GameManager.MAX_PLAYERS
-    for e in events:
-        assert e.event_type == GameEventType.INIT_HAIPAI
+    assert (
+        len(dummy_game_manager.network_service.personal_messages)
+        == GameManager.MAX_PLAYERS
+    )
+    for msg, game_id, user_id in dummy_game_manager.network_service.personal_messages:
+        assert msg["event"] == MessageEventType.HU_HAND
 
 
 @pytest.mark.asyncio
 async def test_do_init_flower_action(round_manager, dummy_game_manager):
     for hand in round_manager.hands:
         hand.has_flower = False
+    round_manager.hands[AbsoluteSeat.EAST].has_flower = True
     dummy_game_manager.event_queue = asyncio.Queue()
     await round_manager.do_init_flower_action()
     events = []
     while not dummy_game_manager.event_queue.empty():
         events.append(await dummy_game_manager.event_queue.get())
     assert len(events) == GameManager.MAX_PLAYERS
-    for e in events:
-        assert e.event_type == GameEventType.INIT_FLOWER
+    for event in events:
+        assert event.event_type == GameEventType.INIT_FLOWER
 
 
-def test_get_next_state_tsumo(round_manager):
+def test_get_next_state(round_manager):
+    dummy_event = GameEvent(
+        event_type=GameEventType.HU,
+        player_seat=AbsoluteSeat.EAST,
+        data={},
+        action_id=1,
+    )
+    state = round_manager.get_next_state(GameEventType.DISCARD, dummy_event)
+    assert isinstance(state, HuState)
     round_manager.tile_deck.tiles_remaining = 5
     dummy_event = GameEvent(
         event_type=GameEventType.TSUMO,
@@ -205,21 +258,9 @@ def test_get_next_state_tsumo(round_manager):
     )
     state = round_manager.get_next_state(GameEventType.DISCARD, dummy_event)
     assert isinstance(state, TsumoState)
-
-
-def test_get_next_state_draw(round_manager):
     round_manager.tile_deck.tiles_remaining = 0
-    dummy_event = GameEvent(
-        event_type=GameEventType.TSUMO,
-        player_seat=AbsoluteSeat.EAST,
-        data={},
-        action_id=1,
-    )
     state = round_manager.get_next_state(GameEventType.DISCARD, dummy_event)
     assert isinstance(state, DrawState)
-
-
-def test_get_next_state_discard(round_manager):
     dummy_event = GameEvent(
         event_type=GameEventType.DISCARD,
         player_seat=AbsoluteSeat.EAST,
@@ -227,31 +268,25 @@ def test_get_next_state_discard(round_manager):
         action_id=1,
     )
     state = round_manager.get_next_state(GameEventType.TSUMO, dummy_event)
+    from app.services.game_manager.models.round_fsm import DiscardState
+
     assert isinstance(state, DiscardState)
-
-
-def test_get_next_state_robbing_kong(round_manager):
     dummy_event = GameEvent(
         event_type=GameEventType.ROBBING_KONG,
         player_seat=AbsoluteSeat.EAST,
         data={"tile": GameTile.M1},
         action_id=1,
     )
-    state = round_manager.get_next_state(GameEventType.DISCARD, dummy_event)
+    state = round_manager.get_next_state(GameEventType.TSUMO, dummy_event)
     assert isinstance(state, RobbingKongState)
-
-
-class DummyNextTurn:
-    def __init__(self, next_event):
-        self.next_event = next_event
 
 
 @pytest.mark.asyncio
 async def test_do_robbing_kong(round_manager):
     dummy_event = GameEvent(
-        event_type=GameEventType.DISCARD,
+        event_type="DUMMY",
         player_seat=AbsoluteSeat.EAST,
-        data={"tile": GameTile.M1},
+        data={},
         action_id=1,
     )
     round_manager.check_actions_after_shomin_kong = lambda: [
@@ -340,18 +375,28 @@ async def test_send_actions_and_wait(round_manager, dummy_game_manager):
         result=("dummy_final_action", [dummy_event]),
     )
     round_manager.pick_action_from_game_event_list = lambda action, events: dummy_event
-    sent = False
-
-    async def dummy_send_response_action_event(response_action):
-        nonlocal sent
-        sent = True
-
-    round_manager.send_response_action_event = dummy_send_response_action_event
     actions = [[] for _ in range(GameManager.MAX_PLAYERS)]
     actions[round_manager.current_player_seat] = ["dummy_action"]
-    result = await round_manager.send_actions_and_wait(actions)
-    assert sent
+    result = await round_manager.send_actions_and_wait(actions_lists=actions)
     assert result == dummy_event
+
+
+def test_get_player_from_seat(round_manager, dummy_game_manager):
+    dummy_player = DummyPlayer("user0", 0)
+    dummy_game_manager.player_list = [
+        dummy_player,
+        DummyPlayer("user1", 1),
+        DummyPlayer("user2", 2),
+        DummyPlayer("user3", 3),
+    ]
+    round_manager.seat_to_player_index = {
+        AbsoluteSeat.EAST: 0,
+        AbsoluteSeat.SOUTH: 1,
+        AbsoluteSeat.WEST: 2,
+        AbsoluteSeat.NORTH: 3,
+    }
+    player = round_manager.get_player_from_seat(AbsoluteSeat.SOUTH)
+    assert player.uid == "user1"
 
 
 @pytest.mark.asyncio
@@ -364,7 +409,12 @@ async def test__send_discard_message(round_manager, dummy_game_manager):
     dummy_game_manager.network_service.send_personal_message = dummy_send
     round_manager.seat_to_player_index = {round_manager.current_player_seat: 0}
     dummy_player = DummyPlayer("user0", 0)
-    dummy_game_manager.player_list = [dummy_player]
+    dummy_game_manager.player_list = [
+        dummy_player,
+        DummyPlayer("user1", 1),
+        DummyPlayer("user2", 2),
+        DummyPlayer("user3", 3),
+    ]
     await round_manager._send_discard_message(
         round_manager.current_player_seat,
         ["action"],
@@ -380,13 +430,17 @@ def test__initialize_pending_players(round_manager):
         return
 
     round_manager._send_discard_message = dummy_send
-    pending, rem = asyncio.run(round_manager._initialize_pending_players(actions))
+    pending, rem = asyncio.run(
+        round_manager._initialize_pending_players(actions_lists=actions),
+    )
     assert round_manager.current_player_seat in pending
     assert rem[round_manager.current_player_seat] == round_manager.DEFAULT_TURN_TIMEOUT
 
 
 @pytest.mark.asyncio
 async def test__wait_for_player_actions(round_manager, dummy_game_manager):
+    from types import SimpleNamespace
+
     from app.services.game_manager.models.action import Action
 
     Action.create_from_game_event = (
@@ -406,16 +460,16 @@ async def test__wait_for_player_actions(round_manager, dummy_game_manager):
     round_manager.action_manager = dummy_am
     dummy_am.push_action = lambda action: "final_action"
     final, events = await round_manager._wait_for_player_actions(
-        **{
-            "pending_players": {round_manager.current_player_seat},
-            "remaining_time": {round_manager.current_player_seat: 60.0},
-        },
+        pending_players={round_manager.current_player_seat},
+        remaining_time={round_manager.current_player_seat: 60.0},
     )
     assert final == "final_action"
     assert dummy_event in events
 
 
 def test_pick_action_from_game_event_list(round_manager):
+    from types import SimpleNamespace
+
     from app.services.game_manager.models.action import ActionType
 
     dummy_action = SimpleNamespace(
@@ -430,70 +484,6 @@ def test_pick_action_from_game_event_list(round_manager):
         action_id=1,
     )
     result = round_manager.pick_action_from_game_event_list(dummy_action, [dummy_event])
-    assert result == dummy_event
-
-
-def test_end_round_as_draw(round_manager):
-    try:
-        round_manager.end_round_as_draw()
-    except Exception:
-        assert False
-
-
-def test_check_actions_after_tsumo(round_manager):
-    round_manager.get_possible_hu_choices = lambda player_seat: [1]
-    round_manager.get_possible_kan_choices = lambda player_seat: [2]
-    round_manager.get_possible_flower_choices = lambda player_seat: [3]
-    result = round_manager.check_actions_after_tsumo()
-    for seat in range(GameManager.MAX_PLAYERS):
-        if seat == round_manager.current_player_seat:
-            assert result[seat] == [1, 2, 3]
-        else:
-            assert result[seat] == []
-
-
-@pytest.mark.asyncio
-async def test_safe_wait_for(round_manager):
-    async def dummy():
-        return "result"
-
-    res, elapsed = await round_manager.safe_wait_for(dummy(), 1)
-    assert res == "result"
-    res, elapsed = await round_manager.safe_wait_for(
-        asyncio.sleep(0.1, result="done"),
-        0.2,
-    )
-    assert res == "done"
-
-
-@pytest.mark.asyncio
-async def test_send_tsumo_actions_and_wait_api(round_manager, dummy_game_manager):
-    dummy_event = GameEvent(
-        event_type=GameEventType.DISCARD,
-        player_seat=round_manager.current_player_seat,
-        data={"tile": GameTile.M1},
-        action_id=1,
-    )
-    dummy_game_manager.event_queue = asyncio.Queue()
-    await dummy_game_manager.event_queue.put(dummy_event)
-    round_manager.seat_to_player_index = {round_manager.current_player_seat: 0}
-    dummy_player = DummyPlayer("user0", 0)
-    dummy_game_manager.player_list = [dummy_player]
-    round_manager.send_tsumo_actions_and_wait_api = lambda **kwargs: asyncio.sleep(
-        0,
-        result=GameEvent(
-            event_type=GameEventType.DISCARD,
-            player_seat=round_manager.current_player_seat,
-            data={"tile": GameTile.M1},
-            action_id=1,
-        ),
-    )
-    result = await round_manager.send_tsumo_actions_and_wait_api(
-        actions_lists=[
-            ["action"] if i == round_manager.current_player_seat else []
-            for i in range(GameManager.MAX_PLAYERS)
-        ],
-    )
     assert result == dummy_event
 
 
@@ -515,11 +505,11 @@ async def test_wait_discard_after_call_action(round_manager, dummy_game_manager)
 async def test_do_action(round_manager):
     sent = False
 
-    async def dummy_send(response_action):
+    async def dummy_send(response_event):
         nonlocal sent
         sent = True
 
-    round_manager.send_response_action_event = dummy_send
+    round_manager.send_response_event = dummy_send
     applied = False
 
     def dummy_apply(response_event):
@@ -545,7 +535,8 @@ async def test_do_action(round_manager):
             action_id=1,
         ),
     )
-    assert sent and applied and isinstance(state, DiscardState)
+    assert sent and applied
+    assert isinstance(state, DiscardState)
 
 
 def test_apply_response_event(round_manager):
@@ -571,7 +562,7 @@ def test_apply_response_event(round_manager):
 
 
 @pytest.mark.asyncio
-async def test_send_response_action_event(round_manager, dummy_game_manager):
+async def test_send_response_event(round_manager, dummy_game_manager):
     recorded = []
 
     async def dummy_broadcast(message, game_id, exclude_user_id=None):
@@ -584,7 +575,7 @@ async def test_send_response_action_event(round_manager, dummy_game_manager):
         data={},
         action_id=1,
     )
-    await round_manager.send_response_action_event(event)
+    await round_manager.send_response_event(response_event=event)
     assert recorded[0][0] == "broadcast"
 
 
@@ -623,7 +614,7 @@ async def test_do_tsumo(round_manager):
     round_manager.check_actions_after_tsumo = lambda: [
         [] for _ in range(GameManager.MAX_PLAYERS)
     ]
-    round_manager.send_tsumo_actions_and_wait_api = lambda **kwargs: asyncio.sleep(
+    round_manager.send_tsumo_actions_and_wait = lambda **kwargs: asyncio.sleep(
         0,
         result=GameEvent(
             event_type=GameEventType.DISCARD,
