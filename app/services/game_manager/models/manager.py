@@ -48,6 +48,7 @@ from app.services.game_manager.models.winning_conditions import (
     GameWinningConditions,
 )
 from app.services.score_calculator.hand.hand import Hand
+from app.services.score_calculator.result.result import ScoreResult
 from app.services.score_calculator.score_calculator import ScoreCalculator
 from app.services.score_calculator.winning_conditions.winning_conditions import (
     WinningConditions,
@@ -310,7 +311,7 @@ class RoundManager:
             "actions": actions,
             "action_id": self.game_manager.action_id,
         }
-        player: Player = self.get_player_from_seat(seat)
+        player: Player = self.get_player_from_seat(seat=seat)
         await self.game_manager.network_service.send_personal_message(
             message=message,
             game_id=self.game_manager.game_id,
@@ -387,15 +388,62 @@ class RoundManager:
         return None
 
     async def end_round_as_hu(self, current_event: GameEvent) -> None:
-        await self.send_hu_hand_info(hu_player_seat=current_event.player_seat)
+        score_result: ScoreResult = self.get_score_result(hu_event=current_event)
+        self.apply_score_result(
+            hu_player_seat=current_event.player_seat,
+            score_result=score_result,
+        )
+        await self.send_hu_hand_info(
+            hu_player_seat=current_event.player_seat,
+            score_result=score_result,
+        )
         await self.send_an_kan_info()
 
-    async def send_hu_hand_info(self, hu_player_seat: AbsoluteSeat) -> None:
+    def apply_score_result(
+        self,
+        hu_player_seat: AbsoluteSeat,
+        score_result: ScoreResult,
+    ) -> None:
+        if hu_player_seat == self.current_player_seat:
+            for player in self.game_manager.player_list:
+                if player.index == self.seat_to_player_index[hu_player_seat]:
+                    player.score += (score_result.total_score + 8) * 3
+                else:
+                    player.score -= score_result.total_score + 8
+        else:
+            for player in self.game_manager.player_list:
+                if player.index == self.seat_to_player_index[hu_player_seat]:
+                    player.score += score_result.total_score + 8 * 3
+                elif (
+                    player.index == self.seat_to_player_index[self.current_player_seat]
+                ):
+                    player.score -= score_result.total_score + 8
+                else:
+                    player.score -= 8
+
+    def get_score_result(self, hu_event: GameEvent) -> ScoreResult:
+        return ScoreCalculator(
+            hand=Hand.create_from_game_hand(self.hands[hu_event.player_seat]),
+            winning_conditions=WinningConditions.create_from_game_winning_conditions(
+                game_winning_conditions=self.winning_conditions,
+                seat_wind=hu_event.player_seat,
+                round_wind=AbsoluteSeat(self.game_manager.current_round // 4),
+            ),
+        ).result
+
+    async def send_hu_hand_info(
+        self,
+        hu_player_seat: AbsoluteSeat,
+        score_result: ScoreResult,
+    ) -> None:
         await self.game_manager.network_service.broadcast(
             message={
                 "event": MessageEventType.HU_HAND,
                 "player_seat": hu_player_seat,
-                "data": {"hand": self.hands[hu_player_seat].tiles.elements()},
+                "data": {
+                    "hand": self.hands[hu_player_seat].tiles.elements(),
+                    "score_result": score_result,
+                },
             },
             game_id=self.game_manager.game_id,
         )
