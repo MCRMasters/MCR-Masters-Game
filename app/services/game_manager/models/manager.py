@@ -152,7 +152,7 @@ class RoundManager:
             player: Player = self.get_player_from_seat(seat=seat)
             await self.game_manager.network_service.send_personal_message(
                 message={
-                    "event": MessageEventType.HU_HAND,
+                    "event": MessageEventType.INIT_EVENT,
                     "player_seat": seat,
                     "data": {"hand": self.hands[seat].tiles.elements()},
                 },

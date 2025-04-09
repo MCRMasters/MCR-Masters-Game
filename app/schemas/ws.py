@@ -14,6 +14,7 @@ class GameWebSocketActionType(str, Enum):
 
 
 class MessageEventType(str, Enum):
+    INIT_EVENT = "init_event"
     HAIPAI_HAND = "haipai_hand"
     TSUMO_ACTIONS = "tsumo_actions"
     DISCARD_ACTIONS = "discard_actions"
