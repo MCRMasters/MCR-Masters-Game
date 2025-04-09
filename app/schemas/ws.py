@@ -40,3 +40,8 @@ class WebSocketResponse(BaseModel):
 class WebSocketMessage(BaseModel):
     action: GameWebSocketActionType
     data: dict[str, Any] | None = None
+
+
+class WSMessage(BaseModel):
+    event: MessageEventType
+    data: dict[str, Any]
