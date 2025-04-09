@@ -222,7 +222,7 @@ async def test_send_init_events(round_manager, dummy_game_manager):
         == GameManager.MAX_PLAYERS
     )
     for msg, game_id, user_id in dummy_game_manager.network_service.personal_messages:
-        assert msg["event"] == MessageEventType.HU_HAND
+        assert msg["event"] == MessageEventType.INIT_EVENT
 
 
 @pytest.mark.asyncio

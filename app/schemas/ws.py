@@ -14,6 +14,7 @@ class GameWebSocketActionType(str, Enum):
 
 
 class MessageEventType(str, Enum):
+    INIT_EVENT = "init_event"
     HAIPAI_HAND = "haipai_hand"
     TSUMO_ACTIONS = "tsumo_actions"
     DISCARD_ACTIONS = "discard_actions"
@@ -39,3 +40,8 @@ class WebSocketResponse(BaseModel):
 class WebSocketMessage(BaseModel):
     action: GameWebSocketActionType
     data: dict[str, Any] | None = None
+
+
+class WSMessage(BaseModel):
+    event: MessageEventType
+    data: dict[str, Any]
