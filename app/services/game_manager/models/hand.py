@@ -36,17 +36,21 @@ class GameHand:
     def has_flower(self) -> bool:
         return bool(self.FLOWER_TILES & self.tiles)
 
-    def apply_flower(self) -> None:
+    def apply_flower(self) -> GameTile | None:
         if not (self.FLOWER_TILES & self.tiles):
             raise ValueError("Cannot apply flower: hand doesn't have flower tile")
         self.flower_point += 1
         if self.tsumo_tile and self.tsumo_tile.is_flower:
             self.apply_discard(self.tsumo_tile)
+            return self.tsumo_tile
         else:
+            applied_tile: GameTile | None = None
             for flower_tile in GameTile.flower_tiles():
                 if flower_tile in self.tiles:
                     self.apply_discard(GameTile(flower_tile))
+                    applied_tile = GameTile(flower_tile)
                     break
+            return applied_tile
 
     @property
     def hand_size(self) -> int:
