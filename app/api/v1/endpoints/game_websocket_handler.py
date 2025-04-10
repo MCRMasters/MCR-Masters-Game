@@ -9,8 +9,6 @@ from starlette.websockets import WebSocketDisconnect
 from app.core.error import MCRDomainError
 from app.core.room_manager import RoomManager
 from app.schemas.ws import GameWebSocketActionType, WebSocketMessage, WebSocketResponse
-from app.services.game_manager.models.enums import AbsoluteSeat, GameTile
-from app.services.game_manager.models.manager import GameManager
 
 
 class GameWebSocketHandler:
@@ -79,7 +77,6 @@ class GameWebSocketHandler:
                 Callable[[WebSocketMessage], Coroutine[Any, Any, None]],
             ] = {
                 GameWebSocketActionType.PING: self.handle_ping,
-                GameWebSocketActionType.DISCARD: self.handle_discard,
             }
             handler = message_handlers.get(message.action)
             if handler:
@@ -104,45 +101,6 @@ class GameWebSocketHandler:
             self.game_id,
             self.user_id,
         )
-
-    async def handle_discard(self, message: WebSocketMessage) -> None:
-        game_manager: GameManager = self.room_manager.game_managers[self.game_id]
-
-        if not message.data or "tile" not in message.data:
-            await self.send_error("No Tile in message")
-            return
-
-        try:
-            tile_int = int(message.data["tile"])
-        except (ValueError, TypeError):
-            await self.send_error("Tile is not integer")
-            return
-
-        try:
-            tile = GameTile(tile_int)
-        except ValueError:
-            await self.send_error("Tile is not valid")
-            return
-
-        result_dict: dict[str, AbsoluteSeat] = game_manager.get_valid_discard_result(
-            self.user_id,
-            tile,
-        )
-
-        if not result_dict:
-            await self.send_error("No tile in hand")
-            return
-
-        discard_response = WebSocketResponse(
-            status="success",
-            action=GameWebSocketActionType.DISCARD,
-            data={
-                "seat": result_dict["seat"],
-                "tile": int(tile),
-            },
-        ).model_dump()
-
-        await self.room_manager.broadcast(discard_response, self.game_id)
 
     async def handle_ping(self, _: WebSocketMessage) -> None:
         await self.room_manager.send_personal_message(
