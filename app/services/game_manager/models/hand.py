@@ -17,6 +17,7 @@ class GameHand:
     tiles: Counter[GameTile]
     call_blocks: list[CallBlock]
     tsumo_tile: GameTile | None = None
+    flower_point: int = 0
 
     FULL_HAND_SIZE: Final[int] = 14
     FLOWER_TILES: ClassVar[Counter[GameTile]] = Counter(
@@ -38,6 +39,7 @@ class GameHand:
     def apply_flower(self) -> None:
         if not (self.FLOWER_TILES & self.tiles):
             raise ValueError("Cannot apply flower: hand doesn't have flower tile")
+        self.flower_point += 1
         if self.tsumo_tile and self.tsumo_tile.is_flower:
             self.apply_discard(self.tsumo_tile)
         else:
@@ -49,6 +51,15 @@ class GameHand:
     @property
     def hand_size(self) -> int:
         return sum(self.tiles.values()) + len(self.call_blocks) * 3
+
+    def apply_init_flower_tsumo(self, tile: GameTile) -> GameTile:
+        if self.hand_size != GameHand.FULL_HAND_SIZE - 2:
+            raise ValueError(
+                f"Cannot apply init flower tsumo: hand size {self.hand_size},"
+                " expected size {GameHand.FULL_HAND_SIZE - 2}.",
+            )
+        self.tiles[tile] += 1
+        return tile
 
     def apply_tsumo(self, tile: GameTile) -> GameTile:
         if self.hand_size >= GameHand.FULL_HAND_SIZE:

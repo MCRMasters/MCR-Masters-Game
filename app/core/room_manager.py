@@ -1,16 +1,22 @@
+from __future__ import annotations
+
 import asyncio
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from fastapi import WebSocket, status
 
 from app.dependencies.game_manager import get_game_manager
 from app.services.game_manager.models.player import PlayerData
 
+if TYPE_CHECKING:
+    from app.services.game_manager.models.manager import GameManager
+
 
 class RoomManager:
     def __init__(self) -> None:
         self.active_connections: dict[int, dict[str, WebSocket]] = {}
-        self.game_managers: dict[int, Any] = {}  # GameManager
+        self.game_managers: dict[int, GameManager] = {}
+        self.game_tasks: dict[int, asyncio.Task] = {}
         self.id_to_player_data: dict[str, PlayerData] = {}
         self.lock = asyncio.Lock()
         self.next_game_id: int = 1
@@ -51,13 +57,15 @@ class RoomManager:
             from app.services.game_manager.models.manager import GameManager
 
             if len(self.active_connections[game_id]) == GameManager.MAX_PLAYERS:
-                player_datas: list[PlayerData] = [
+                players_data: list[PlayerData] = [
                     self.id_to_player_data[uid]
                     for uid in self.active_connections[game_id]
                 ]
                 self.game_managers[game_id] = get_game_manager(game_id=game_id)
-                self.game_managers[game_id].init_game(player_datas=player_datas)
-                self.game_managers[game_id].start_game()
+                self.game_managers[game_id].init_game(players_data=players_data)
+
+                task = asyncio.create_task(self.game_managers[game_id].start_game())
+                self.game_tasks[game_id] = task
 
     async def disconnect(self, game_id: int, user_id: str) -> None:
         async with self.lock:

@@ -48,11 +48,6 @@ class GameWebSocketHandler:
         except Exception as e:
             await self.handle_error(e)
             return False
-        finally:
-            await self.room_manager.disconnect(
-                game_id=self.game_id,
-                user_id=self.user_id,
-            )
         return True
 
     async def handle_messages(self) -> None:

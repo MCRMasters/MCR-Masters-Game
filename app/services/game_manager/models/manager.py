@@ -8,12 +8,7 @@ from copy import deepcopy
 from random import shuffle
 from typing import Any, Final, TypeVar
 
-from fastapi import Depends
-
 from app.core.network_service import NetworkService
-from app.core.room_manager import RoomManager
-from app.dependencies.network_service import get_network_service
-from app.dependencies.room_manager import get_room_manager
 from app.schemas.ws import MessageEventType, WSMessage
 from app.services.game_manager.models.action import Action
 from app.services.game_manager.models.call_block import CallBlock
@@ -33,6 +28,7 @@ from app.services.game_manager.models.player import (
 from app.services.game_manager.models.round_fsm import (
     DiscardState,
     DrawState,
+    FlowerState,
     HuState,
     InitState,
     RobbingKongState,
@@ -131,29 +127,37 @@ class RoundManager:
                 },
             )
             await self.game_manager.network_service.send_personal_message(
-                message=msg.dict(),
+                message=msg.model_dump(),
                 game_id=self.game_manager.game_id,
                 user_id=player.uid,
             )
 
     async def do_init_flower_action(self) -> None:
+        new_tiles_list: list[list[GameTile]] = [
+            [] for _ in range(self.game_manager.MAX_PLAYERS)
+        ]
         for seat in AbsoluteSeat:
-            data: dict[str, Any] = {
-                "new_tiles": [],
-            }
             while self.hands[seat].has_flower:
                 self.hands[seat].apply_flower()
                 new_tile: GameTile = self.tile_deck.draw_tiles_right(1)[0]
-                self.hands[seat].apply_tsumo(tile=new_tile)
-                data["new_tiles"].append(new_tile)
-            self.game_manager.increase_action_id()
-            event = GameEvent(
-                event_type=GameEventType.INIT_FLOWER,
-                player_seat=seat,
+                self.hands[seat].apply_init_flower_tsumo(tile=new_tile)
+                new_tiles_list[seat].append(new_tile)
+        flower_count: list[int] = [hand.flower_point for hand in self.hands]
+        for seat in AbsoluteSeat:
+            data: dict[str, Any] = {
+                "new_tiles": new_tiles_list[seat],
+                "flower_count": flower_count,
+            }
+            msg = WSMessage(
+                event=MessageEventType.INIT_FLOWER_REPLACEMENT,
                 data=data,
-                action_id=self.game_manager.action_id,
             )
-            await self.game_manager.event_queue.put(event)
+            player: Player = self.get_player_from_seat(seat=seat)
+            await self.game_manager.network_service.send_personal_message(
+                message=msg.model_dump(),
+                game_id=self.game_manager.game_id,
+                user_id=player.uid,
+            )
 
     def get_next_state(
         self,
@@ -180,6 +184,8 @@ class RoundManager:
                         "ShominKong tile must be provided for ROBBING KONG turn.",
                     )
                 return RobbingKongState(tile=tile)
+            case GameEventType.INIT_FLOWER:
+                return FlowerState()
             case _:
                 raise ValueError(f"Invalid next event type: {next_event.event_type}")
 
@@ -291,7 +297,7 @@ class RoundManager:
         )
         player: Player = self.get_player_from_seat(seat=seat)
         await self.game_manager.network_service.send_personal_message(
-            message=msg.dict(),
+            message=msg.model_dump(),
             game_id=self.game_manager.game_id,
             user_id=player.uid,
         )
@@ -423,7 +429,7 @@ class RoundManager:
             },
         )
         await self.game_manager.network_service.broadcast(
-            message=msg.dict(),
+            message=msg.model_dump(),
             game_id=self.game_manager.game_id,
         )
 
@@ -444,7 +450,7 @@ class RoundManager:
             data={"an_kan_infos": an_kan_infos},
         )
         await self.game_manager.network_service.broadcast(
-            message=msg.dict(),
+            message=msg.model_dump(),
             game_id=self.game_manager.game_id,
         )
 
@@ -603,7 +609,7 @@ class RoundManager:
             )
             player: Player = self.get_player_from_seat(self.current_player_seat)
             await self.game_manager.network_service.send_personal_message(
-                message=msg.dict(),
+                message=msg.model_dump(),
                 game_id=self.game_manager.game_id,
                 user_id=player.uid,
             )
@@ -738,7 +744,7 @@ class RoundManager:
                     },
                 )
                 await self.game_manager.network_service.broadcast(
-                    message=msg.dict(),
+                    message=msg.model_dump(),
                     game_id=self.game_manager.game_id,
                 )
             case GameEventType.AN_KAN:
@@ -750,7 +756,7 @@ class RoundManager:
                     },
                 )
                 await self.game_manager.network_service.send_personal_message(
-                    message=msg_personal.dict(),
+                    message=msg_personal.model_dump(),
                     game_id=self.game_manager.game_id,
                     user_id=self.game_manager.player_list[
                         self.seat_to_player_index[response_event.player_seat]
@@ -764,7 +770,7 @@ class RoundManager:
                     },
                 )
                 await self.game_manager.network_service.broadcast(
-                    message=msg_broadcast.dict(),
+                    message=msg_broadcast.model_dump(),
                     game_id=self.game_manager.game_id,
                     exclude_user_id=self.game_manager.player_list[
                         self.seat_to_player_index[response_event.player_seat]
@@ -779,7 +785,7 @@ class RoundManager:
                     },
                 )
                 await self.game_manager.network_service.broadcast(
-                    message=msg.dict(),
+                    message=msg.model_dump(),
                     game_id=self.game_manager.game_id,
                 )
             case GameEventType.PON:
@@ -791,7 +797,7 @@ class RoundManager:
                     },
                 )
                 await self.game_manager.network_service.broadcast(
-                    message=msg.dict(),
+                    message=msg.model_dump(),
                     game_id=self.game_manager.game_id,
                 )
             case GameEventType.DAIMIN_KAN:
@@ -803,7 +809,7 @@ class RoundManager:
                     },
                 )
                 await self.game_manager.network_service.broadcast(
-                    message=msg.dict(),
+                    message=msg.model_dump(),
                     game_id=self.game_manager.game_id,
                 )
             case GameEventType.SHOMIN_KAN:
@@ -815,7 +821,7 @@ class RoundManager:
                     },
                 )
                 await self.game_manager.network_service.broadcast(
-                    message=msg.dict(),
+                    message=msg.model_dump(),
                     game_id=self.game_manager.game_id,
                 )
             case GameEventType.DISCARD:
@@ -826,7 +832,7 @@ class RoundManager:
                     },
                 )
                 await self.game_manager.network_service.broadcast(
-                    message=msg.dict(),
+                    message=msg.model_dump(),
                     game_id=self.game_manager.game_id,
                 )
 
@@ -866,6 +872,18 @@ class RoundManager:
             winning_tile=drawn_tiles[0],
             previous_event_type=previous_event_type,
         )
+        msg = WSMessage(
+            event=MessageEventType.TSUMO,
+            data={
+                "tile": drawn_tiles[0],
+            },
+        )
+        player: Player = self.get_player_from_seat(seat=self.current_player_seat)
+        await self.game_manager.network_service.send_personal_message(
+            message=msg.model_dump(),
+            game_id=self.game_manager.game_id,
+            user_id=player.uid,
+        )
         actions_lists: list[list[Action]] = self.check_actions_after_tsumo()
         return await self.send_tsumo_actions_and_wait(actions_lists=actions_lists)
 
@@ -878,11 +896,9 @@ class GameManager:
     def __init__(
         self,
         game_id: int,
-        room_manager: RoomManager = Depends(get_room_manager()),
-        network_service: NetworkService = Depends(get_network_service()),
+        network_service: NetworkService,
     ) -> None:
         self.game_id: int = game_id
-        self.room_manager: RoomManager = room_manager
         self.network_service: NetworkService = network_service
         self.player_list: list[Player]
         self.player_uid_to_index: dict[str, int]
@@ -914,13 +930,32 @@ class GameManager:
         self.event_queue = asyncio.Queue()
 
     async def start_game(self) -> None:
+        start_msg = WSMessage(
+            event=MessageEventType.GAME_START_INFO,
+            data={
+                "players": [
+                    {
+                        "uid": player.uid,
+                        "nickname": player.nickname,
+                        "index": player.index,
+                        "score": player.score,
+                    }
+                    for player in self.player_list
+                ],
+            },
+        )
+        await self.network_service.broadcast(
+            message=start_msg.model_dump(),
+            game_id=self.game_id,
+        )
+
         for _ in range(self.TOTAL_ROUNDS):
             await self.round_manager.run_round()
             self.current_round = self.current_round.next_round
         await self.submit_game_result()
 
-    # TODO submit game result to core sever
     async def submit_game_result(self) -> None:
+        # TODO: submit game result to core server
         pass
 
     def increase_action_id(self) -> None:

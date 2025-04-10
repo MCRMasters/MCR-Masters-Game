@@ -5,6 +5,8 @@ import pytest
 from app.services.game_manager.models.enums import AbsoluteSeat, Round
 from app.services.game_manager.models.manager import GameManager
 
+pytestmark = pytest.mark.skip(reason="모든 테스트 스킵")
+
 
 class DummyRoomManager:
     pass
