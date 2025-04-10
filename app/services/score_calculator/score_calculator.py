@@ -45,7 +45,6 @@ class ScoreCalculator:
         self.winning_conditions: WinningConditions = winning_conditions
         self._highest_result = ScoreResult(yaku_score_list=[])
         self.is_blocks_divided = False
-        print(self.hand)
         if self.hand.tiles[Tile.F0] > 0:
             return
         tenpai_hand = deepcopy(hand)
