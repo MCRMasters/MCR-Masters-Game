@@ -40,6 +40,8 @@ async def game_websocket_endpoint(
         )
         return
 
+    await websocket.accept()
+
     handler = GameWebSocketHandler(
         websocket=websocket,
         game_id=game_id,
