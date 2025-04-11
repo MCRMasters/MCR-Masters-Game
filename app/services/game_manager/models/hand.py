@@ -40,15 +40,16 @@ class GameHand:
         if not (self.FLOWER_TILES & self.tiles):
             raise ValueError("Cannot apply flower: hand doesn't have flower tile")
         self.flower_point += 1
+        applied_tile: GameTile | None = None
         if self.tsumo_tile and self.tsumo_tile.is_flower:
-            self.apply_discard(self.tsumo_tile)
-            return self.tsumo_tile
+            applied_tile = self.tsumo_tile
+            self.apply_discard(applied_tile)
+            return applied_tile
         else:
-            applied_tile: GameTile | None = None
             for flower_tile in GameTile.flower_tiles():
                 if flower_tile in self.tiles:
-                    self.apply_discard(GameTile(flower_tile))
                     applied_tile = GameTile(flower_tile)
+                    self.apply_discard(applied_tile)
                     break
             return applied_tile
 
@@ -57,12 +58,11 @@ class GameHand:
         return sum(self.tiles.values()) + len(self.call_blocks) * 3
 
     def apply_init_flower_tsumo(self, tile: GameTile) -> GameTile:
-        if self.hand_size != GameHand.FULL_HAND_SIZE - 2:
-            raise ValueError(
-                f"Cannot apply init flower tsumo: hand size {self.hand_size},"
-                " expected size {GameHand.FULL_HAND_SIZE - 2}.",
-            )
+        if self.hand_size >= GameHand.FULL_HAND_SIZE:
+            raise ValueError("Cannot apply tsumo: hand is already full.")
         self.tiles[tile] += 1
+        if self.hand_size == GameHand.FULL_HAND_SIZE:
+            self.tsumo_tile = tile
         return tile
 
     def apply_tsumo(self, tile: GameTile) -> GameTile:
