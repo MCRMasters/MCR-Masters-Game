@@ -75,6 +75,9 @@ class RoundManager:
             GameHand.create_from_tiles(tiles=self.tile_deck.draw_haipai())
             for _ in range(self.game_manager.MAX_PLAYERS)
         ]
+        self.hands[AbsoluteSeat.EAST].apply_tsumo(
+            tile=self.tile_deck.draw_tiles(count=1)[0],
+        )
         self.kawas = [[] for _ in range(self.game_manager.MAX_PLAYERS)]
         self.visible_tiles_count = Counter()
         self.winning_conditions = GameWinningConditions.create_default_conditions()
@@ -124,6 +127,7 @@ class RoundManager:
                 data={
                     "player_seat": seat,
                     "hand": list(self.hands[seat].tiles.elements()),
+                    "tsumo_tile": self.hands[seat].tsumo_tile,
                 },
             )
             await self.game_manager.network_service.send_personal_message(
@@ -861,21 +865,29 @@ class RoundManager:
         )
 
     async def do_tsumo(self, previous_event_type: GameEventType) -> GameEvent:
-        drawn_tiles: list[GameTile]
+        drawn_tile: GameTile | None
         if self.tile_deck.HAIPAI_TILES < 1:
             raise ValueError(
                 "Not enough tiles remaining. Requested: {1},"
                 " Available: {self.tile_deck.HAIPAI_TILES}",
             )
+
         if previous_event_type == GameEventType.DISCARD:
             self.current_player_seat = self.current_player_seat.next_seat
-        if previous_event_type.is_next_replacement:
-            drawn_tiles = self.tile_deck.draw_tiles_right(1)
+        if previous_event_type != GameEventType.INIT_FLOWER:
+            drawn_tiles: list[GameTile]
+            if previous_event_type.is_next_replacement:
+                drawn_tiles = self.tile_deck.draw_tiles_right(1)
+            else:
+                drawn_tiles = self.tile_deck.draw_tiles(1)
+            drawn_tile = drawn_tiles[0]
+            self.hands[self.current_player_seat].apply_tsumo(tile=drawn_tile)
         else:
-            drawn_tiles = self.tile_deck.draw_tiles(1)
-        self.hands[self.current_player_seat].apply_tsumo(tile=drawn_tiles[0])
+            drawn_tile = self.hands[self.current_player_seat].tsumo_tile
+            if drawn_tile is None:
+                raise ValueError("init player did not tsumo.")
         self.set_winning_conditions(
-            winning_tile=drawn_tiles[0],
+            winning_tile=drawn_tile,
             previous_event_type=previous_event_type,
         )
         msg = WSMessage(

@@ -32,7 +32,7 @@ class FlowerState(RoundState):
         print("[DEBUG] FlowerState: performing init flower action")
         await manager.do_init_flower_action()
         print("[DEBUG] FlowerState: transition to TsumoState with prev_type=DISCARD")
-        return TsumoState(prev_type=GameEventType.DISCARD)
+        return TsumoState(prev_type=GameEventType.INIT_FLOWER)
 
 
 class TsumoState(RoundState):
