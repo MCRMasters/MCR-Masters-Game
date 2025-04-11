@@ -30,6 +30,10 @@ class MessageEventType(str, Enum):
     FLOWER = "flower"
     OPEN_AN_KAN = "open_an_kan"
     HU_HAND = "hu_hand"
+    PING = "ping"
+    PONG = "pong"
+    USER_JOINED = "user_joined"
+    ERROR = "error"
 
 
 class WebSocketResponse(BaseModel):

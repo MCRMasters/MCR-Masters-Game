@@ -8,7 +8,7 @@ from starlette.websockets import WebSocketDisconnect
 
 from app.core.error import MCRDomainError
 from app.core.room_manager import RoomManager
-from app.schemas.ws import GameWebSocketActionType, WebSocketMessage, WebSocketResponse
+from app.schemas.ws import MessageEventType, WSMessage
 
 
 class GameWebSocketHandler:
@@ -54,41 +54,40 @@ class GameWebSocketHandler:
         while True:
             try:
                 data = await self.websocket.receive_json()
-                message = WebSocketMessage(
-                    action=data.get("action", ""),
-                    data=data.get("data"),
+                # 이제 JSON 메시지는 "event"와 "data" 필드를 포함한다고 가정합니다.
+                message = WSMessage(
+                    event=data.get("event", ""),
+                    data=data.get("data", {}),
                 )
             except Exception as e:
                 await self.websocket.send_json(
-                    WebSocketResponse(
-                        status="error",
-                        action=GameWebSocketActionType.ERROR,
-                        error=f"Invalid message format: {e}",
+                    WSMessage(
+                        event=MessageEventType.ERROR,
+                        data={"message": f"Invalid message format: {e}"},
                     ).model_dump(),
                 )
                 continue
+
             message_handlers: dict[
-                GameWebSocketActionType,
-                Callable[[WebSocketMessage], Coroutine[Any, Any, None]],
+                MessageEventType,
+                Callable[[WSMessage], Coroutine[Any, Any, None]],
             ] = {
-                GameWebSocketActionType.PING: self.handle_ping,
+                MessageEventType.PING: self.handle_ping,
             }
-            handler = message_handlers.get(message.action)
+            handler = message_handlers.get(message.event)
             if handler:
                 await handler(message)
             else:
                 await self.websocket.send_json(
-                    WebSocketResponse(
-                        status="error",
-                        action=GameWebSocketActionType.ERROR,
-                        error=f"Unknown action: {message.action}",
+                    WSMessage(
+                        event=MessageEventType.ERROR,
+                        data={"message": f"Unknown event: {message.event}"},
                     ).model_dump(),
                 )
 
     async def send_error(self, message: str) -> None:
-        error_response = WebSocketResponse(
-            status="error",
-            action=GameWebSocketActionType.ERROR,
+        error_response = WSMessage(
+            event=MessageEventType.ERROR,
             data={"message": message},
         ).model_dump()
         await self.room_manager.send_personal_message(
@@ -97,11 +96,10 @@ class GameWebSocketHandler:
             self.user_id,
         )
 
-    async def handle_ping(self, _: WebSocketMessage) -> None:
+    async def handle_ping(self, _: WSMessage) -> None:
         await self.room_manager.send_personal_message(
-            WebSocketResponse(
-                status="success",
-                action=GameWebSocketActionType.PONG,
+            WSMessage(
+                event=MessageEventType.PONG,
                 data={"message": "pong"},
             ).model_dump(),
             self.game_id,
@@ -120,10 +118,9 @@ class GameWebSocketHandler:
             )
 
     async def _notify_user_joined(self) -> None:
-        response = WebSocketResponse(
-            status="success",
-            action=GameWebSocketActionType.USER_JOINED,
-            data={"user_id": str(self.user_id)},
+        response = WSMessage(
+            event=MessageEventType.USER_JOINED,
+            data={"user_id": self.user_id},
         )
         await self.room_manager.broadcast(
             message=response.model_dump(),

@@ -136,9 +136,14 @@ class RoundManager:
         new_tiles_list: list[list[GameTile]] = [
             [] for _ in range(self.game_manager.MAX_PLAYERS)
         ]
+        applied_flowers_list: list[list[GameTile]] = [
+            [] for _ in range(self.game_manager.MAX_PLAYERS)
+        ]
         for seat in AbsoluteSeat:
             while self.hands[seat].has_flower:
-                self.hands[seat].apply_flower()
+                if (applied_flower := self.hands[seat].apply_flower()) is None:
+                    raise ValueError("Invalid hand value about flower tiles")
+                applied_flowers_list[seat].append(applied_flower)
                 new_tile: GameTile = self.tile_deck.draw_tiles_right(1)[0]
                 self.hands[seat].apply_init_flower_tsumo(tile=new_tile)
                 new_tiles_list[seat].append(new_tile)
@@ -146,6 +151,7 @@ class RoundManager:
         for seat in AbsoluteSeat:
             data: dict[str, Any] = {
                 "new_tiles": new_tiles_list[seat],
+                "applied_flowers": applied_flowers_list[seat],
                 "flower_count": flower_count,
             }
             msg = WSMessage(
