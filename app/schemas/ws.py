@@ -20,6 +20,7 @@ class MessageEventType(str, Enum):
     HAIPAI_HAND = "haipai_hand"
     TSUMO_ACTIONS = "tsumo_actions"
     DISCARD_ACTIONS = "discard_actions"
+    ROBBING_KONG_ACTIONS = "robbing_kong_actions"
     DISCARD = "discard"
     TSUMO = "tsumo"
     CHII = "chii"

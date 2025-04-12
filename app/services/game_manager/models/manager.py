@@ -208,7 +208,10 @@ class RoundManager:
             previous_event_type=GameEventType.SHOMIN_KAN,
         )
         actions_lists: list[list[Action]] = self.check_actions_after_shomin_kong()
-        return await self.send_actions_and_wait(actions_lists=actions_lists)
+        return await self.send_actions_and_wait(
+            message_event_type=MessageEventType.ROBBING_KONG_ACTIONS,
+            actions_lists=actions_lists,
+        )
 
     def check_actions_after_shomin_kong(self) -> list[list[Action]]:
         result: list[list[Action]] = [[] for _ in range(self.game_manager.MAX_PLAYERS)]
@@ -234,7 +237,10 @@ class RoundManager:
         )
 
         actions_lists: list[list[Action]] = self.check_actions_after_discard()
-        return await self.send_actions_and_wait(actions_lists=actions_lists)
+        return await self.send_actions_and_wait(
+            message_event_type=MessageEventType.DISCARD_ACTIONS,
+            actions_lists=actions_lists,
+        )
 
     def check_actions_after_discard(self) -> list[list[Action]]:
         result: list[list[Action]] = [[] for _ in range(self.game_manager.MAX_PLAYERS)]
@@ -257,18 +263,14 @@ class RoundManager:
 
     async def send_actions_and_wait(
         self,
+        message_event_type: MessageEventType,
         actions_lists: list[list[Action]],
     ) -> GameEvent | None:
         self.game_manager.increase_action_id()
-        for seat in AbsoluteSeat:
-            if actions_lists[seat]:
-                await self._send_discard_message(
-                    seat=seat,
-                    actions=actions_lists[seat],
-                )
 
         pending_players, remaining_time = await self._initialize_pending_players(
             actions_lists=actions_lists,
+            message_event_type=message_event_type,
         )
 
         self.action_manager = ActionManager(
@@ -293,16 +295,20 @@ class RoundManager:
     def get_player_from_seat(self, seat: AbsoluteSeat) -> Player:
         return self.game_manager.player_list[self.seat_to_player_index[seat]]
 
-    async def _send_discard_message(
+    async def _send_actions_message(
         self,
         seat: AbsoluteSeat,
         actions: list[Action],
+        message_event_type: MessageEventType,
+        left_time: float,
     ) -> None:
         msg = WSMessage(
-            event=MessageEventType.DISCARD_ACTIONS,
+            event=message_event_type,
             data={
+                "tile": self.winning_conditions.winning_tile,
                 "actions": actions,
                 "action_id": self.game_manager.action_id,
+                "left_time": left_time,
             },
         )
         player: Player = self.get_player_from_seat(seat=seat)
@@ -315,6 +321,7 @@ class RoundManager:
     async def _initialize_pending_players(
         self,
         actions_lists: list[list[Action]],
+        message_event_type: MessageEventType,
     ) -> tuple[set[AbsoluteSeat], dict[AbsoluteSeat, float]]:
         pending_players: set[AbsoluteSeat] = set()
         remaining_time: dict[AbsoluteSeat, float] = {}
@@ -322,9 +329,11 @@ class RoundManager:
             if actions_lists[seat]:
                 pending_players.add(seat)
                 remaining_time[seat] = self.DEFAULT_TURN_TIMEOUT
-                await self._send_discard_message(
-                    seat,
-                    actions_lists[seat],
+                await self._send_actions_message(
+                    seat=seat,
+                    actions=actions_lists[seat],
+                    message_event_type=message_event_type,
+                    left_time=remaining_time[seat],
                 )
         return pending_players, remaining_time
 
@@ -609,22 +618,12 @@ class RoundManager:
         actions_lists: list[list[Action]],
     ) -> GameEvent:
         self.game_manager.increase_action_id()
-        if actions_lists[self.current_player_seat]:
-            msg = WSMessage(
-                event=MessageEventType.TSUMO_ACTIONS,
-                data={
-                    "actions": actions_lists[self.current_player_seat],
-                    "action_id": self.game_manager.action_id,
-                },
-            )
-            player: Player = self.get_player_from_seat(self.current_player_seat)
-            await self.game_manager.network_service.send_personal_message(
-                message=msg.model_dump(),
-                game_id=self.game_manager.game_id,
-                user_id=player.uid,
-            )
-        self.game_manager.increase_action_id()
-
+        await self._send_actions_message(
+            message_event_type=MessageEventType.TSUMO_ACTIONS,
+            actions=actions_lists[self.current_player_seat],
+            left_time=self.DEFAULT_TURN_TIMEOUT,
+            seat=self.current_player_seat,
+        )
         response_event: GameEvent | None
         elapsed_time: float
         response_event, elapsed_time = await self.safe_wait_for(
@@ -880,6 +879,8 @@ class RoundManager:
                 drawn_tiles = self.tile_deck.draw_tiles_right(1)
             else:
                 drawn_tiles = self.tile_deck.draw_tiles(1)
+            if len(drawn_tiles) < 1:
+                raise IndexError("cannot tsumo when tile's not left in deck")
             drawn_tile = drawn_tiles[0]
             self.hands[self.current_player_seat].apply_tsumo(tile=drawn_tile)
         else:
@@ -890,20 +891,11 @@ class RoundManager:
             winning_tile=drawn_tile,
             previous_event_type=previous_event_type,
         )
-        msg = WSMessage(
-            event=MessageEventType.TSUMO,
-            data={
-                "tile": drawn_tiles[0],
-            },
-        )
-        player: Player = self.get_player_from_seat(seat=self.current_player_seat)
-        await self.game_manager.network_service.send_personal_message(
-            message=msg.model_dump(),
-            game_id=self.game_manager.game_id,
-            user_id=player.uid,
-        )
+
         actions_lists: list[list[Action]] = self.check_actions_after_tsumo()
-        return await self.send_tsumo_actions_and_wait(actions_lists=actions_lists)
+        return await self.send_tsumo_actions_and_wait(
+            actions_lists=actions_lists,
+        )
 
 
 class GameManager:
