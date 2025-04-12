@@ -9,6 +9,9 @@ from starlette.websockets import WebSocketDisconnect
 from app.core.error import MCRDomainError
 from app.core.room_manager import RoomManager
 from app.schemas.ws import MessageEventType, WSMessage
+from app.services.game_manager.models.enums import AbsoluteSeat
+from app.services.game_manager.models.event import GameEvent
+from app.services.game_manager.models.types import GameEventType
 
 
 class GameWebSocketHandler:
@@ -54,7 +57,6 @@ class GameWebSocketHandler:
         while True:
             try:
                 data = await self.websocket.receive_json()
-                # 이제 JSON 메시지는 "event"와 "data" 필드를 포함한다고 가정합니다.
                 message = WSMessage(
                     event=data.get("event", ""),
                     data=data.get("data", {}),
@@ -73,6 +75,7 @@ class GameWebSocketHandler:
                 Callable[[WSMessage], Coroutine[Any, Any, None]],
             ] = {
                 MessageEventType.PING: self.handle_ping,
+                MessageEventType.GAME_EVENT: self.handle_game_event,
             }
             handler = message_handlers.get(message.event)
             if handler:
@@ -84,6 +87,57 @@ class GameWebSocketHandler:
                         data={"message": f"Unknown event: {message.event}"},
                     ).model_dump(),
                 )
+
+    async def handle_game_event(self, message: WSMessage) -> None:
+        try:
+            game_manager = self.room_manager.game_managers[self.game_id]
+
+            event_type_value = message.data.get("event_type")
+            if event_type_value is None:
+                await self.send_error("Missing event_type in game event message.")
+                return
+
+            event_type = GameEventType(int(event_type_value))
+
+            action_id = message.data.get("action_id", -1)
+
+            player_index = game_manager.player_uid_to_index.get(self.user_id)
+            if player_index is None:
+                await self.send_error("User not registered in game manager.")
+                return
+
+            if game_manager.round_manager.player_index_to_seat:
+                player_seat = game_manager.round_manager.player_index_to_seat[
+                    player_index
+                ]
+            else:
+                player_seat = AbsoluteSeat(player_index)
+
+            event_payload = message.data.get("data", {})
+
+            new_event = GameEvent(
+                event_type=event_type,
+                player_seat=player_seat,
+                action_id=action_id,
+                data=event_payload,
+            )
+
+            await game_manager.add_event(new_event)
+
+            await self.send_success("Game event received")
+        except Exception as e:
+            await self.send_error(f"Error processing game event: {e}")
+
+    async def send_success(self, success_message: str) -> None:
+        success_msg = WSMessage(
+            event=MessageEventType.SUCCESS,
+            data={"message": success_message},
+        )
+        await self.room_manager.send_personal_message(
+            message=success_msg.model_dump(),
+            game_id=self.game_id,
+            user_id=self.user_id,
+        )
 
     async def send_error(self, message: str) -> None:
         error_response = WSMessage(

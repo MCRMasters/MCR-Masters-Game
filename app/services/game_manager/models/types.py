@@ -16,6 +16,7 @@ class GameEventType(IntEnum):
     INIT_FLOWER = 9
     HU = 10
     ROBBING_KONG = 11
+    INIT_FLOWER_OK = 12
 
     @property
     def next_event(self) -> GameEventType | None:
@@ -33,9 +34,12 @@ class GameEventType(IntEnum):
                 | GameEventType.FLOWER
                 | GameEventType.ROBBING_KONG
                 | GameEventType.INIT_FLOWER
+                | GameEventType.INIT_FLOWER_OK
             ):
                 return GameEventType.TSUMO
             case GameEventType.HU:
+                return None
+            case _:
                 return None
 
     @property
