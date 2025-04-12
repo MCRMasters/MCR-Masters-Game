@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
-from app.services.game_manager.models.enums import GameTile
+from app.services.game_manager.models.enums import AbsoluteSeat, GameTile
 from app.services.game_manager.models.event import GameEvent
 from app.services.game_manager.models.types import GameEventType
 
@@ -31,7 +31,11 @@ class FlowerState(RoundState):
     async def run(self, manager: RoundManager) -> RoundState | None:
         print("[DEBUG] FlowerState: performing init flower action")
         await manager.do_init_flower_action()
-        print("[DEBUG] FlowerState: transition to TsumoState with prev_type=DISCARD")
+        print("[DEBUG] FlowerState: wait for init flower ok")
+        await manager.wait_for_init_flower_ok()
+        print(
+            "[DEBUG] FlowerState: transition to TsumoState with prev_type=INIT_FLOWER",
+        )
         return TsumoState(prev_type=GameEventType.INIT_FLOWER)
 
 
@@ -89,7 +93,12 @@ class DiscardState(RoundState):
                 "[DEBUG] DiscardState: event is None, "
                 "transition to TsumoState with prev_type=DISCARD",
             )
-            return TsumoState(prev_type=GameEventType.DISCARD)
+            next_game_event = GameEvent(
+                event_type=GameEventType.TSUMO,
+                player_seat=AbsoluteSeat.EAST,
+                action_id=-1,
+                data={},
+            )
         state = manager.get_next_state(
             previous_event_type=GameEventType.DISCARD,
             next_event=next_game_event,

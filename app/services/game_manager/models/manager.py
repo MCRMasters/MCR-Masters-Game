@@ -3,10 +3,9 @@ from __future__ import annotations
 import asyncio
 import heapq
 from collections import Counter
-from collections.abc import Awaitable
 from copy import deepcopy
 from random import shuffle
-from typing import Any, Final, TypeVar
+from typing import Any, Final
 
 from app.core.network_service import NetworkService
 from app.schemas.ws import MessageEventType, WSMessage
@@ -352,7 +351,8 @@ class RoundManager:
                 self.game_manager.event_queue.get(),
                 wait_time,
             )
-            self.game_manager.event_queue.task_done()
+            if response_event is not None:
+                self.game_manager.event_queue.task_done()
 
             epsilon: float = 1e-9
             for seat in list(pending_players):
@@ -596,43 +596,105 @@ class RoundManager:
         )
         return result
 
-    T = TypeVar("T")
-    DEFAULT_TURN_TIMEOUT: Final[float] = 60.0
+    DEFAULT_TURN_TIMEOUT: Final[float] = 60
+
+    async def wait_for_init_flower_ok(self) -> None:
+        """
+        모든 플레이어(예: self.game_manager.MAX_PLAYERS명)로부터"
+        " INIT_FLOWER_OK 메시지를 기다립니다.
+        첫 OK 메시지가 도착하면 10초 타임아웃을 적용하고, 10초 이내에"
+        " 모든 OK가 도착하지 않으면 즉시 다음 상태로 진행합니다.
+        """
+        required_ok = self.game_manager.MAX_PLAYERS
+        ok_received: set[AbsoluteSeat] = set()
+        timeout: float | None = None
+        print("[RoundManager] INIT_FLOWER_OK 응답을 기다립니다.")
+
+        while len(ok_received) < required_ok:
+            wait_time = timeout if timeout is not None else 9999.0
+            try:
+                event, elapsed = await self.safe_wait_for(
+                    self.game_manager.event_queue.get(),
+                    wait_time,
+                )
+            except TimeoutError:
+                print("[RoundManager] 타임아웃 발생: 즉시 다음 상태로 전환")
+                break
+            if event is None:
+                print("[RoundManager] 이벤트 수신 실패: 타임아웃")
+                break
+            self.game_manager.event_queue.task_done()
+            elapsed
+
+            if event.event_type == GameEventType.INIT_FLOWER_OK:
+                ok_received.add(event.player_seat)
+                print(
+                    f"[RoundManager] OK 응답: {event.player_seat} "
+                    "(총 {len(ok_received)}/{required_ok})",
+                )
+                if timeout is None:
+                    timeout = 10.0
+            else:
+                continue
+
+        if len(ok_received) < required_ok:
+            print(
+                f"[RoundManager] 경고: {required_ok}명 중 "
+                "{len(ok_received)}명의 OK 응답만 수신: 즉시 TSUMO 상태로 전환",
+            )
+        else:
+            print("[RoundManager] 모든 플레이어의 OK 응답 수신 완료.")
 
     async def safe_wait_for(
         self,
-        coroutine: Awaitable[T],
+        coroutine: Any,
         timeout: float,
-    ) -> tuple[T | None, float]:
-        loop: asyncio.AbstractEventLoop = asyncio.get_running_loop()
-        start: float = loop.time()
+    ) -> tuple[Any | None, float]:
+        loop = asyncio.get_running_loop()
+        start = loop.time()
+        print(f"[safe_wait_for] 시작: timeout={timeout}")
         try:
             result = await asyncio.wait_for(coroutine, timeout=timeout)
+            print(f"[safe_wait_for] 결과 받음: {result}")
         except TimeoutError:
+            print("[safe_wait_for] 타임아웃 발생")
             result = None
         elapsed = loop.time() - start
+        print(f"[safe_wait_for] 소요 시간: {elapsed:.3f}초")
         return result, elapsed
 
     async def send_tsumo_actions_and_wait(
         self,
         actions_lists: list[list[Action]],
     ) -> GameEvent:
+        print("[send_tsumo_actions_and_wait] 시작")
         self.game_manager.increase_action_id()
+        print(
+            "[send_tsumo_actions_and_wait] action_id 증가: "
+            "{self.game_manager.action_id}",
+        )
         await self._send_actions_message(
             message_event_type=MessageEventType.TSUMO_ACTIONS,
             actions=actions_lists[self.current_player_seat],
             left_time=self.DEFAULT_TURN_TIMEOUT,
             seat=self.current_player_seat,
         )
+        print("[send_tsumo_actions_and_wait] tsumo actions 메시지 전송 완료")
+
         response_event: GameEvent | None
         elapsed_time: float
         response_event, elapsed_time = await self.safe_wait_for(
             self.game_manager.event_queue.get(),
             self.DEFAULT_TURN_TIMEOUT,
         )
-        self.game_manager.event_queue.task_done()
-        elapsed_time
+        print(
+            f"[send_tsumo_actions_and_wait] event_queue 응답: {response_event}"
+            " (elapsed_time: {elapsed_time:.3f}초)",
+        )
+        if response_event is not None:
+            self.game_manager.event_queue.task_done()
         if response_event is None:
+            print("[send_tsumo_actions_and_wait] 응답 없음 - 자동 DISCARD 이벤트 생성")
             rightmost_tile: GameTile | None = self.hands[
                 self.current_player_seat
             ].get_rightmost_tile()
@@ -644,7 +706,17 @@ class RoundManager:
                 action_id=self.game_manager.action_id,
                 data={"tile": rightmost_tile},
             )
+            print(
+                "[send_tsumo_actions_and_wait] "
+                "생성된 자동 DISCARD 이벤트: {response_event}",
+            )
+        else:
+            print("[send_tsumo_actions_and_wait] 정상 응답 이벤트 수신")
         self.game_manager.increase_action_id()
+        print(
+            "[send_tsumo_actions_and_wait] "
+            "최종 action_id: {self.game_manager.action_id}",
+        )
         return response_event
 
     async def wait_discard_after_call_action(
@@ -657,7 +729,8 @@ class RoundManager:
             self.game_manager.event_queue.get(),
             self.DEFAULT_TURN_TIMEOUT,
         )
-        self.game_manager.event_queue.task_done()
+        if response_event is not None:
+            self.game_manager.event_queue.task_done()
         elapsed_time
         if response_event is None:
             rightmost_tile: GameTile | None = self.hands[
@@ -916,6 +989,7 @@ class GameManager:
         self.current_round: Round
         self.action_id: int
         self.event_queue: asyncio.Queue[GameEvent]
+        self.event_queue_lock: asyncio.Lock
 
     def init_game(self, players_data: list[PlayerData]) -> None:
         if len(players_data) != self.MAX_PLAYERS:
@@ -938,6 +1012,7 @@ class GameManager:
         self.current_round = Round.E1
         self.action_id = 0
         self.event_queue = asyncio.Queue()
+        self.event_queue_lock = asyncio.Lock()
 
     async def start_game(self) -> None:
         start_msg = WSMessage(
@@ -970,6 +1045,17 @@ class GameManager:
 
     def increase_action_id(self) -> None:
         self.action_id += 1
+
+    async def add_event(self, event: GameEvent) -> None:
+        async with self.event_queue_lock:
+            if event.action_id >= 0 and event.action_id != self.action_id:
+                print(
+                    "[GameManager.add_event] Ignored event with mismatched "
+                    "action_id: {event.action_id} (expected {self.action_id})",
+                )
+                return
+            await self.event_queue.put(event)
+            print(f"[GameManager.add_event] Event added: {event}")
 
 
 class ActionManager:

@@ -14,6 +14,8 @@ class GameWebSocketActionType(str, Enum):
 
 
 class MessageEventType(str, Enum):
+    GAME_EVENT = "game_event"
+
     INIT_FLOWER_REPLACEMENT = "init_flower_replacement"
     GAME_START_INFO = "game_start_info"
     INIT_EVENT = "init_event"
@@ -34,6 +36,7 @@ class MessageEventType(str, Enum):
     PING = "ping"
     PONG = "pong"
     USER_JOINED = "user_joined"
+    SUCCESS = "success"
     ERROR = "error"
 
 

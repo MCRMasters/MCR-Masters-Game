@@ -65,6 +65,12 @@ class RoomManager:
                 self.game_managers[game_id].init_game(players_data=players_data)
 
                 task = asyncio.create_task(self.game_managers[game_id].start_game())
+                task.add_done_callback(
+                    lambda t: print(f"Task finished with exception: {t.exception()}")
+                    if t.exception()
+                    else None,
+                )
+
                 self.game_tasks[game_id] = task
 
     async def disconnect(self, game_id: int, user_id: str) -> None:
