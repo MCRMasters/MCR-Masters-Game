@@ -490,7 +490,7 @@ class RoundManager:
         _hand: Hand = Hand.create_from_game_hand(hand=self.hands[player_seat])
         if self.winning_conditions.winning_tile is None:
             raise ValueError("[RoundManager.get_possible_hu_choices]tile is none")
-        if self.winning_conditions.winning_tile.is_flower:
+        if GameTile(self.winning_conditions.winning_tile).is_flower:
             return []
         if self.winning_conditions.is_discarded:
             _hand.tiles[self.winning_conditions.winning_tile] += 1
@@ -1056,6 +1056,39 @@ class GameManager:
                 return
             await self.event_queue.put(event)
             print(f"[GameManager.add_event] Event added: {event}")
+
+    async def is_valid_event(self, event: GameEvent, data: dict[str, Any]) -> bool:
+        match event.event_type:
+            case GameEventType.DISCARD:
+                if not event.data or "tile" not in event.data:
+                    return False
+                try:
+                    tile_int = int(event.data["tile"])
+                    tile = GameTile(tile_int)
+                except (ValueError, TypeError):
+                    return False
+                hand = self.round_manager.hands[event.player_seat]
+                if hand.tiles.get(tile, 0) < 1:
+                    return False
+                msg = WSMessage(
+                    event=MessageEventType.DISCARD,
+                    data={
+                        "tile": tile,
+                        "seat": event.player_seat,
+                        "is_tsumogiri": data["is_tsumogiri"],
+                    },
+                )
+                await self.network_service.broadcast(
+                    message=msg.model_dump(),
+                    game_id=self.game_id,
+                )
+                await self.add_event(event)
+                return True
+            case GameEventType.INIT_FLOWER_OK:
+                await self.add_event(event)
+                return True
+            case _:
+                return False
 
 
 class ActionManager:

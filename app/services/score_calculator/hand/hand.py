@@ -4,6 +4,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from itertools import batched
 
+from app.services.game_manager.models.enums import GameTile
 from app.services.game_manager.models.hand import GameHand
 from app.services.game_manager.models.types import CallBlockType
 from app.services.score_calculator.block.block import Block
@@ -34,7 +35,7 @@ class Hand:
         _tiles = [0] * 35
         _call_blocks = []
         for tile in hand.tiles:
-            if not tile.is_flower:
+            if not GameTile(tile).is_flower:
                 _tiles[tile] += hand.tiles[tile]
             else:
                 _tiles[Tile.F0] += hand.tiles[tile]

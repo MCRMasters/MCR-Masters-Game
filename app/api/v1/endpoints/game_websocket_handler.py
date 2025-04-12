@@ -113,7 +113,7 @@ class GameWebSocketHandler:
             else:
                 player_seat = AbsoluteSeat(player_index)
 
-            event_payload = message.data.get("data", {})
+            event_payload: dict[str, Any] = message.data.get("data", {})
 
             new_event = GameEvent(
                 event_type=event_type,
@@ -122,9 +122,14 @@ class GameWebSocketHandler:
                 data=event_payload,
             )
 
-            await game_manager.add_event(new_event)
-
-            await self.send_success("Game event received")
+            is_valid: bool = await game_manager.is_valid_event(
+                event=new_event,
+                data=event_payload,
+            )
+            if is_valid:
+                await self.send_success("Game event received")
+            else:
+                await self.send_error("Game event is invalid")
         except Exception as e:
             await self.send_error(f"Error processing game event: {e}")
 

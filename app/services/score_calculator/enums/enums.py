@@ -123,7 +123,11 @@ class Tile(IntEnum):
 
     @staticmethod
     def create_from_game_tile(game_tile: GameTile) -> Tile:
-        return Tile.F0 if game_tile.is_flower else Tile(game_tile.value)
+        return (
+            Tile.F0
+            if GameTile(game_tile).is_flower
+            else Tile(GameTile(game_tile).value)
+        )
 
     @property
     def is_honor(self) -> bool:
