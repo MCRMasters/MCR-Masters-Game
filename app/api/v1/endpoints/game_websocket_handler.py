@@ -9,9 +9,10 @@ from starlette.websockets import WebSocketDisconnect
 from app.core.error import MCRDomainError
 from app.core.room_manager import RoomManager
 from app.schemas.ws import MessageEventType, WSMessage
-from app.services.game_manager.models.enums import AbsoluteSeat
+from app.services.game_manager.models.enums import AbsoluteSeat, GameTile
 from app.services.game_manager.models.event import GameEvent
-from app.services.game_manager.models.types import GameEventType
+from app.services.game_manager.models.manager import GameManager
+from app.services.game_manager.models.types import ActionType, GameEventType
 
 
 class GameWebSocketHandler:
@@ -76,6 +77,7 @@ class GameWebSocketHandler:
             ] = {
                 MessageEventType.PING: self.handle_ping,
                 MessageEventType.GAME_EVENT: self.handle_game_event,
+                MessageEventType.RETURN_ACTION: self.handle_return_action,
             }
             handler = message_handlers.get(message.event)
             if handler:
@@ -87,6 +89,80 @@ class GameWebSocketHandler:
                         data={"message": f"Unknown event: {message.event}"},
                     ).model_dump(),
                 )
+
+    """
+        var payload = new {
+            action_type = action.Type,
+            action_tile = action.Tile,
+            action_id = currentActionId,
+        };
+    """
+
+    async def handle_return_action(self, message: WSMessage) -> None:
+        try:
+            _action_type = message.data.get("action_type")
+            if _action_type is None:
+                await self.send_error(
+                    "Missing 'action_type' field in return action message.",
+                )
+                return
+            action_type: ActionType = ActionType(_action_type)
+            _action_tile = message.data.get("action_tile")
+            if _action_tile is None:
+                await self.send_error(
+                    "Missing 'action_tile' field in return action message.",
+                )
+                return
+            action_tile: GameTile = GameTile(_action_tile)
+            action_id: int = message.data.get("action_id", -1)
+
+            game_manager: GameManager = self.room_manager.game_managers[self.game_id]
+            player_index: int | None = game_manager.player_uid_to_index.get(
+                self.user_id,
+            )
+            if player_index is None:
+                await self.send_error("User not registered in game manager.")
+                return
+            player_seat: AbsoluteSeat
+            if game_manager.round_manager.player_index_to_seat:
+                player_seat = game_manager.round_manager.player_index_to_seat[
+                    player_index
+                ]
+            else:
+                player_seat = AbsoluteSeat(player_index)
+
+            event_type: GameEventType | None = (
+                GameEventType.create_from_action_type_except_kan(
+                    action_type=action_type,
+                )
+            )
+            if action_type == ActionType.KAN:
+                event_type = game_manager.round_manager.hands[
+                    player_seat
+                ].get_kan_event_type_from_tile(
+                    tile=action_tile,
+                    is_discarded=game_manager.round_manager.winning_conditions.is_discarded,
+                )
+            if event_type is None:
+                await self.send_error("Invalid action")
+                return
+
+            game_event = GameEvent(
+                event_type=event_type,
+                player_seat=player_seat,
+                action_id=action_id,
+                data={"tile": action_tile},
+            )
+
+            is_valid: bool = await game_manager.is_valid_event(
+                event=game_event,
+            )
+            if is_valid:
+                await self.send_success("Game event received")
+            else:
+                await self.send_error("Game event is invalid")
+        except Exception as e:
+            await self.send_error(f"Error processing return action: {e}")
 
     async def handle_game_event(self, message: WSMessage) -> None:
         try:
@@ -122,9 +198,13 @@ class GameWebSocketHandler:
                 data=event_payload,
             )
 
-            await game_manager.add_event(new_event)
-
-            await self.send_success("Game event received")
+            is_valid: bool = await game_manager.is_valid_event(
+                event=new_event,
+            )
+            if is_valid:
+                await self.send_success("Game event received")
+            else:
+                await self.send_error("Game event is invalid")
         except Exception as e:
             await self.send_error(f"Error processing game event: {e}")
 

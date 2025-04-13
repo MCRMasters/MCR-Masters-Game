@@ -62,6 +62,7 @@ class RoundManager:
         self.player_index_to_seat: dict[int, AbsoluteSeat] = {}
         self.action_manager: ActionManager | None
         self.current_player_seat: AbsoluteSeat
+        self.action_choices: list[Action]
 
     async def run_round(self) -> None:
         state: RoundState | None = InitState()
@@ -83,6 +84,7 @@ class RoundManager:
         self.init_seat_index_mapping()
         self.action_manager = None
         self.current_player_seat = AbsoluteSeat.EAST
+        self.action_choices = []
 
     def init_seat_index_mapping(self) -> None:
         shift = self.game_manager.current_round.number - 1
@@ -266,6 +268,9 @@ class RoundManager:
         actions_lists: list[list[Action]],
     ) -> GameEvent | None:
         self.game_manager.increase_action_id()
+        self.action_choices = [
+            action for action_list in actions_lists for action in action_list
+        ]
 
         pending_players, remaining_time = await self._initialize_pending_players(
             actions_lists=actions_lists,
@@ -280,7 +285,7 @@ class RoundManager:
             pending_players=pending_players,
             remaining_time=remaining_time,
         )
-
+        self.action_choices.clear()
         self.game_manager.increase_action_id()
         self.action_manager = None
         if final_action is not None:
@@ -345,31 +350,68 @@ class RoundManager:
         selected_events: list[GameEvent] = []
         if self.action_manager is None:
             raise ValueError("action manager is none")
+
+        print(
+            f"[DEBUG] Starting _wait_for_player_actions."
+            f" Initial pending_players: {pending_players}",
+        )
         while pending_players:
             wait_time = min(remaining_time[seat] for seat in pending_players)
+            print(
+                f"[DEBUG] Waiting for player action. Pending players:"
+                f" {pending_players}, wait_time: {wait_time:.3f} seconds",
+            )
+
             response_event, elapsed_time = await self.safe_wait_for(
                 self.game_manager.event_queue.get(),
                 wait_time,
             )
+            print(
+                f"[DEBUG] safe_wait_for returned event: {response_event}"
+                f" (elapsed_time: {elapsed_time:.3f} seconds)",
+            )
+
             if response_event is not None:
                 self.game_manager.event_queue.task_done()
+                pending_players.remove(response_event.player_seat)
+                print(
+                    f"[DEBUG] Received event from player "
+                    f"{response_event.player_seat}: {response_event}",
+                )
+            else:
+                print("[DEBUG] No event received within wait_time.")
 
             epsilon: float = 1e-9
             for seat in list(pending_players):
                 remaining_time[seat] -= elapsed_time
+                print(
+                    f"[DEBUG] Updated remaining_time for seat {seat}:"
+                    f" {remaining_time[seat]:.3f} seconds",
+                )
                 if remaining_time[seat] <= epsilon:
                     pending_players.remove(seat)
+                    print(f"[DEBUG] Removed seat {seat} due to timeout.")
 
             if response_event is not None:
+                action = Action.create_from_game_event(
+                    game_event=response_event,
+                    current_player_seat=self.current_player_seat,
+                )
+                print(f"[DEBUG] Created action from received event: {action}")
                 selected_events.append(deepcopy(response_event))
-                final_action = self.action_manager.push_action(
-                    Action.create_from_game_event(
-                        game_event=response_event,
-                        current_player_seat=self.current_player_seat,
-                    ),
+                final_action = self.action_manager.push_action(action)
+                print(
+                    f"[DEBUG] After push_action, final_action: {final_action},"
+                    f" selected_events count: {len(selected_events)}",
                 )
                 if final_action is not None:
+                    print("[DEBUG] Final action selected, breaking out of wait loop.")
                     break
+
+        print(
+            f"[DEBUG] Exiting _wait_for_player_actions. Final action: "
+            f"{final_action}, total selected events: {len(selected_events)}",
+        )
         return final_action, selected_events
 
     def pick_action_from_game_event_list(
@@ -630,7 +672,7 @@ class RoundManager:
                 ok_received.add(event.player_seat)
                 print(
                     f"[RoundManager] OK 응답: {event.player_seat} "
-                    "(총 {len(ok_received)}/{required_ok})",
+                    f"(총 {len(ok_received)}/{required_ok})",
                 )
                 if timeout is None:
                     timeout = 10.0
@@ -640,7 +682,7 @@ class RoundManager:
         if len(ok_received) < required_ok:
             print(
                 f"[RoundManager] 경고: {required_ok}명 중 "
-                "{len(ok_received)}명의 OK 응답만 수신: 즉시 TSUMO 상태로 전환",
+                f"{len(ok_received)}명의 OK 응답만 수신: 즉시 TSUMO 상태로 전환",
             )
         else:
             print("[RoundManager] 모든 플레이어의 OK 응답 수신 완료.")
@@ -669,9 +711,12 @@ class RoundManager:
     ) -> GameEvent:
         print("[send_tsumo_actions_and_wait] 시작")
         self.game_manager.increase_action_id()
+        self.action_choices = [
+            action for action_list in actions_lists for action in action_list
+        ]
         print(
             "[send_tsumo_actions_and_wait] action_id 증가: "
-            "{self.game_manager.action_id}",
+            f"{self.game_manager.action_id}",
         )
         await self._send_actions_message(
             message_event_type=MessageEventType.TSUMO_ACTIONS,
@@ -689,12 +734,16 @@ class RoundManager:
         )
         print(
             f"[send_tsumo_actions_and_wait] event_queue 응답: {response_event}"
-            " (elapsed_time: {elapsed_time:.3f}초)",
+            f" (elapsed_time: {elapsed_time:.3f}초)",
         )
+        self.action_choices.clear()
+        self.game_manager.increase_action_id()
         if response_event is not None:
             self.game_manager.event_queue.task_done()
         if response_event is None:
             print("[send_tsumo_actions_and_wait] 응답 없음 - 자동 DISCARD 이벤트 생성")
+            self.game_manager.increase_action_id()
+
             rightmost_tile: GameTile | None = self.hands[
                 self.current_player_seat
             ].get_rightmost_tile()
@@ -706,16 +755,28 @@ class RoundManager:
                 action_id=self.game_manager.action_id,
                 data={"tile": rightmost_tile},
             )
+            msg = WSMessage(
+                event=MessageEventType.DISCARD,
+                data={
+                    "tile": rightmost_tile,
+                    "seat": self.current_player_seat,
+                    "is_tsumogiri": True,
+                },
+            )
+            await self.game_manager.network_service.broadcast(
+                message=msg.model_dump(),
+                game_id=self.game_manager.game_id,
+            )
             print(
                 "[send_tsumo_actions_and_wait] "
-                "생성된 자동 DISCARD 이벤트: {response_event}",
+                f"생성된 자동 DISCARD 이벤트: {response_event}",
             )
         else:
             print("[send_tsumo_actions_and_wait] 정상 응답 이벤트 수신")
-        self.game_manager.increase_action_id()
+
         print(
             "[send_tsumo_actions_and_wait] "
-            "최종 action_id: {self.game_manager.action_id}",
+            f"최종 action_id: {self.game_manager.action_id}",
         )
         return response_event
 
@@ -940,8 +1001,8 @@ class RoundManager:
         drawn_tile: GameTile | None
         if self.tile_deck.HAIPAI_TILES < 1:
             raise ValueError(
-                "Not enough tiles remaining. Requested: {1},"
-                " Available: {self.tile_deck.HAIPAI_TILES}",
+                f"Not enough tiles remaining. Requested: {1},"
+                f" Available: {self.tile_deck.HAIPAI_TILES}",
             )
 
         if previous_event_type == GameEventType.DISCARD:
@@ -1051,11 +1112,77 @@ class GameManager:
             if event.action_id >= 0 and event.action_id != self.action_id:
                 print(
                     "[GameManager.add_event] Ignored event with mismatched "
-                    "action_id: {event.action_id} (expected {self.action_id})",
+                    f"action_id: {event.action_id} (expected {self.action_id})",
                 )
                 return
             await self.event_queue.put(event)
             print(f"[GameManager.add_event] Event added: {event}")
+
+    async def is_valid_event(self, event: GameEvent) -> bool:
+        is_valid: bool = False
+        match event.event_type:
+            case GameEventType.SKIP:
+                is_valid = (
+                    self.round_manager.current_player_seat == event.player_seat
+                    or self.round_manager.winning_conditions.is_discarded
+                )
+                if (
+                    is_valid
+                    and self.round_manager.current_player_seat != event.player_seat
+                ):
+                    await self.add_event(event=event)
+            case (
+                GameEventType.CHII
+                | GameEventType.PON
+                | GameEventType.HU
+                | GameEventType.FLOWER
+                | GameEventType.AN_KAN
+                | GameEventType.DAIMIN_KAN
+                | GameEventType.SHOMIN_KAN
+            ):
+                is_valid = (
+                    Action.create_from_game_event(
+                        game_event=event,
+                        current_player_seat=self.round_manager.current_player_seat,
+                    )
+                    in self.round_manager.action_choices
+                )
+                if is_valid:
+                    await self.add_event(event=event)
+            case GameEventType.DISCARD:
+                is_valid = await self._handle_discard_validate(event=event)
+            case GameEventType.INIT_FLOWER_OK:
+                await self.add_event(event=event)
+                is_valid = True
+            case _:
+                is_valid = False
+        return is_valid
+
+    async def _handle_discard_validate(self, event: GameEvent) -> bool:
+        if not event.data or "tile" not in event.data:
+            return False
+        try:
+            tile_int = int(event.data["tile"])
+            tile = GameTile(tile_int)
+        except (ValueError, TypeError):
+            return False
+        hand = self.round_manager.hands[event.player_seat]
+        if hand.tiles.get(tile, 0) < 1:
+            return False
+        msg = WSMessage(
+            event=MessageEventType.DISCARD,
+            data={
+                "tile": tile,
+                "seat": event.player_seat,
+                "is_tsumogiri": event.data["is_tsumogiri"],
+            },
+        )
+        await self.network_service.broadcast(
+            message=msg.model_dump(),
+            game_id=self.game_id,
+        )
+        await self.add_event(event)
+        return True
 
 
 class ActionManager:

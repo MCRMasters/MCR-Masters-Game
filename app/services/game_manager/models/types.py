@@ -17,6 +17,7 @@ class GameEventType(IntEnum):
     HU = 10
     ROBBING_KONG = 11
     INIT_FLOWER_OK = 12
+    SKIP = 13
 
     @property
     def next_event(self) -> GameEventType | None:
@@ -63,6 +64,24 @@ class GameEventType(IntEnum):
             GameEventType.AN_KAN,
         }
 
+    @staticmethod
+    def create_from_action_type_except_kan(
+        action_type: ActionType,
+    ) -> GameEventType | None:
+        match action_type:
+            case ActionType.SKIP:
+                return GameEventType.SKIP
+            case ActionType.CHII:
+                return GameEventType.CHII
+            case ActionType.PON:
+                return GameEventType.PON
+            case ActionType.FLOWER:
+                return GameEventType.FLOWER
+            case ActionType.HU:
+                return GameEventType.HU
+            case _:
+                return None
+
 
 class ActionType(IntEnum):
     SKIP = 0
@@ -75,7 +94,7 @@ class ActionType(IntEnum):
     @staticmethod
     def create_from_game_event_type(
         game_event_type: GameEventType,
-    ) -> ActionType | None:
+    ) -> ActionType:
         match game_event_type:
             case (
                 GameEventType.SHOMIN_KAN
@@ -92,7 +111,7 @@ class ActionType(IntEnum):
             case GameEventType.HU:
                 return ActionType.HU
             case _:
-                return None
+                return ActionType.SKIP
 
 
 class CallBlockType(IntEnum):
