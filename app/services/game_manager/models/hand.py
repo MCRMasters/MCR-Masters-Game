@@ -8,7 +8,11 @@ from typing import ClassVar, Final
 from app.services.game_manager.models.action import Action
 from app.services.game_manager.models.call_block import CallBlock
 from app.services.game_manager.models.enums import GameTile, RelativeSeat
-from app.services.game_manager.models.types import ActionType, CallBlockType
+from app.services.game_manager.models.types import (
+    ActionType,
+    CallBlockType,
+    GameEventType,
+)
 from app.services.game_manager.models.winning_conditions import GameWinningConditions
 
 
@@ -154,6 +158,24 @@ class GameHand:
             result.append(
                 Action(type=ActionType.PON, seat_priority=priority, tile=tile),
             )
+        return result
+
+    def get_kan_event_type_from_tile(
+        self,
+        tile: GameTile,
+        is_discarded: bool,
+    ) -> GameEventType | None:
+        result: GameEventType | None = None
+        if is_discarded:
+            if self.tiles.get(tile, 0) >= 3:
+                result = GameEventType.DAIMIN_KAN
+        else:
+            if self.tiles.get(tile, 0) == 4:
+                result = GameEventType.AN_KAN
+            for block in self.call_blocks:
+                if block.type == CallBlockType.PUNG and (block.first_tile == tile):
+                    result = GameEventType.SHOMIN_KAN
+                    break
         return result
 
     def get_possible_kan_actions(
