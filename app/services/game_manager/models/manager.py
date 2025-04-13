@@ -532,7 +532,7 @@ class RoundManager:
         _hand: Hand = Hand.create_from_game_hand(hand=self.hands[player_seat])
         if self.winning_conditions.winning_tile is None:
             raise ValueError("[RoundManager.get_possible_hu_choices]tile is none")
-        if self.winning_conditions.winning_tile.is_flower:
+        if GameTile(self.winning_conditions.winning_tile).is_flower:
             return []
         if self.winning_conditions.is_discarded:
             _hand.tiles[self.winning_conditions.winning_tile] += 1

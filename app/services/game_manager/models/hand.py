@@ -45,7 +45,7 @@ class GameHand:
             raise ValueError("Cannot apply flower: hand doesn't have flower tile")
         self.flower_point += 1
         applied_tile: GameTile | None = None
-        if self.tsumo_tile and self.tsumo_tile.is_flower:
+        if self.tsumo_tile and GameTile(self.tsumo_tile).is_flower:
             applied_tile = self.tsumo_tile
             self.apply_discard(applied_tile)
             return applied_tile
@@ -118,14 +118,14 @@ class GameHand:
                 "[GameHand.get_possible_chii_actions]tile is none",
             )
         tile: GameTile = winning_condition.winning_tile
-        if winning_condition.is_last_tile_in_the_game or not tile.is_number:
+        if winning_condition.is_last_tile_in_the_game or not GameTile(tile).is_number:
             return result
         for delta in [-2, -1, 0]:
             chii_tile_list: list[GameTile] = [
                 GameTile(new_tile)
                 for index in range(3)
                 if (raw_tile := tile + delta + index) in GameTile
-                and (new_tile := GameTile(raw_tile)).type == tile.type
+                and (new_tile := GameTile(raw_tile)).type == GameTile(tile).type
                 and new_tile in self.tiles
                 and new_tile != tile
             ]
@@ -200,7 +200,7 @@ class GameHand:
         else:
             # 안깡
             for an_kan_tile, count in self.tiles.items():
-                if count == 4 or (count == 3 and an_kan_tile == tile):
+                if count == 4:
                     result.append(
                         Action(
                             type=ActionType.KAN,

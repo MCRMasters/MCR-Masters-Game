@@ -189,7 +189,7 @@ class GameWebSocketHandler:
             else:
                 player_seat = AbsoluteSeat(player_index)
 
-            event_payload = message.data.get("data", {})
+            event_payload: dict[str, Any] = message.data.get("data", {})
 
             new_event = GameEvent(
                 event_type=event_type,
