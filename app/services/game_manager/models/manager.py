@@ -124,12 +124,14 @@ class RoundManager:
         self.player_index_to_seat = {v: k for k, v in self.seat_to_player_index.items()}
 
     async def send_init_events(self) -> None:
+        scores: list[int] = [p.score for p in self.game_manager.player_list]
         for seat in AbsoluteSeat:
             player: Player = self.get_player_from_seat(seat=seat)
             msg = WSMessage(
                 event=MessageEventType.INIT_EVENT,
                 data={
                     "player_seat": seat,
+                    "players_score": scores,
                     "hand": list(self.hands[seat].tiles.elements()),
                     "tsumo_tile": self.hands[seat].tsumo_tile,
                 },
@@ -908,6 +910,7 @@ class RoundManager:
             response_event=current_event,
             applied_result=applied_result,
         )
+        self.current_player_seat = current_event.player_seat
         match current_event.event_type:
             case GameEventType.SHOMIN_KAN:
                 tile: GameTile | None = current_event.data.get("tile", None)
