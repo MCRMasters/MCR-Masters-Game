@@ -29,8 +29,8 @@ class CallBlock:
                     type=CallBlockType.SHOMIN_KONG,
                     first_tile=first_tile,
                     source_seat=RelativeSeat.create_from_absolute_seats(
-                        current_seat=current_seat,
-                        target_seat=game_event.player_seat,
+                        current_seat=game_event.player_seat,
+                        target_seat=current_seat,
                     ),
                 )
             case GameEventType.DAIMIN_KAN:
@@ -38,8 +38,8 @@ class CallBlock:
                     type=CallBlockType.DAIMIN_KONG,
                     first_tile=first_tile,
                     source_seat=RelativeSeat.create_from_absolute_seats(
-                        current_seat=current_seat,
-                        target_seat=game_event.player_seat,
+                        current_seat=game_event.player_seat,
+                        target_seat=current_seat,
                     ),
                 )
             case GameEventType.AN_KAN:
@@ -47,8 +47,8 @@ class CallBlock:
                     type=CallBlockType.AN_KONG,
                     first_tile=first_tile,
                     source_seat=RelativeSeat.create_from_absolute_seats(
-                        current_seat=current_seat,
-                        target_seat=game_event.player_seat,
+                        current_seat=game_event.player_seat,
+                        target_seat=current_seat,
                     ),
                 )
             case GameEventType.PON:
@@ -56,8 +56,8 @@ class CallBlock:
                     type=CallBlockType.PUNG,
                     first_tile=first_tile,
                     source_seat=RelativeSeat.create_from_absolute_seats(
-                        current_seat=current_seat,
-                        target_seat=game_event.player_seat,
+                        current_seat=game_event.player_seat,
+                        target_seat=current_seat,
                     ),
                 )
             case GameEventType.CHII:
@@ -65,8 +65,8 @@ class CallBlock:
                     type=CallBlockType.CHII,
                     first_tile=first_tile,
                     source_seat=RelativeSeat.create_from_absolute_seats(
-                        current_seat=current_seat,
-                        target_seat=game_event.player_seat,
+                        current_seat=game_event.player_seat,
+                        target_seat=current_seat,
                     ),
                     source_tile_index=source_tile - first_tile,
                 )

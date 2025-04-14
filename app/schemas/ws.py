@@ -39,6 +39,8 @@ class MessageEventType(str, Enum):
     USER_JOINED = "user_joined"
     SUCCESS = "success"
     ERROR = "error"
+    UPDATE_ACTION_ID = "update_action_id"
+    SET_TIMER = "set_timer"
 
 
 class WebSocketResponse(BaseModel):

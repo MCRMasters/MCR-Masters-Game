@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import heapq
 from collections import Counter
+from collections.abc import Callable, Mapping
 from copy import deepcopy
 from random import shuffle
 from typing import Any, Final
@@ -25,6 +26,7 @@ from app.services.game_manager.models.player import (
     PlayerData,
 )
 from app.services.game_manager.models.round_fsm import (
+    ActionState,
     DiscardState,
     DrawState,
     FlowerState,
@@ -42,6 +44,7 @@ from app.services.game_manager.models.types import (
 from app.services.game_manager.models.winning_conditions import (
     GameWinningConditions,
 )
+from app.services.score_calculator.enums.enums import Tile
 from app.services.score_calculator.hand.hand import Hand
 from app.services.score_calculator.result.result import ScoreResult
 from app.services.score_calculator.score_calculator import ScoreCalculator
@@ -175,30 +178,85 @@ class RoundManager:
         previous_event_type: GameEventType,
         next_event: GameEvent,
     ) -> RoundState:
-        tile: GameTile | None
-        match next_event.event_type:
-            case GameEventType.HU:
-                return HuState(current_event=next_event)
-            case GameEventType.TSUMO:
-                if self.tile_deck.tiles_remaining == 0:
-                    return DrawState()
-                return TsumoState(prev_type=previous_event_type)
-            case GameEventType.DISCARD:
-                tile = next_event.data.get("tile", None)
-                if tile is None:
-                    raise ValueError("Discard tile must be provided for DISCARD turn.")
-                return DiscardState(prev_type=previous_event_type, tile=tile)
-            case GameEventType.ROBBING_KONG:
-                tile = next_event.data.get("tile", None)
-                if tile is None:
-                    raise ValueError(
-                        "ShominKong tile must be provided for ROBBING KONG turn.",
-                    )
-                return RobbingKongState(tile=tile)
-            case GameEventType.INIT_FLOWER:
-                return FlowerState()
-            case _:
-                raise ValueError(f"Invalid next event type: {next_event.event_type}")
+        handlers: Mapping[
+            GameEventType,
+            Callable[[GameEventType, GameEvent], RoundState],
+        ] = {
+            GameEventType.HU: self._handle_hu,
+            GameEventType.TSUMO: self._handle_tsumo,
+            GameEventType.DISCARD: self._handle_discard,
+            GameEventType.ROBBING_KONG: self._handle_robbing_kong,
+            GameEventType.FLOWER: self._handle_action,
+            GameEventType.AN_KAN: self._handle_action,
+            GameEventType.DAIMIN_KAN: self._handle_action,
+            GameEventType.CHII: self._handle_action,
+            GameEventType.PON: self._handle_action,
+            GameEventType.SHOMIN_KAN: self._handle_shomin_kan,
+            GameEventType.INIT_FLOWER: self._handle_init_flower,
+        }
+
+        try:
+            handler = handlers[next_event.event_type]
+        except KeyError:
+            raise ValueError(f"Invalid next event type: {next_event.event_type}")
+
+        return handler(previous_event_type, next_event)
+
+    def _handle_hu(self, _: GameEventType, event: GameEvent) -> RoundState:
+        return HuState(current_event=event)
+
+    def _handle_tsumo(self, prev: GameEventType, _: GameEvent) -> RoundState:
+        if self.tile_deck.tiles_remaining == 0:
+            return DrawState()
+        return TsumoState(prev_type=prev)
+
+    def _handle_discard(self, prev: GameEventType, event: GameEvent) -> RoundState:
+        tile = event.data.get("tile")
+        if tile is None:
+            raise ValueError("Discard tile must be provided for DISCARD turn.")
+        return DiscardState(prev_type=prev, tile=tile)
+
+    def _handle_robbing_kong(self, _: GameEventType, event: GameEvent) -> RoundState:
+        tile = event.data.get("tile")
+        if tile is None:
+            raise ValueError("Robbing Kong tile must be provided.")
+        return RobbingKongState(tile=tile)
+
+    def _handle_action(self, _: GameEventType, event: GameEvent) -> RoundState:
+        allowed = {
+            GameEventType.FLOWER,
+            GameEventType.AN_KAN,
+            GameEventType.DAIMIN_KAN,
+            GameEventType.CHII,
+            GameEventType.PON,
+        }
+        if event.event_type not in allowed:
+            raise ValueError(
+                f"_handle_action received invalid event type: {event.event_type}",
+            )
+
+        # Only the “replacement draw” events need to check for tiles_remaining
+        if (
+            event.event_type
+            in {
+                GameEventType.FLOWER,
+                GameEventType.AN_KAN,
+                GameEventType.DAIMIN_KAN,
+            }
+            and self.tile_deck.tiles_remaining == 0
+        ):
+            raise ValueError("tiles not left to draw flower")
+
+        return ActionState(current_event=event)
+
+    def _handle_shomin_kan(self, _: GameEventType, event: GameEvent) -> RoundState:
+        tile = event.data.get("tile")
+        if tile is None:
+            raise ValueError("Shomin Kong tile must be provided for SHOMIN KONG turn.")
+        return RobbingKongState(tile=tile)
+
+    def _handle_init_flower(self, _: GameEventType, __: GameEvent) -> RoundState:
+        return FlowerState()
 
     async def do_robbing_kong(
         self,
@@ -467,8 +525,17 @@ class RoundManager:
                     player.score -= 8
 
     def get_score_result(self, hu_event: GameEvent) -> ScoreResult:
+        hand: Hand = Hand.create_from_game_hand(self.hands[hu_event.player_seat])
+        if self.winning_conditions.is_discarded:
+            if self.winning_conditions.winning_tile is None:
+                raise ValueError("winning tile is None in Hu result page.")
+            hand.tiles[
+                Tile.create_from_game_tile(
+                    GameTile(self.winning_conditions.winning_tile),
+                )
+            ] += 1
         return ScoreCalculator(
-            hand=Hand.create_from_game_hand(self.hands[hu_event.player_seat]),
+            hand=hand,
             winning_conditions=WinningConditions.create_from_game_winning_conditions(
                 game_winning_conditions=self.winning_conditions,
                 seat_wind=hu_event.player_seat,
@@ -567,8 +634,9 @@ class RoundManager:
             or player_seat != self.current_player_seat
         ):
             return result
-        for flower_tile in self.hands[player_seat].tiles & Counter(
-            map(GameTile, GameTile.flower_tiles()),
+        for flower_tile in reversed(
+            self.hands[player_seat].tiles
+            & Counter(map(GameTile, GameTile.flower_tiles())),
         ):
             result.append(
                 Action(
@@ -580,6 +648,7 @@ class RoundManager:
                     tile=flower_tile,
                 ),
             )
+            break
         return result
 
     def get_possible_chii_choices(self, player_seat: AbsoluteSeat) -> list[Action]:
@@ -724,6 +793,18 @@ class RoundManager:
             left_time=self.DEFAULT_TURN_TIMEOUT,
             seat=self.current_player_seat,
         )
+        await self.game_manager.network_service.broadcast(
+            message=WSMessage(
+                event=MessageEventType.TSUMO,
+                data={
+                    "seat": self.current_player_seat,
+                },
+            ).model_dump(),
+            game_id=self.game_manager.game_id,
+            exclude_user_id=self.game_manager.player_list[
+                self.seat_to_player_index[self.current_player_seat]
+            ].uid,
+        )
         print("[send_tsumo_actions_and_wait] tsumo actions 메시지 전송 완료")
 
         response_event: GameEvent | None
@@ -784,6 +865,19 @@ class RoundManager:
         self,
     ) -> GameEvent:
         self.game_manager.increase_action_id()
+        await self.game_manager.network_service.send_personal_message(
+            message=WSMessage(
+                event=MessageEventType.SET_TIMER,
+                data={
+                    "action_id": self.game_manager.action_id,
+                    "remaining_time": self.DEFAULT_TURN_TIMEOUT,
+                },
+            ).model_dump(),
+            game_id=self.game_manager.game_id,
+            user_id=self.game_manager.player_list[
+                self.seat_to_player_index[self.current_player_seat]
+            ].uid,
+        )
         response_event: GameEvent | None
         elapsed_time: float
         response_event, elapsed_time = await self.safe_wait_for(
@@ -809,8 +903,11 @@ class RoundManager:
         return response_event
 
     async def do_action(self, current_event: GameEvent) -> RoundState:
-        await self.send_response_event(response_event=current_event)
-        self.apply_response_event(response_event=current_event)
+        applied_result = self.apply_response_event(response_event=current_event)
+        await self.send_response_event(
+            response_event=current_event,
+            applied_result=applied_result,
+        )
         match current_event.event_type:
             case GameEventType.SHOMIN_KAN:
                 tile: GameTile | None = current_event.data.get("tile", None)
@@ -828,14 +925,25 @@ class RoundManager:
                     prev_type=current_event.event_type,
                     tile=discard_tile,
                 )
+            case GameEventType.FLOWER:
+                return TsumoState(
+                    prev_type=current_event.event_type,
+                )
             case _:
                 raise ValueError("invalid action")
 
     def apply_response_event(
         self,
         response_event: GameEvent,
-    ) -> None:
+    ) -> Any:
         match response_event.event_type:
+            case GameEventType.FLOWER:
+                if self.tile_deck.tiles_remaining < 1:
+                    raise IndexError("Tile not left in deck in flower applying")
+                flower_tile = self.hands[response_event.player_seat].apply_flower()
+                if flower_tile is None:
+                    raise ValueError("No flower tile while applying flower")
+                return flower_tile
             case (
                 GameEventType.SHOMIN_KAN
                 | GameEventType.DAIMIN_KAN
@@ -856,6 +964,7 @@ class RoundManager:
                 self.apply_call_to_visible_tiles(call_block=call_block)
                 self.kawas[self.current_player_seat].pop()
                 self.current_player_seat = response_event.player_seat
+                return call_block
 
     def apply_call_to_visible_tiles(self, call_block: CallBlock) -> None:
         match call_block.type:
@@ -876,14 +985,16 @@ class RoundManager:
     async def send_response_event(
         self,
         response_event: GameEvent,
+        applied_result: Any,
     ) -> None:
         match response_event.event_type:
             case GameEventType.FLOWER:
                 msg = WSMessage(
                     event=MessageEventType.FLOWER,
                     data={
-                        "player_seat": response_event.player_seat,
-                        "tile": None,
+                        "seat": response_event.player_seat,
+                        "tile": response_event.data["tile"],
+                        "source_seat": self.current_player_seat,
                     },
                 )
                 await self.game_manager.network_service.broadcast(
@@ -894,8 +1005,10 @@ class RoundManager:
                 msg_personal = WSMessage(
                     event=MessageEventType.AN_KAN,
                     data={
-                        "player_seat": response_event.player_seat,
-                        "tile": response_event.data["tile"],
+                        "seat": response_event.player_seat,
+                        "call_block_data": applied_result,
+                        "has_tsumo_tile": self.winning_conditions.winning_tile
+                        == applied_result.first_tile,
                     },
                 )
                 await self.game_manager.network_service.send_personal_message(
@@ -908,8 +1021,8 @@ class RoundManager:
                 msg_broadcast = WSMessage(
                     event=MessageEventType.AN_KAN,
                     data={
-                        "player_seat": response_event.player_seat,
-                        "tile": None,
+                        "seat": response_event.player_seat,
+                        "call_block_data": None,
                     },
                 )
                 await self.game_manager.network_service.broadcast(
@@ -923,8 +1036,8 @@ class RoundManager:
                 msg = WSMessage(
                     event=MessageEventType.CHII,
                     data={
-                        "player_seat": response_event.player_seat,
-                        "tile": response_event.data["tile"],
+                        "seat": response_event.player_seat,
+                        "call_block_data": applied_result,
                     },
                 )
                 await self.game_manager.network_service.broadcast(
@@ -935,8 +1048,8 @@ class RoundManager:
                 msg = WSMessage(
                     event=MessageEventType.PON,
                     data={
-                        "player_seat": response_event.player_seat,
-                        "tile": response_event.data["tile"],
+                        "seat": response_event.player_seat,
+                        "call_block_data": applied_result,
                     },
                 )
                 await self.game_manager.network_service.broadcast(
@@ -947,8 +1060,8 @@ class RoundManager:
                 msg = WSMessage(
                     event=MessageEventType.DAIMIN_KAN,
                     data={
-                        "player_seat": response_event.player_seat,
-                        "tile": response_event.data["tile"],
+                        "seat": response_event.player_seat,
+                        "call_block_data": applied_result,
                     },
                 )
                 await self.game_manager.network_service.broadcast(
@@ -959,8 +1072,10 @@ class RoundManager:
                 msg = WSMessage(
                     event=MessageEventType.SHOMIN_KAN,
                     data={
-                        "player_seat": response_event.player_seat,
-                        "tile": response_event.data["tile"],
+                        "seat": response_event.player_seat,
+                        "call_block_data": applied_result,
+                        "has_tsumo_tile": self.winning_conditions.winning_tile
+                        == applied_result.first_tile,
                     },
                 )
                 await self.game_manager.network_service.broadcast(
@@ -1120,6 +1235,9 @@ class GameManager:
 
     async def is_valid_event(self, event: GameEvent) -> bool:
         is_valid: bool = False
+        if event.action_id >= 0 and event.action_id != self.action_id:
+            print(f"invalid action id: event {event}")
+            return False
         match event.event_type:
             case GameEventType.SKIP:
                 is_valid = (
