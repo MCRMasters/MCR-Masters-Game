@@ -905,6 +905,7 @@ class RoundManager:
         return response_event
 
     async def do_action(self, current_event: GameEvent) -> RoundState:
+        self.current_player_seat = current_event.player_seat
         applied_result = self.apply_response_event(response_event=current_event)
         await self.send_response_event(
             response_event=current_event,
@@ -966,7 +967,6 @@ class RoundManager:
                     raise IndexError("kawa is empty.")
                 self.apply_call_to_visible_tiles(call_block=call_block)
                 self.kawas[self.current_player_seat].pop()
-                self.current_player_seat = response_event.player_seat
                 return call_block
 
     def apply_call_to_visible_tiles(self, call_block: CallBlock) -> None:
