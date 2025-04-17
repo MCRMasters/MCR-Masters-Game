@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import heapq
+import time
 from collections import Counter
 from collections.abc import Callable, Mapping
 from copy import deepcopy
@@ -35,6 +36,7 @@ from app.services.game_manager.models.round_fsm import (
     RobbingKongState,
     RoundState,
     TsumoState,
+    WaitingNextRoundState,
 )
 from app.services.game_manager.models.types import (
     ActionType,
@@ -66,14 +68,26 @@ class RoundManager:
         self.action_manager: ActionManager | None
         self.current_player_seat: AbsoluteSeat
         self.action_choices: list[Action]
+        self.current_state: RoundState | None = None
 
     async def run_round(self) -> None:
-        state: RoundState | None = InitState()
-        while state is not None:
-            state = await state.run(self)
+        self.current_state = InitState()
+        while self.current_state is not None:
+            self.current_state = await self.current_state.run(self)
+
+    def is_current_state_instance(self, state_class: type[RoundState]) -> bool:
+        if self.current_state is None:
+            return False
+        return isinstance(self.current_state, state_class)
 
     def init_round_data(self) -> None:
         self.tile_deck = Deck()
+        # test deck
+        # self.tile_deck.tiles = [0,0,0,1,2,3,4,5,6,7,8,8,8,
+        #                         0,8,9,17,18,26,27,28,29,30,31,32,33,
+        #                         1,2,10,11,12,20,21,22,7,7,7,33,33,
+        #                         27,27,27,28,28,28,29,29,29,30,30,30,31,
+        #                         0,0,0,0,27,27,27,27] + self.tile_deck.tiles
         self.hands = [
             GameHand.create_from_tiles(tiles=self.tile_deck.draw_haipai())
             for _ in range(self.game_manager.MAX_PLAYERS)
@@ -279,6 +293,11 @@ class RoundManager:
         for player_seat in AbsoluteSeat:
             if player_seat == self.current_player_seat:
                 continue
+            print(
+                f"[check_actions_after_shomin_kong] {player_seat} "
+                f"hand cnt: {self.hands[player_seat].hand_size},"
+                f"\n{self.hands[player_seat]}",
+            )
             result[player_seat].extend(
                 self.get_possible_hu_choices(player_seat=player_seat),
             )
@@ -502,7 +521,6 @@ class RoundManager:
             hu_player_seat=current_event.player_seat,
             score_result=score_result,
         )
-        await self.send_an_kan_info()
 
     def apply_score_result(
         self,
@@ -550,12 +568,26 @@ class RoundManager:
         hu_player_seat: AbsoluteSeat,
         score_result: ScoreResult,
     ) -> None:
+        an_kan_infos = [
+            [
+                block.first_tile
+                for block in hand.call_blocks
+                if block.type == CallBlockType.AN_KONG
+            ]
+            for hand in self.hands
+        ]
         msg = WSMessage(
             event=MessageEventType.HU_HAND,
             data={
                 "hand": list(self.hands[hu_player_seat].tiles.elements()),
+                "call_blocks": self.hands[hu_player_seat].call_blocks,
                 "score_result": score_result,
                 "player_seat": hu_player_seat,
+                "current_player_seat": self.current_player_seat,
+                "flower_count": self.hands[hu_player_seat].flower_point,
+                "tsumo_tile": self.hands[hu_player_seat].tsumo_tile,
+                "winning_tile": self.winning_conditions.winning_tile,
+                "an_kan_infos": an_kan_infos,
             },
         )
         await self.game_manager.network_service.broadcast(
@@ -564,7 +596,25 @@ class RoundManager:
         )
 
     async def end_round_as_draw(self) -> None:
-        await self.send_an_kan_info()
+        await self.send_draw_info()
+
+    async def send_draw_info(self) -> None:
+        an_kan_infos = [
+            [
+                block.first_tile
+                for block in hand.call_blocks
+                if block.type == CallBlockType.AN_KONG
+            ]
+            for hand in self.hands
+        ]
+        msg = WSMessage(
+            event=MessageEventType.DRAW,
+            data={"an_kan_infos": an_kan_infos},
+        )
+        await self.game_manager.network_service.broadcast(
+            message=msg.model_dump(),
+            game_id=self.game_manager.game_id,
+        )
 
     async def send_an_kan_info(self) -> None:
         an_kan_infos = [
@@ -576,7 +626,7 @@ class RoundManager:
             for hand in self.hands
         ]
         msg = WSMessage(
-            event=MessageEventType.FLOWER,
+            event=MessageEventType.OPEN_AN_KAN,
             data={"an_kan_infos": an_kan_infos},
         )
         await self.game_manager.network_service.broadcast(
@@ -905,13 +955,16 @@ class RoundManager:
         return response_event
 
     async def do_action(self, current_event: GameEvent) -> RoundState:
+        source_player_seat: AbsoluteSeat = self.current_player_seat
         self.current_player_seat = current_event.player_seat
-        applied_result = self.apply_response_event(response_event=current_event)
+        applied_result = self.apply_response_event(
+            response_event=current_event,
+            source_player_seat=source_player_seat,
+        )
         await self.send_response_event(
             response_event=current_event,
             applied_result=applied_result,
         )
-        self.current_player_seat = current_event.player_seat
         match current_event.event_type:
             case GameEventType.SHOMIN_KAN:
                 tile: GameTile | None = current_event.data.get("tile", None)
@@ -939,6 +992,7 @@ class RoundManager:
     def apply_response_event(
         self,
         response_event: GameEvent,
+        source_player_seat: AbsoluteSeat,
     ) -> Any:
         match response_event.event_type:
             case GameEventType.FLOWER:
@@ -957,16 +1011,22 @@ class RoundManager:
             ):
                 if self.winning_conditions.winning_tile is None:
                     raise ValueError("discarded tile is None")
+                tile: GameTile | None = response_event.data.get("tile", None)
+                if tile is None:
+                    raise ValueError("No tile data in call block")
                 call_block: CallBlock = CallBlock.create_from_game_event(
                     game_event=response_event,
-                    current_seat=self.current_player_seat,
+                    current_seat=source_player_seat,
                     source_tile=self.winning_conditions.winning_tile,
                 )
                 self.hands[response_event.player_seat].apply_call(block=call_block)
-                if len(self.kawas[self.current_player_seat]) == 0:
-                    raise IndexError("kawa is empty.")
+                if response_event.event_type in {
+                    GameEventType.CHII | GameEventType.PON | GameEventType.DAIMIN_KAN,
+                }:
+                    if len(self.kawas[source_player_seat]) == 0:
+                        raise IndexError("kawa is empty.")
+                    self.kawas[source_player_seat].pop()
                 self.apply_call_to_visible_tiles(call_block=call_block)
-                self.kawas[self.current_player_seat].pop()
                 return call_block
 
     def apply_call_to_visible_tiles(self, call_block: CallBlock) -> None:
@@ -1025,7 +1085,13 @@ class RoundManager:
                     event=MessageEventType.AN_KAN,
                     data={
                         "seat": response_event.player_seat,
-                        "call_block_data": None,
+                        "call_block_data": CallBlock(
+                            type=CallBlockType.AN_KONG,
+                            first_tile=GameTile.F0,
+                            source_seat=RelativeSeat.SELF,
+                        ),
+                        "has_tsumo_tile": self.winning_conditions.winning_tile
+                        == applied_result.first_tile,
                     },
                 )
                 await self.game_manager.network_service.broadcast(
@@ -1148,6 +1214,66 @@ class RoundManager:
         return await self.send_tsumo_actions_and_wait(
             actions_lists=actions_lists,
         )
+
+    async def wait_for_next_round_confirm(self) -> None:
+        """
+        모든 플레이어(MAX_PLAYERS명)로부터 NEXT_ROUND_CONFIRM 메시지를 기다립니다.
+        첫 Confirm 메시지가 도착하면 10초 타임아웃을 적용하고,
+        10초 이내에 모든 Confirm 응답이 수신되지 않으면 즉시 다음 라운드로 진행합니다.
+        만약 전체 플레이어로부터 60초 동안 아무런 메시지도 수신하지 않으면,
+        즉시 다음 라운드로 진행합니다.
+        """
+        required_confirm = self.game_manager.MAX_PLAYERS
+        confirm_received: set[AbsoluteSeat] = set()
+        timeout: float | None = None
+        start_time = time.time()
+        print("[RoundManager] NEXT_ROUND_CONFIRM 응답을 기다립니다.")
+
+        while len(confirm_received) < required_confirm:
+            elapsed_since_start = time.time() - start_time
+            if elapsed_since_start >= 60:
+                print(
+                    "[RoundManager] 전체 플레이어로부터 응답이 60초 동안"
+                    " 없습니다. 즉시 다음 라운드 진행합니다.",
+                )
+                break
+
+            wait_time = timeout if timeout is not None else 9999.0
+            event: GameEvent | None
+            elapsed: float
+            try:
+                event, elapsed = await self.safe_wait_for(
+                    self.game_manager.event_queue.get(),
+                    wait_time,
+                )
+                elapsed
+            except TimeoutError:
+                print("[RoundManager] 타임아웃 발생: 즉시 다음 상태로 전환")
+                break
+            if event is None:
+                print("[RoundManager] 이벤트 수신 실패: 타임아웃")
+                break
+            self.game_manager.event_queue.task_done()
+
+            if event.event_type == GameEventType.NEXT_ROUND_CONFIRM:
+                confirm_received.add(event.player_seat)
+                print(
+                    f"[RoundManager] Confirm 응답: {event.player_seat} "
+                    f"(총 {len(confirm_received)}/{required_confirm})",
+                )
+                if timeout is None:
+                    timeout = 10.0
+            else:
+                continue
+
+        if len(confirm_received) < required_confirm:
+            print(
+                f"[RoundManager] 경고: {required_confirm}명 중 "
+                f"{len(confirm_received)}명의 Confirm 응답만 수신됨:"
+                " 즉시 다음 라운드 진행",
+            )
+        else:
+            print("[RoundManager] 모든 플레이어의 Confirm 응답 수신 완료.")
 
 
 class GameManager:
@@ -1275,6 +1401,12 @@ class GameManager:
             case GameEventType.INIT_FLOWER_OK:
                 await self.add_event(event=event)
                 is_valid = True
+            case GameEventType.NEXT_ROUND_CONFIRM:
+                is_valid = self.round_manager.is_current_state_instance(
+                    state_class=WaitingNextRoundState,
+                )
+                if is_valid:
+                    await self.add_event(event=event)
             case _:
                 is_valid = False
         return is_valid
@@ -1329,10 +1461,12 @@ class ActionManager:
         """
         if self.final_action:
             return self.final_action
-        heapq.heappush(self.selected_action_heap, action)
+        if action.type != ActionType.SKIP:
+            heapq.heappush(self.selected_action_heap, action)
         self.finished_players.add(action.seat_priority)
         while (
             self.action_heap
+            and self.selected_action_heap
             and self.action_heap[0].seat_priority in self.finished_players
         ):
             top_action: Action = heapq.heappop(self.action_heap)

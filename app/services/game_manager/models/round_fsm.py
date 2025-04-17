@@ -87,7 +87,9 @@ class DiscardState(RoundState):
             previous_turn_type=self.prev_type,
             discarded_tile=self.tile,
         )
-        print(f"[DEBUG] DiscardState: do_discard returned: {next_game_event}")
+        print(
+            f"[DEBUG] DiscardState: do_discard returned: {next_game_event}",
+        )
         if next_game_event is None:
             print(
                 "[DEBUG] DiscardState: event is None, "
@@ -137,7 +139,7 @@ class DrawState(RoundState):
         print("[DEBUG] DrawState: ending round as draw")
         await manager.end_round_as_draw()
         print("[DEBUG] DrawState: round ended as draw")
-        return None
+        return WaitingNextRoundState()
 
 
 class HuState(RoundState):
@@ -149,4 +151,15 @@ class HuState(RoundState):
         print("[DEBUG] HuState: ending round as hu")
         await manager.end_round_as_hu(current_event=self.current_event)
         print("[DEBUG] HuState: round ended as hu")
+        return WaitingNextRoundState()
+
+
+class WaitingNextRoundState(RoundState):
+    async def run(self, manager: RoundManager) -> RoundState | None:
+        print("[DEBUG] WaitingNextRoundState: Waiting for NEXT_ROUND_CONFIRM responses")
+        await manager.wait_for_next_round_confirm()
+        print(
+            "[DEBUG] WaitingNextRoundState: "
+            "All confirmations received or timeout occurred",
+        )
         return None

@@ -90,14 +90,6 @@ class GameWebSocketHandler:
                     ).model_dump(),
                 )
 
-    """
-        var payload = new {
-            action_type = action.Type,
-            action_tile = action.Tile,
-            action_id = currentActionId,
-        };
-    """
-
     async def handle_return_action(self, message: WSMessage) -> None:
         try:
             _action_type = message.data.get("action_type")

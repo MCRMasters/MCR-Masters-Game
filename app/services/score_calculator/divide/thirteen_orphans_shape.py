@@ -10,4 +10,7 @@ def can_divide_thirteen_orphans_shape(hand: Hand) -> bool:
     if len(hand.call_blocks) or sum(hand.tiles) != FULLY_HAND_SIZE:
         return False
 
-    return all(hand.tiles[tile] >= 1 for tile in Tile.outside_tiles())
+    return all(
+        hand.tiles[tile] >= 1 if Tile(tile).is_outside else hand.tiles[tile] == 0
+        for tile in Tile.all_tiles()
+    )

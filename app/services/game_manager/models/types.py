@@ -18,6 +18,7 @@ class GameEventType(IntEnum):
     ROBBING_KONG = 11
     INIT_FLOWER_OK = 12
     SKIP = 13
+    NEXT_ROUND_CONFIRM = 14
 
     @property
     def next_event(self) -> GameEventType | None:
