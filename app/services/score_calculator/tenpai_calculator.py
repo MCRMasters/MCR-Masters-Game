@@ -20,7 +20,6 @@ from app.services.score_calculator.hand.hand import Hand
 TENPAI_HAND_SIZE: Final[int] = 13
 
 
-# Get tenpai tile types from tenpai hand(13 tiles).
 def get_tenpai_tiles(tenpai_hand: Hand) -> list[Tile]:
     if any(not 0 <= tiles_count <= 4 for tiles_count in tenpai_hand.tiles):
         raise ValueError("Wrong tenpai hand")

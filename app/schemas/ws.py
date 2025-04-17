@@ -41,6 +41,7 @@ class MessageEventType(str, Enum):
     ERROR = "error"
     UPDATE_ACTION_ID = "update_action_id"
     SET_TIMER = "set_timer"
+    DRAW = "draw"
 
 
 class WebSocketResponse(BaseModel):

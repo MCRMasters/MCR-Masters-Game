@@ -211,7 +211,7 @@ class GameHand:
             # 소명깡
             for block in self.call_blocks:
                 if block.type == CallBlockType.PUNG and (
-                    block.first_tile == tile or block.first_tile in self.tiles
+                    block.first_tile == tile and block.first_tile in self.tiles
                 ):
                     result.append(
                         Action(
