@@ -23,20 +23,24 @@ class GameWebSocketHandler:
         room_manager: RoomManager,
         user_id: str,
         user_nickname: str,
+        token: str,  # 쿼리스트링으로 전달된 authorization 토큰
     ):
         self.websocket: WebSocket = websocket
         self.game_id: int = game_id
         self.room_manager: RoomManager = room_manager
         self.user_id: str = user_id
         self.user_nickname: str = user_nickname
+        self.token: str = token
 
     async def handle_connection(self) -> bool:
         try:
+            # 토큰을 함께 넘겨서 인증 처리
             await self.room_manager.connect(
                 websocket=self.websocket,
                 game_id=self.game_id,
                 user_id=self.user_id,
                 user_nickname=self.user_nickname,
+                authorization=self.token,
             )
             await self._notify_user_joined()
             await self.handle_messages()
@@ -94,47 +98,38 @@ class GameWebSocketHandler:
         try:
             _action_type = message.data.get("action_type")
             if _action_type is None:
-                await self.send_error(
-                    "Missing 'action_type' field in return action message.",
-                )
+                await self.send_error("Missing 'action_type' field in return action message.")
                 return
             action_type: ActionType = ActionType(_action_type)
+
             _action_tile = message.data.get("action_tile")
             if _action_tile is None:
-                await self.send_error(
-                    "Missing 'action_tile' field in return action message.",
-                )
+                await self.send_error("Missing 'action_tile' field in return action message.")
                 return
             action_tile: GameTile = GameTile(_action_tile)
+
             action_id: int = message.data.get("action_id", -1)
 
             game_manager: GameManager = self.room_manager.game_managers[self.game_id]
-            player_index: int | None = game_manager.player_uid_to_index.get(
-                self.user_id,
-            )
+            player_index = game_manager.player_uid_to_index.get(self.user_id)
             if player_index is None:
                 await self.send_error("User not registered in game manager.")
                 return
-            player_seat: AbsoluteSeat
+
+            # 플레이어 좌석 계산
             if game_manager.round_manager.player_index_to_seat:
-                player_seat = game_manager.round_manager.player_index_to_seat[
-                    player_index
-                ]
+                player_seat = game_manager.round_manager.player_index_to_seat[player_index]
             else:
                 player_seat = AbsoluteSeat(player_index)
 
-            event_type: GameEventType | None = (
-                GameEventType.create_from_action_type_except_kan(
-                    action_type=action_type,
-                )
-            )
+            # 이벤트 타입 결정
+            event_type = GameEventType.create_from_action_type_except_kan(action_type)
             if action_type == ActionType.KAN:
-                event_type = game_manager.round_manager.hands[
-                    player_seat
-                ].get_kan_event_type_from_tile(
-                    tile=action_tile,
-                    is_discarded=game_manager.round_manager.winning_conditions.is_discarded,
-                )
+                event_type = game_manager.round_manager.hands[player_seat]\
+                    .get_kan_event_type_from_tile(
+                        tile=action_tile,
+                        is_discarded=game_manager.round_manager.winning_conditions.is_discarded,
+                    )
             if event_type is None:
                 await self.send_error("Invalid action")
                 return
@@ -146,9 +141,7 @@ class GameWebSocketHandler:
                 data={"tile": action_tile},
             )
 
-            is_valid: bool = await game_manager.is_valid_event(
-                event=game_event,
-            )
+            is_valid = await game_manager.is_valid_event(event=game_event)
             if is_valid:
                 await self.send_success("Game event received")
             else:
@@ -160,12 +153,11 @@ class GameWebSocketHandler:
         try:
             game_manager = self.room_manager.game_managers[self.game_id]
 
-            event_type_value = message.data.get("event_type")
-            if event_type_value is None:
+            evt = message.data.get("event_type")
+            if evt is None:
                 await self.send_error("Missing event_type in game event message.")
                 return
-
-            event_type = GameEventType(int(event_type_value))
+            event_type = GameEventType(int(evt))
 
             action_id = message.data.get("action_id", -1)
 
@@ -175,13 +167,11 @@ class GameWebSocketHandler:
                 return
 
             if game_manager.round_manager.player_index_to_seat:
-                player_seat = game_manager.round_manager.player_index_to_seat[
-                    player_index
-                ]
+                player_seat = game_manager.round_manager.player_index_to_seat[player_index]
             else:
                 player_seat = AbsoluteSeat(player_index)
 
-            event_payload: dict[str, Any] = message.data.get("data", {})
+            event_payload = message.data.get("data", {})
 
             new_event = GameEvent(
                 event_type=event_type,
@@ -190,9 +180,7 @@ class GameWebSocketHandler:
                 data=event_payload,
             )
 
-            is_valid: bool = await game_manager.is_valid_event(
-                event=new_event,
-            )
+            is_valid = await game_manager.is_valid_event(event=new_event)
             if is_valid:
                 await self.send_success("Game event received")
             else:
@@ -200,10 +188,10 @@ class GameWebSocketHandler:
         except Exception as e:
             await self.send_error(f"Error processing game event: {e}")
 
-    async def send_success(self, success_message: str) -> None:
+    async def send_success(self, msg: str) -> None:
         success_msg = WSMessage(
             event=MessageEventType.SUCCESS,
-            data={"message": success_message},
+            data={"message": msg},
         )
         await self.room_manager.send_personal_message(
             message=success_msg.model_dump(),
@@ -211,37 +199,38 @@ class GameWebSocketHandler:
             user_id=self.user_id,
         )
 
-    async def send_error(self, message: str) -> None:
-        error_response = WSMessage(
+    async def send_error(self, msg: str) -> None:
+        err = WSMessage(
             event=MessageEventType.ERROR,
-            data={"message": message},
+            data={"message": msg},
         ).model_dump()
         await self.room_manager.send_personal_message(
-            error_response,
+            err,
             self.game_id,
             self.user_id,
         )
 
     async def handle_ping(self, _: WSMessage) -> None:
+        pong = WSMessage(event=MessageEventType.PONG, data={"message": "pong"}).model_dump()
         await self.room_manager.send_personal_message(
-            WSMessage(
-                event=MessageEventType.PONG,
-                data={"message": "pong"},
-            ).model_dump(),
+            pong,
             self.game_id,
             self.user_id,
         )
 
     async def handle_disconnection(self) -> None:
-        await self.room_manager.disconnect(game_id=self.game_id, user_id=self.user_id)
+        await self.room_manager.disconnect(
+            game_id=self.game_id,
+            user_id=self.user_id,
+        )
 
     async def handle_error(self, e: Exception) -> None:
         print(f"[GameWebSocketHandler] WebSocket error: {e}")
-        if self.websocket.client_state.CONNECTED:
-            await self.websocket.close(
-                code=status.WS_1011_INTERNAL_ERROR,
-                reason=str(e),
-            )
+        # WebSocketDisconnect 와 달리 FastAPI WebSocket 객체 직접 close
+        await self.websocket.close(
+            code=status.WS_1011_INTERNAL_ERROR,
+            reason=str(e),
+        )
 
     async def _notify_user_joined(self) -> None:
         response = WSMessage(
@@ -253,3 +242,4 @@ class GameWebSocketHandler:
             game_id=self.game_id,
             exclude_user_id=self.user_id,
         )
+
