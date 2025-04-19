@@ -52,7 +52,7 @@ class Block:
         return Block(
             type=_type,
             tile=Tile(block.first_tile),
-            is_opened=(block.type == CallBlockType.AN_KONG),
+            is_opened=(block.type != CallBlockType.AN_KONG),
         )
 
     @property
