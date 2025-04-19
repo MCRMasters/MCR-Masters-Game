@@ -23,14 +23,12 @@ class GameWebSocketHandler:
         room_manager: RoomManager,
         user_id: str,
         user_nickname: str,
-        token: str,  # 쿼리스트링으로 전달된 authorization 토큰
     ):
         self.websocket: WebSocket = websocket
         self.game_id: int = game_id
         self.room_manager: RoomManager = room_manager
         self.user_id: str = user_id
         self.user_nickname: str = user_nickname
-        self.token: str = token
 
     async def handle_connection(self) -> bool:
         try:
@@ -40,7 +38,6 @@ class GameWebSocketHandler:
                 game_id=self.game_id,
                 user_id=self.user_id,
                 user_nickname=self.user_nickname,
-                authorization=self.token,
             )
             await self._notify_user_joined()
             await self.handle_messages()

@@ -39,7 +39,6 @@ class RoomManager:
         game_id: int,
         user_id: str,
         user_nickname: str,
-        authorization: str,
     ) -> None:
         async with self.lock:
             if game_id not in self.active_connections:

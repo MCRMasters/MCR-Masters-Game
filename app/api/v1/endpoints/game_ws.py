@@ -4,9 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException, WebSocket, status
 from fastapi.responses import JSONResponse
 from app.core.room_manager import RoomManager
 from app.dependencies.room_manager import get_room_manager
+from app.api.v1.endpoints.game_websocket_handler import GameWebSocketHandler
 import urllib.parse
 
 router = APIRouter()
+
 
 @router.post("/games/start")
 async def start_game(
@@ -14,29 +16,27 @@ async def start_game(
 ) -> JSONResponse:
     """
     게임을 시작하고, WebSocket URL(쿼리 포함)을 반환합니다.
+    print() 디버깅 추가
     """
+    print("▶ start_game 호출됨")
     try:
+        # 1) 게임 ID 생성
         game_id: int = await room_manager.generate_game_id()
-        # 인증 정보(예: JWT 토큰)도 room_manager 에서 꺼낼 수 있도록
-        token = room_manager._auth_token  # 혹은 PlayerDataManager 에서
-        uid   = room_manager._user_id     # 필요에 따라 가져오세요
-        nick  = room_manager._nickname
+        print(f"생성된 game_id: {game_id}")
 
         base = f"wss://mcrs.duckdns.org/game/api/v1/games/{game_id}"
-        qs = urllib.parse.urlencode({
-            "user_id":      uid,
-            "nickname":     nick,
-            "authorization": token,
-        })
-        websocket_url = f"{base}?{qs}"
 
+        websocket_url = f"{base}"
+        print(f"최종 websocket_url: {websocket_url}")
+
+        # 4) 응답 반환
         return JSONResponse(content={"websocket_url": websocket_url})
     except Exception as e:
+        print("❌ start_game 처리 중 예외 발생:", str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e),
         )
-
 
 @router.websocket("/games/{game_id}")
 async def game_websocket_endpoint(
@@ -51,9 +51,8 @@ async def game_websocket_endpoint(
     params     = websocket.query_params
     user_id    = params.get("user_id")
     nickname   = params.get("nickname")
-    token      = params.get("authorization")
 
-    if not user_id or not nickname or not token:
+    if not user_id or not nickname:
         # 필수 정보가 없으면 바로 닫음
         await websocket.close(
             code=status.WS_1008_POLICY_VIOLATION,
@@ -74,7 +73,6 @@ async def game_websocket_endpoint(
         room_manager=room_manager,
         user_id=user_id,
         user_nickname=nickname,
-        token=token,               # 새로 추가된 인자
     )
     await handler.handle_connection()
 
