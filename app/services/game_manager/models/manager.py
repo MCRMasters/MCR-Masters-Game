@@ -207,7 +207,7 @@ class RoundManager:
             GameEventType.DAIMIN_KAN: self._handle_action,
             GameEventType.CHII: self._handle_action,
             GameEventType.PON: self._handle_action,
-            GameEventType.SHOMIN_KAN: self._handle_shomin_kan,
+            GameEventType.SHOMIN_KAN: self._handle_action,
             GameEventType.INIT_FLOWER: self._handle_init_flower,
         }
 
@@ -243,6 +243,7 @@ class RoundManager:
             GameEventType.FLOWER,
             GameEventType.AN_KAN,
             GameEventType.DAIMIN_KAN,
+            GameEventType.SHOMIN_KAN,
             GameEventType.CHII,
             GameEventType.PON,
         }
@@ -258,18 +259,13 @@ class RoundManager:
                 GameEventType.FLOWER,
                 GameEventType.AN_KAN,
                 GameEventType.DAIMIN_KAN,
+                GameEventType.SHOMIN_KAN,
             }
             and self.tile_deck.tiles_remaining == 0
         ):
             raise ValueError("tiles not left to draw flower")
 
         return ActionState(current_event=event)
-
-    def _handle_shomin_kan(self, _: GameEventType, event: GameEvent) -> RoundState:
-        tile = event.data.get("tile")
-        if tile is None:
-            raise ValueError("Shomin Kong tile must be provided for SHOMIN KONG turn.")
-        return RobbingKongState(tile=tile)
 
     def _handle_init_flower(self, _: GameEventType, __: GameEvent) -> RoundState:
         return FlowerState()
@@ -546,7 +542,10 @@ class RoundManager:
 
     def get_score_result(self, hu_event: GameEvent) -> ScoreResult:
         hand: Hand = Hand.create_from_game_hand(self.hands[hu_event.player_seat])
-        if self.winning_conditions.is_discarded:
+        if (
+            self.winning_conditions.is_discarded
+            or self.winning_conditions.is_robbing_the_kong
+        ):
             if self.winning_conditions.winning_tile is None:
                 raise ValueError("winning tile is None in Hu result page.")
             hand.tiles[
@@ -653,7 +652,10 @@ class RoundManager:
             raise ValueError("[RoundManager.get_possible_hu_choices]tile is none")
         if GameTile(self.winning_conditions.winning_tile).is_flower:
             return []
-        if self.winning_conditions.is_discarded:
+        if (
+            self.winning_conditions.is_discarded
+            or self.winning_conditions.is_robbing_the_kong
+        ):
             _hand.tiles[self.winning_conditions.winning_tile] += 1
         return (
             [
@@ -1372,6 +1374,7 @@ class GameManager:
                 is_valid = (
                     self.round_manager.current_player_seat == event.player_seat
                     or self.round_manager.winning_conditions.is_discarded
+                    or self.round_manager.winning_conditions.is_robbing_the_kong
                 )
                 if (
                     is_valid
