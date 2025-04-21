@@ -106,36 +106,40 @@ class RoundManager:
     def init_seat_index_mapping(self) -> None:
         shift = self.game_manager.current_round.number - 1
         wind = self.game_manager.current_round.wind
-        base_mapping = {
-            "E": {
-                AbsoluteSeat.EAST: 0,
-                AbsoluteSeat.SOUTH: 1,
-                AbsoluteSeat.WEST: 2,
-                AbsoluteSeat.NORTH: 3,
-            },
-            "S": {
-                AbsoluteSeat.EAST: 1,
-                AbsoluteSeat.SOUTH: 0,
-                AbsoluteSeat.WEST: 3,
-                AbsoluteSeat.NORTH: 2,
-            },
-            "W": {
-                AbsoluteSeat.EAST: 2,
-                AbsoluteSeat.SOUTH: 3,
-                AbsoluteSeat.WEST: 1,
-                AbsoluteSeat.NORTH: 0,
-            },
-            "N": {
-                AbsoluteSeat.EAST: 3,
-                AbsoluteSeat.SOUTH: 2,
-                AbsoluteSeat.WEST: 0,
-                AbsoluteSeat.NORTH: 1,
-            },
+
+        base_order = {
+            "E": [
+                AbsoluteSeat.EAST,
+                AbsoluteSeat.SOUTH,
+                AbsoluteSeat.WEST,
+                AbsoluteSeat.NORTH,
+            ],
+            "S": [
+                AbsoluteSeat.SOUTH,
+                AbsoluteSeat.WEST,
+                AbsoluteSeat.NORTH,
+                AbsoluteSeat.EAST,
+            ],
+            "W": [
+                AbsoluteSeat.WEST,
+                AbsoluteSeat.NORTH,
+                AbsoluteSeat.EAST,
+                AbsoluteSeat.SOUTH,
+            ],
+            "N": [
+                AbsoluteSeat.NORTH,
+                AbsoluteSeat.EAST,
+                AbsoluteSeat.SOUTH,
+                AbsoluteSeat.WEST,
+            ],
         }[wind]
+
+        rotated_order = base_order[-shift:] + base_order[:-shift]
+
         self.seat_to_player_index = {
-            seat: (base + shift) % 4 for seat, base in base_mapping.items()
+            seat: idx for idx, seat in enumerate(rotated_order)
         }
-        self.player_index_to_seat = {v: k for k, v in self.seat_to_player_index.items()}
+        self.player_index_to_seat = dict(enumerate(rotated_order))
 
     async def send_init_events(self) -> None:
         scores: list[int] = [p.score for p in self.game_manager.player_list]
