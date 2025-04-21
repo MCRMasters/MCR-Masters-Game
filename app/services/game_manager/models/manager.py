@@ -1174,6 +1174,10 @@ class RoundManager:
         self.winning_conditions.is_discarded = previous_event_type.is_next_discard
         self.winning_conditions.is_last_tile_of_its_kind = (
             self.visible_tiles_count.get(winning_tile, 0) == 4
+            and self.winning_conditions.is_discarded
+        ) or (
+            self.visible_tiles_count.get(winning_tile, 0) == 3
+            and not self.winning_conditions.is_discarded
         )
         self.winning_conditions.is_last_tile_in_the_game = (
             self.tile_deck.tiles_remaining == 0
