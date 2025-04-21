@@ -1421,7 +1421,7 @@ class GameManager:
         return await self._handle_discard_validate(event=event)
 
     async def _handle_init_flower_ok(self, event: GameEvent) -> bool:
-        valid = self.round_manager.is_current_state_instance(InitState)
+        valid = self.round_manager.is_current_state_instance(FlowerState)
         if valid:
             await self.add_event(event=event)
         return valid
