@@ -1275,7 +1275,7 @@ class RoundManager:
                     f"(총 {len(confirm_received)}/{required_confirm})",
                 )
                 if timeout is None:
-                    timeout = 10.0
+                    timeout = 25.0
             else:
                 continue
 
