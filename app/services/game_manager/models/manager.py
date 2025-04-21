@@ -523,20 +523,23 @@ class RoundManager:
         hu_player_seat: AbsoluteSeat,
         score_result: ScoreResult,
     ) -> None:
+        total_score: int = (
+            score_result.total_score + self.hands[hu_player_seat].flower_point
+        )
         if hu_player_seat == self.current_player_seat:
             for player in self.game_manager.player_list:
                 if player.index == self.seat_to_player_index[hu_player_seat]:
-                    player.score += (score_result.total_score + 8) * 3
+                    player.score += (total_score + 8) * 3
                 else:
-                    player.score -= score_result.total_score + 8
+                    player.score -= total_score + 8
         else:
             for player in self.game_manager.player_list:
                 if player.index == self.seat_to_player_index[hu_player_seat]:
-                    player.score += score_result.total_score + 8 * 3
+                    player.score += total_score + 8 * 3
                 elif (
                     player.index == self.seat_to_player_index[self.current_player_seat]
                 ):
-                    player.score -= score_result.total_score + 8
+                    player.score -= total_score + 8
                 else:
                     player.score -= 8
 
