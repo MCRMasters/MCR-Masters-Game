@@ -1,4 +1,5 @@
 from enum import Enum
+from functools import lru_cache
 
 from pydantic_settings import BaseSettings
 
@@ -15,5 +16,12 @@ class Settings(BaseSettings):
     VERSION: str = "1.0.0"
     API_V1_STR: str = "/api/v1"
 
+    SERVER_URL: str = "mcrs.duckdns.org:8001"
 
-settings = Settings()
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()
+
+
+settings = get_settings()

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, WebSocket, status
 from fastapi.responses import JSONResponse
 
 from app.api.v1.endpoints.game_websocket_handler import GameWebSocketHandler
+from app.core.config import settings
 from app.core.room_manager import RoomManager
 from app.dependencies.room_manager import get_room_manager
 
@@ -10,12 +11,11 @@ router = APIRouter()
 
 @router.post("/games/start")
 async def start_game(
-    # request: Request,
     room_manager: RoomManager = Depends(get_room_manager),
 ) -> JSONResponse:
     try:
         game_id: int = await room_manager.generate_game_id()
-        websocket_url: str = f"ws://mcrs.duckdns.org:8001/api/v1/games/{game_id}"
+        websocket_url: str = f"ws://{settings.SERVER_URL}/api/v1/games/{game_id}"
         return JSONResponse(content={"websocket_url": websocket_url})
     except Exception as e:
         raise HTTPException(
@@ -30,13 +30,13 @@ async def game_websocket_endpoint(
     game_id: int,
     room_manager: RoomManager = Depends(get_room_manager),
 ) -> None:
-    user_id = websocket.headers.get("user_id")
-    nickname = websocket.headers.get("nickname")
+    user_id = websocket.query_params.get("user_id")
+    nickname = websocket.query_params.get("nickname")
 
     if not user_id or not nickname:
         await websocket.close(
             code=status.WS_1008_POLICY_VIOLATION,
-            reason="user_id or nickname header missing",
+            reason="user_id or nickname query parameter missing",
         )
         return
 
