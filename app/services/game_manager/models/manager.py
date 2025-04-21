@@ -1372,54 +1372,69 @@ class GameManager:
             print(f"[GameManager.add_event] Event added: {event}")
 
     async def is_valid_event(self, event: GameEvent) -> bool:
-        is_valid: bool = False
-        if event.action_id >= 0 and event.action_id != self.action_id:
-            print(f"invalid action id: event {event}")
+        if not self._check_action_id(event):
             return False
-        match event.event_type:
-            case GameEventType.SKIP:
-                is_valid = (
-                    self.round_manager.current_player_seat == event.player_seat
-                    or self.round_manager.winning_conditions.is_discarded
-                    or self.round_manager.winning_conditions.is_robbing_the_kong
-                )
-                if (
-                    is_valid
-                    and self.round_manager.current_player_seat != event.player_seat
-                ):
-                    await self.add_event(event=event)
-            case (
-                GameEventType.CHII
-                | GameEventType.PON
-                | GameEventType.HU
-                | GameEventType.FLOWER
-                | GameEventType.AN_KAN
-                | GameEventType.DAIMIN_KAN
-                | GameEventType.SHOMIN_KAN
-            ):
-                is_valid = (
-                    Action.create_from_game_event(
-                        game_event=event,
-                        current_player_seat=self.round_manager.current_player_seat,
-                    )
-                    in self.round_manager.action_choices
-                )
-                if is_valid:
-                    await self.add_event(event=event)
-            case GameEventType.DISCARD:
-                is_valid = await self._handle_discard_validate(event=event)
-            case GameEventType.INIT_FLOWER_OK:
-                await self.add_event(event=event)
-                is_valid = True
-            case GameEventType.NEXT_ROUND_CONFIRM:
-                is_valid = self.round_manager.is_current_state_instance(
-                    state_class=WaitingNextRoundState,
-                )
-                if is_valid:
-                    await self.add_event(event=event)
-            case _:
-                is_valid = False
-        return is_valid
+        handler = {
+            GameEventType.SKIP: self._handle_skip,
+            GameEventType.CHII: self._handle_action_event,
+            GameEventType.PON: self._handle_action_event,
+            GameEventType.HU: self._handle_action_event,
+            GameEventType.FLOWER: self._handle_action_event,
+            GameEventType.AN_KAN: self._handle_action_event,
+            GameEventType.DAIMIN_KAN: self._handle_action_event,
+            GameEventType.SHOMIN_KAN: self._handle_action_event,
+            GameEventType.DISCARD: self._handle_discard,
+            GameEventType.INIT_FLOWER_OK: self._handle_init_flower_ok,
+            GameEventType.NEXT_ROUND_CONFIRM: self._handle_next_round_confirm,
+        }.get(event.event_type, self._handle_default)
+
+        return await handler(event)
+
+    def _check_action_id(self, event: GameEvent) -> bool:
+        if event.action_id < 0 or event.action_id == self.action_id:
+            return True
+        print(f"invalid action id: event {event}")
+        return False
+
+    async def _handle_skip(self, event: GameEvent) -> bool:
+        rm = self.round_manager
+        valid = (
+            rm.current_player_seat == event.player_seat
+            or rm.winning_conditions.is_discarded
+            or rm.winning_conditions.is_robbing_the_kong
+        )
+        if valid and rm.current_player_seat != event.player_seat:
+            await self.add_event(event=event)
+        return valid
+
+    async def _handle_action_event(self, event: GameEvent) -> bool:
+        choice = Action.create_from_game_event(
+            game_event=event,
+            current_player_seat=self.round_manager.current_player_seat,
+        )
+        valid = choice in self.round_manager.action_choices
+        if valid:
+            await self.add_event(event=event)
+        return valid
+
+    async def _handle_discard(self, event: GameEvent) -> bool:
+        return await self._handle_discard_validate(event=event)
+
+    async def _handle_init_flower_ok(self, event: GameEvent) -> bool:
+        valid = self.round_manager.is_current_state_instance(InitState)
+        if valid:
+            await self.add_event(event=event)
+        return valid
+
+    async def _handle_next_round_confirm(self, event: GameEvent) -> bool:
+        valid = self.round_manager.is_current_state_instance(WaitingNextRoundState)
+        if valid:
+            await self.add_event(event=event)
+        return valid
+
+    async def _handle_default(self, event: GameEvent) -> bool:
+        event
+        return False
 
     async def _handle_discard_validate(self, event: GameEvent) -> bool:
         if not event.data or "tile" not in event.data:
