@@ -768,7 +768,7 @@ class RoundManager:
         )
         return result
 
-    DEFAULT_TURN_TIMEOUT: Final[float] = 60
+    DEFAULT_TURN_TIMEOUT: Final[float] = 20
 
     async def wait_for_init_flower_ok(self) -> None:
         """
