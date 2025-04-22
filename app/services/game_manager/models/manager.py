@@ -106,36 +106,40 @@ class RoundManager:
     def init_seat_index_mapping(self) -> None:
         shift = self.game_manager.current_round.number - 1
         wind = self.game_manager.current_round.wind
-        base_mapping = {
-            "E": {
-                AbsoluteSeat.EAST: 0,
-                AbsoluteSeat.SOUTH: 1,
-                AbsoluteSeat.WEST: 2,
-                AbsoluteSeat.NORTH: 3,
-            },
-            "S": {
-                AbsoluteSeat.EAST: 1,
-                AbsoluteSeat.SOUTH: 0,
-                AbsoluteSeat.WEST: 3,
-                AbsoluteSeat.NORTH: 2,
-            },
-            "W": {
-                AbsoluteSeat.EAST: 2,
-                AbsoluteSeat.SOUTH: 3,
-                AbsoluteSeat.WEST: 1,
-                AbsoluteSeat.NORTH: 0,
-            },
-            "N": {
-                AbsoluteSeat.EAST: 3,
-                AbsoluteSeat.SOUTH: 2,
-                AbsoluteSeat.WEST: 0,
-                AbsoluteSeat.NORTH: 1,
-            },
+
+        base_order = {
+            "E": [
+                AbsoluteSeat.EAST,
+                AbsoluteSeat.SOUTH,
+                AbsoluteSeat.WEST,
+                AbsoluteSeat.NORTH,
+            ],
+            "S": [
+                AbsoluteSeat.SOUTH,
+                AbsoluteSeat.WEST,
+                AbsoluteSeat.NORTH,
+                AbsoluteSeat.EAST,
+            ],
+            "W": [
+                AbsoluteSeat.WEST,
+                AbsoluteSeat.NORTH,
+                AbsoluteSeat.EAST,
+                AbsoluteSeat.SOUTH,
+            ],
+            "N": [
+                AbsoluteSeat.NORTH,
+                AbsoluteSeat.EAST,
+                AbsoluteSeat.SOUTH,
+                AbsoluteSeat.WEST,
+            ],
         }[wind]
+
+        rotated_order = base_order[-shift:] + base_order[:-shift]
+
         self.seat_to_player_index = {
-            seat: (base + shift) % 4 for seat, base in base_mapping.items()
+            seat: idx for idx, seat in enumerate(rotated_order)
         }
-        self.player_index_to_seat = {v: k for k, v in self.seat_to_player_index.items()}
+        self.player_index_to_seat = dict(enumerate(rotated_order))
 
     async def send_init_events(self) -> None:
         scores: list[int] = [p.score for p in self.game_manager.player_list]
@@ -523,20 +527,23 @@ class RoundManager:
         hu_player_seat: AbsoluteSeat,
         score_result: ScoreResult,
     ) -> None:
+        total_score: int = (
+            score_result.total_score + self.hands[hu_player_seat].flower_point
+        )
         if hu_player_seat == self.current_player_seat:
             for player in self.game_manager.player_list:
                 if player.index == self.seat_to_player_index[hu_player_seat]:
-                    player.score += (score_result.total_score + 8) * 3
+                    player.score += (total_score + 8) * 3
                 else:
-                    player.score -= score_result.total_score + 8
+                    player.score -= total_score + 8
         else:
             for player in self.game_manager.player_list:
                 if player.index == self.seat_to_player_index[hu_player_seat]:
-                    player.score += score_result.total_score + 8 * 3
+                    player.score += total_score + 8 * 3
                 elif (
                     player.index == self.seat_to_player_index[self.current_player_seat]
                 ):
-                    player.score -= score_result.total_score + 8
+                    player.score -= total_score + 8
                 else:
                     player.score -= 8
 
@@ -1173,7 +1180,11 @@ class RoundManager:
         self.winning_conditions.winning_tile = winning_tile
         self.winning_conditions.is_discarded = previous_event_type.is_next_discard
         self.winning_conditions.is_last_tile_of_its_kind = (
+            self.visible_tiles_count.get(winning_tile, 0) == 4
+            and self.winning_conditions.is_discarded
+        ) or (
             self.visible_tiles_count.get(winning_tile, 0) == 3
+            and not self.winning_conditions.is_discarded
         )
         self.winning_conditions.is_last_tile_in_the_game = (
             self.tile_deck.tiles_remaining == 0
@@ -1264,7 +1275,7 @@ class RoundManager:
                     f"(총 {len(confirm_received)}/{required_confirm})",
                 )
                 if timeout is None:
-                    timeout = 10.0
+                    timeout = 25.0
             else:
                 continue
 
@@ -1365,54 +1376,69 @@ class GameManager:
             print(f"[GameManager.add_event] Event added: {event}")
 
     async def is_valid_event(self, event: GameEvent) -> bool:
-        is_valid: bool = False
-        if event.action_id >= 0 and event.action_id != self.action_id:
-            print(f"invalid action id: event {event}")
+        if not self._check_action_id(event):
             return False
-        match event.event_type:
-            case GameEventType.SKIP:
-                is_valid = (
-                    self.round_manager.current_player_seat == event.player_seat
-                    or self.round_manager.winning_conditions.is_discarded
-                    or self.round_manager.winning_conditions.is_robbing_the_kong
-                )
-                if (
-                    is_valid
-                    and self.round_manager.current_player_seat != event.player_seat
-                ):
-                    await self.add_event(event=event)
-            case (
-                GameEventType.CHII
-                | GameEventType.PON
-                | GameEventType.HU
-                | GameEventType.FLOWER
-                | GameEventType.AN_KAN
-                | GameEventType.DAIMIN_KAN
-                | GameEventType.SHOMIN_KAN
-            ):
-                is_valid = (
-                    Action.create_from_game_event(
-                        game_event=event,
-                        current_player_seat=self.round_manager.current_player_seat,
-                    )
-                    in self.round_manager.action_choices
-                )
-                if is_valid:
-                    await self.add_event(event=event)
-            case GameEventType.DISCARD:
-                is_valid = await self._handle_discard_validate(event=event)
-            case GameEventType.INIT_FLOWER_OK:
-                await self.add_event(event=event)
-                is_valid = True
-            case GameEventType.NEXT_ROUND_CONFIRM:
-                is_valid = self.round_manager.is_current_state_instance(
-                    state_class=WaitingNextRoundState,
-                )
-                if is_valid:
-                    await self.add_event(event=event)
-            case _:
-                is_valid = False
-        return is_valid
+        handler = {
+            GameEventType.SKIP: self._handle_skip,
+            GameEventType.CHII: self._handle_action_event,
+            GameEventType.PON: self._handle_action_event,
+            GameEventType.HU: self._handle_action_event,
+            GameEventType.FLOWER: self._handle_action_event,
+            GameEventType.AN_KAN: self._handle_action_event,
+            GameEventType.DAIMIN_KAN: self._handle_action_event,
+            GameEventType.SHOMIN_KAN: self._handle_action_event,
+            GameEventType.DISCARD: self._handle_discard,
+            GameEventType.INIT_FLOWER_OK: self._handle_init_flower_ok,
+            GameEventType.NEXT_ROUND_CONFIRM: self._handle_next_round_confirm,
+        }.get(event.event_type, self._handle_default)
+
+        return await handler(event)
+
+    def _check_action_id(self, event: GameEvent) -> bool:
+        if event.action_id < 0 or event.action_id == self.action_id:
+            return True
+        print(f"invalid action id: event {event}")
+        return False
+
+    async def _handle_skip(self, event: GameEvent) -> bool:
+        rm = self.round_manager
+        valid = (
+            rm.current_player_seat == event.player_seat
+            or rm.winning_conditions.is_discarded
+            or rm.winning_conditions.is_robbing_the_kong
+        )
+        if valid and rm.current_player_seat != event.player_seat:
+            await self.add_event(event=event)
+        return valid
+
+    async def _handle_action_event(self, event: GameEvent) -> bool:
+        choice = Action.create_from_game_event(
+            game_event=event,
+            current_player_seat=self.round_manager.current_player_seat,
+        )
+        valid = choice in self.round_manager.action_choices
+        if valid:
+            await self.add_event(event=event)
+        return valid
+
+    async def _handle_discard(self, event: GameEvent) -> bool:
+        return await self._handle_discard_validate(event=event)
+
+    async def _handle_init_flower_ok(self, event: GameEvent) -> bool:
+        valid = self.round_manager.is_current_state_instance(FlowerState)
+        if valid:
+            await self.add_event(event=event)
+        return valid
+
+    async def _handle_next_round_confirm(self, event: GameEvent) -> bool:
+        valid = self.round_manager.is_current_state_instance(WaitingNextRoundState)
+        if valid:
+            await self.add_event(event=event)
+        return valid
+
+    async def _handle_default(self, event: GameEvent) -> bool:
+        event
+        return False
 
     async def _handle_discard_validate(self, event: GameEvent) -> bool:
         if not event.data or "tile" not in event.data:
