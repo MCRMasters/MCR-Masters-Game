@@ -693,6 +693,7 @@ class RoundManager:
             self.winning_conditions.is_discarded
             or self.winning_conditions.is_last_tile_in_the_game
             or player_seat != self.current_player_seat
+            or self.tile_deck.tiles_remaining == 0
         ):
             return result
         for flower_tile in reversed(
