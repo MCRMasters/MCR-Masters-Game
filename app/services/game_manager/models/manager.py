@@ -104,41 +104,27 @@ class RoundManager:
         self.action_choices = []
 
     def init_seat_index_mapping(self) -> None:
+        # 라운드 번호(E1=1, S3=3 …) 기준으로 회전량
         shift = self.game_manager.current_round.number - 1
-        wind = self.game_manager.current_round.wind
+        wind  = self.game_manager.current_round.wind        # "E" / "S" / "W" / "N"
 
+        # ───────────── Wind 별 기준 배열 ─────────────
         base_order = {
-            "E": [
-                AbsoluteSeat.EAST,
-                AbsoluteSeat.SOUTH,
-                AbsoluteSeat.WEST,
-                AbsoluteSeat.NORTH,
-            ],
-            "S": [
-                AbsoluteSeat.SOUTH,
-                AbsoluteSeat.WEST,
-                AbsoluteSeat.NORTH,
-                AbsoluteSeat.EAST,
-            ],
-            "W": [
-                AbsoluteSeat.WEST,
-                AbsoluteSeat.NORTH,
-                AbsoluteSeat.EAST,
-                AbsoluteSeat.SOUTH,
-            ],
-            "N": [
-                AbsoluteSeat.NORTH,
-                AbsoluteSeat.EAST,
-                AbsoluteSeat.SOUTH,
-                AbsoluteSeat.WEST,
-            ],
+            "E": [AbsoluteSeat.EAST,  AbsoluteSeat.SOUTH,
+                AbsoluteSeat.WEST,  AbsoluteSeat.NORTH],   # ESWN
+            "S": [AbsoluteSeat.SOUTH, AbsoluteSeat.EAST,
+                AbsoluteSeat.NORTH, AbsoluteSeat.WEST],    # SENW
+            "W": [AbsoluteSeat.NORTH, AbsoluteSeat.WEST,
+                AbsoluteSeat.EAST,  AbsoluteSeat.SOUTH],   # NWES
+            "N": [AbsoluteSeat.WEST,  AbsoluteSeat.NORTH,
+                AbsoluteSeat.SOUTH, AbsoluteSeat.EAST],    # WNSE
         }[wind]
 
+        # shift(0‑based) 만큼 시계 방향 회전
         rotated_order = base_order[-shift:] + base_order[:-shift]
 
-        self.seat_to_player_index = {
-            seat: idx for idx, seat in enumerate(rotated_order)
-        }
+        # 좌석 ↔ 플레이어 인덱스 매핑 생성
+        self.seat_to_player_index = {seat: i for i, seat in enumerate(rotated_order)}
         self.player_index_to_seat = dict(enumerate(rotated_order))
 
     async def send_init_events(self) -> None:
