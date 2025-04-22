@@ -103,29 +103,46 @@ class RoundManager:
         self.current_player_seat = AbsoluteSeat.EAST
         self.action_choices = []
 
+    # Deal 1‥16 의 (index0,1,2,3) → 좌석 순서
+    _DEAL_TABLE: list[list[AbsoluteSeat]] = [
+        # idx0   idx1   idx2   idx3
+        [AbsoluteSeat.EAST,  AbsoluteSeat.SOUTH, AbsoluteSeat.WEST,  AbsoluteSeat.NORTH],  # 1
+        [AbsoluteSeat.NORTH, AbsoluteSeat.EAST,  AbsoluteSeat.SOUTH, AbsoluteSeat.WEST ],  # 2
+        [AbsoluteSeat.WEST,  AbsoluteSeat.NORTH, AbsoluteSeat.EAST,  AbsoluteSeat.SOUTH],  # 3
+        [AbsoluteSeat.SOUTH, AbsoluteSeat.WEST,  AbsoluteSeat.NORTH, AbsoluteSeat.EAST ],  # 4
+        [AbsoluteSeat.SOUTH, AbsoluteSeat.EAST,  AbsoluteSeat.NORTH, AbsoluteSeat.WEST ],  # 5
+        [AbsoluteSeat.EAST,  AbsoluteSeat.NORTH, AbsoluteSeat.WEST,  AbsoluteSeat.SOUTH],  # 6
+        [AbsoluteSeat.NORTH, AbsoluteSeat.WEST,  AbsoluteSeat.SOUTH, AbsoluteSeat.EAST ],  # 7
+        [AbsoluteSeat.WEST,  AbsoluteSeat.SOUTH, AbsoluteSeat.EAST,  AbsoluteSeat.NORTH],  # 8
+        [AbsoluteSeat.NORTH, AbsoluteSeat.WEST,  AbsoluteSeat.EAST,  AbsoluteSeat.SOUTH],  # 9
+        [AbsoluteSeat.WEST,  AbsoluteSeat.SOUTH, AbsoluteSeat.NORTH, AbsoluteSeat.EAST ],  # 10
+        [AbsoluteSeat.SOUTH, AbsoluteSeat.EAST,  AbsoluteSeat.WEST,  AbsoluteSeat.NORTH],  # 11
+        [AbsoluteSeat.EAST,  AbsoluteSeat.NORTH, AbsoluteSeat.SOUTH, AbsoluteSeat.WEST ],  # 12
+        [AbsoluteSeat.WEST,  AbsoluteSeat.NORTH, AbsoluteSeat.SOUTH, AbsoluteSeat.EAST ],  # 13
+        [AbsoluteSeat.SOUTH, AbsoluteSeat.WEST,  AbsoluteSeat.EAST,  AbsoluteSeat.NORTH],  # 14
+        [AbsoluteSeat.EAST,  AbsoluteSeat.SOUTH, AbsoluteSeat.NORTH, AbsoluteSeat.WEST ],  # 15
+        [AbsoluteSeat.NORTH, AbsoluteSeat.EAST,  AbsoluteSeat.WEST,  AbsoluteSeat.SOUTH],  # 16
+    ]
+
+    def get_seat_mappings(self, deal: int
+                        ) -> tuple[dict[AbsoluteSeat, int],
+                                    dict[int, AbsoluteSeat]]:
+        """
+        deal : 1‥16
+        반환 : (seat→playerIdx, playerIdx→seat)
+        """
+        if not (1 <= deal <= 16):
+            raise ValueError("deal 은 1‑16 범위")
+        order = self._DEAL_TABLE[deal - 1]
+
+        seat_to_player = {seat: idx for idx, seat in enumerate(order)}
+        player_to_seat = dict(enumerate(order))
+        return seat_to_player, player_to_seat
+
+
     def init_seat_index_mapping(self) -> None:
-        # 라운드 번호(E1=1, S3=3 …) 기준으로 회전량
-        shift = self.game_manager.current_round.number - 1
-        wind  = self.game_manager.current_round.wind        # "E" / "S" / "W" / "N"
-
-        # ───────────── Wind 별 기준 배열 ─────────────
-        base_order = {
-            "E": [AbsoluteSeat.EAST,  AbsoluteSeat.SOUTH,
-                AbsoluteSeat.WEST,  AbsoluteSeat.NORTH],   # ESWN
-            "S": [AbsoluteSeat.SOUTH, AbsoluteSeat.EAST,
-                AbsoluteSeat.NORTH, AbsoluteSeat.WEST],    # SENW
-            "W": [AbsoluteSeat.NORTH, AbsoluteSeat.WEST,
-                AbsoluteSeat.EAST,  AbsoluteSeat.SOUTH],   # NWES
-            "N": [AbsoluteSeat.WEST,  AbsoluteSeat.NORTH,
-                AbsoluteSeat.SOUTH, AbsoluteSeat.EAST],    # WNSE
-        }[wind]
-
-        # shift(0‑based) 만큼 시계 방향 회전
-        rotated_order = base_order[-shift:] + base_order[:-shift]
-
         # 좌석 ↔ 플레이어 인덱스 매핑 생성
-        self.seat_to_player_index = {seat: i for i, seat in enumerate(rotated_order)}
-        self.player_index_to_seat = dict(enumerate(rotated_order))
+        self.seat_to_player_index, self.player_index_to_seat = self.get_seat_mappings(int(self.game_manager.current_round))
 
     async def send_init_events(self) -> None:
         scores: list[int] = [p.score for p in self.game_manager.player_list]
