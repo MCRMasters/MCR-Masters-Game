@@ -127,13 +127,7 @@ class RoundManager:
     def get_seat_mappings(self, deal: int
                         ) -> tuple[dict[AbsoluteSeat, int],
                                     dict[int, AbsoluteSeat]]:
-        """
-        deal : 1‥16
-        반환 : (seat→playerIdx, playerIdx→seat)
-        """
-        if not (1 <= deal <= 16):
-            raise ValueError("deal 은 1‑16 범위")
-        order = self._DEAL_TABLE[deal - 1]
+        order = self._DEAL_TABLE[deal]
 
         seat_to_player = {seat: idx for idx, seat in enumerate(order)}
         player_to_seat = dict(enumerate(order))
