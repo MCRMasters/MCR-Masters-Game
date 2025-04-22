@@ -15,7 +15,7 @@ class Deck:
         self._make_deck()
 
     def _make_deck(self) -> None:
-        self.tiles = [GameTile(tile) for tile in GameTile.normal_tiles()] * 4 + [
+        self.tiles = [GameTile(tile) for tile in GameTile.normal_tiles()] * 2 + [
             GameTile(flower_tile) for flower_tile in GameTile.flower_tiles()
         ]
         self._shuffle_deck()
