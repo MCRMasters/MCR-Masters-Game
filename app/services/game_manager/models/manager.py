@@ -693,7 +693,6 @@ class RoundManager:
             self.winning_conditions.is_discarded
             or self.winning_conditions.is_last_tile_in_the_game
             or player_seat != self.current_player_seat
-            or self.tile_deck.tiles_remaining == 0
         ):
             return result
         for flower_tile in reversed(
@@ -982,6 +981,8 @@ class RoundManager:
                     raise ValueError("tile is None")
                 return RobbingKongState(tile=tile)
             case GameEventType.DAIMIN_KAN | GameEventType.AN_KAN:
+                if self.tile_deck.tiles_remaining == 0:
+                    return DrawState()
                 return TsumoState(prev_type=current_event.event_type)
             case GameEventType.CHII | GameEventType.PON:
                 discard_event: GameEvent = await self.wait_discard_after_call_action()
@@ -993,6 +994,8 @@ class RoundManager:
                     tile=discard_tile,
                 )
             case GameEventType.FLOWER:
+                if self.tile_deck.tiles_remaining == 0:
+                    return DrawState()
                 return TsumoState(
                     prev_type=current_event.event_type,
                 )
