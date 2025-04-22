@@ -9,6 +9,9 @@ from copy import deepcopy
 from random import shuffle
 from typing import Any, Final
 
+import httpx
+
+from app.core.config import settings
 from app.core.network_service import NetworkService
 from app.schemas.ws import MessageEventType, WSMessage
 from app.services.game_manager.models.action import Action
@@ -1359,8 +1362,28 @@ class GameManager:
         await self.submit_game_result()
 
     async def submit_game_result(self) -> None:
-        # TODO: submit game result to core server
-        pass
+        scores: list[int] = [p.score for p in self.player_list]
+        msg = WSMessage(
+            event=MessageEventType.END_GAME,
+            data={
+                "players_score": scores,
+            },
+        )
+        await self.network_service.broadcast(
+            message=msg.model_dump(),
+            game_id=self.game_id,
+        )
+        endpoint = (
+            f"https://{settings.COER_SERVER_URL}/internal"
+            f"/rooms/{self.game_id}/end-game"
+        )
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            try:
+                resp = await client.post(endpoint)
+                resp.raise_for_status()
+                print("[GameManager] end-game 요청 성공: %s", resp.json())
+            except httpx.HTTPError as exc:
+                print("[GameManager] end-game 요청 실패: %s", exc)
 
     def increase_action_id(self) -> None:
         self.action_id += 1
