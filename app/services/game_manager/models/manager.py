@@ -9,6 +9,9 @@ from copy import deepcopy
 from random import shuffle
 from typing import Any, Final
 
+import httpx
+
+from app.core.config import settings
 from app.core.network_service import NetworkService
 from app.schemas.ws import MessageEventType, WSMessage
 from app.services.game_manager.models.action import Action
@@ -103,43 +106,40 @@ class RoundManager:
         self.current_player_seat = AbsoluteSeat.EAST
         self.action_choices = []
 
+    # Deal 1‥16 의 (index0,1,2,3) → 좌석 순서
+    _DEAL_TABLE: list[list[AbsoluteSeat]] = [
+        # idx0   idx1   idx2   idx3
+        [AbsoluteSeat.EAST,  AbsoluteSeat.SOUTH, AbsoluteSeat.WEST,  AbsoluteSeat.NORTH],  # 1
+        [AbsoluteSeat.NORTH, AbsoluteSeat.EAST,  AbsoluteSeat.SOUTH, AbsoluteSeat.WEST ],  # 2
+        [AbsoluteSeat.WEST,  AbsoluteSeat.NORTH, AbsoluteSeat.EAST,  AbsoluteSeat.SOUTH],  # 3
+        [AbsoluteSeat.SOUTH, AbsoluteSeat.WEST,  AbsoluteSeat.NORTH, AbsoluteSeat.EAST ],  # 4
+        [AbsoluteSeat.SOUTH, AbsoluteSeat.EAST,  AbsoluteSeat.NORTH, AbsoluteSeat.WEST ],  # 5
+        [AbsoluteSeat.EAST,  AbsoluteSeat.NORTH, AbsoluteSeat.WEST,  AbsoluteSeat.SOUTH],  # 6
+        [AbsoluteSeat.NORTH, AbsoluteSeat.WEST,  AbsoluteSeat.SOUTH, AbsoluteSeat.EAST ],  # 7
+        [AbsoluteSeat.WEST,  AbsoluteSeat.SOUTH, AbsoluteSeat.EAST,  AbsoluteSeat.NORTH],  # 8
+        [AbsoluteSeat.NORTH, AbsoluteSeat.WEST,  AbsoluteSeat.EAST,  AbsoluteSeat.SOUTH],  # 9
+        [AbsoluteSeat.WEST,  AbsoluteSeat.SOUTH, AbsoluteSeat.NORTH, AbsoluteSeat.EAST ],  # 10
+        [AbsoluteSeat.SOUTH, AbsoluteSeat.EAST,  AbsoluteSeat.WEST,  AbsoluteSeat.NORTH],  # 11
+        [AbsoluteSeat.EAST,  AbsoluteSeat.NORTH, AbsoluteSeat.SOUTH, AbsoluteSeat.WEST ],  # 12
+        [AbsoluteSeat.WEST,  AbsoluteSeat.NORTH, AbsoluteSeat.SOUTH, AbsoluteSeat.EAST ],  # 13
+        [AbsoluteSeat.SOUTH, AbsoluteSeat.WEST,  AbsoluteSeat.EAST,  AbsoluteSeat.NORTH],  # 14
+        [AbsoluteSeat.EAST,  AbsoluteSeat.SOUTH, AbsoluteSeat.NORTH, AbsoluteSeat.WEST ],  # 15
+        [AbsoluteSeat.NORTH, AbsoluteSeat.EAST,  AbsoluteSeat.WEST,  AbsoluteSeat.SOUTH],  # 16
+    ]
+
+    def get_seat_mappings(self, deal: int
+                        ) -> tuple[dict[AbsoluteSeat, int],
+                                    dict[int, AbsoluteSeat]]:
+        order = self._DEAL_TABLE[deal]
+
+        seat_to_player = {seat: idx for idx, seat in enumerate(order)}
+        player_to_seat = dict(enumerate(order))
+        return seat_to_player, player_to_seat
+
+
     def init_seat_index_mapping(self) -> None:
-        shift = self.game_manager.current_round.number - 1
-        wind = self.game_manager.current_round.wind
-
-        base_order = {
-            "E": [
-                AbsoluteSeat.EAST,
-                AbsoluteSeat.SOUTH,
-                AbsoluteSeat.WEST,
-                AbsoluteSeat.NORTH,
-            ],
-            "S": [
-                AbsoluteSeat.SOUTH,
-                AbsoluteSeat.WEST,
-                AbsoluteSeat.NORTH,
-                AbsoluteSeat.EAST,
-            ],
-            "W": [
-                AbsoluteSeat.WEST,
-                AbsoluteSeat.NORTH,
-                AbsoluteSeat.EAST,
-                AbsoluteSeat.SOUTH,
-            ],
-            "N": [
-                AbsoluteSeat.NORTH,
-                AbsoluteSeat.EAST,
-                AbsoluteSeat.SOUTH,
-                AbsoluteSeat.WEST,
-            ],
-        }[wind]
-
-        rotated_order = base_order[-shift:] + base_order[:-shift]
-
-        self.seat_to_player_index = {
-            seat: idx for idx, seat in enumerate(rotated_order)
-        }
-        self.player_index_to_seat = dict(enumerate(rotated_order))
+        # 좌석 ↔ 플레이어 인덱스 매핑 생성
+        self.seat_to_player_index, self.player_index_to_seat = self.get_seat_mappings(int(self.game_manager.current_round))
 
     async def send_init_events(self) -> None:
         scores: list[int] = [p.score for p in self.game_manager.player_list]
@@ -768,7 +768,7 @@ class RoundManager:
         )
         return result
 
-    DEFAULT_TURN_TIMEOUT: Final[float] = 60
+    DEFAULT_TURN_TIMEOUT: Final[float] = 20
 
     async def wait_for_init_flower_ok(self) -> None:
         """
@@ -981,6 +981,8 @@ class RoundManager:
                     raise ValueError("tile is None")
                 return RobbingKongState(tile=tile)
             case GameEventType.DAIMIN_KAN | GameEventType.AN_KAN:
+                if self.tile_deck.tiles_remaining == 0:
+                    return DrawState()
                 return TsumoState(prev_type=current_event.event_type)
             case GameEventType.CHII | GameEventType.PON:
                 discard_event: GameEvent = await self.wait_discard_after_call_action()
@@ -992,6 +994,8 @@ class RoundManager:
                     tile=discard_tile,
                 )
             case GameEventType.FLOWER:
+                if self.tile_deck.tiles_remaining == 0:
+                    return DrawState()
                 return TsumoState(
                     prev_type=current_event.event_type,
                 )
@@ -1275,7 +1279,7 @@ class RoundManager:
                     f"(총 {len(confirm_received)}/{required_confirm})",
                 )
                 if timeout is None:
-                    timeout = 25.0
+                    timeout = 60.0
             else:
                 continue
 
@@ -1358,8 +1362,28 @@ class GameManager:
         await self.submit_game_result()
 
     async def submit_game_result(self) -> None:
-        # TODO: submit game result to core server
-        pass
+        scores: list[int] = [p.score for p in self.player_list]
+        msg = WSMessage(
+            event=MessageEventType.END_GAME,
+            data={
+                "players_score": scores,
+            },
+        )
+        await self.network_service.broadcast(
+            message=msg.model_dump(),
+            game_id=self.game_id,
+        )
+        endpoint = (
+            f"https://{settings.COER_SERVER_URL}/internal"
+            f"/rooms/{self.game_id}/end-game"
+        )
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            try:
+                resp = await client.post(endpoint)
+                resp.raise_for_status()
+                print("[GameManager] end-game 요청 성공: %s", resp.json())
+            except httpx.HTTPError as exc:
+                print("[GameManager] end-game 요청 실패: %s", exc)
 
     def increase_action_id(self) -> None:
         self.action_id += 1
