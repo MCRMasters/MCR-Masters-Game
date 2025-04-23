@@ -107,39 +107,121 @@ class RoundManager:
         self.action_choices = []
 
     # Deal 1‥16 의 (index0,1,2,3) → 좌석 순서
-    _DEAL_TABLE: list[list[AbsoluteSeat]] = [
+    _DEAL_TABLE: Final[list[list[AbsoluteSeat]]] = [
         # idx0   idx1   idx2   idx3
-        [AbsoluteSeat.EAST,  AbsoluteSeat.SOUTH, AbsoluteSeat.WEST,  AbsoluteSeat.NORTH],  # 1
-        [AbsoluteSeat.NORTH, AbsoluteSeat.EAST,  AbsoluteSeat.SOUTH, AbsoluteSeat.WEST ],  # 2
-        [AbsoluteSeat.WEST,  AbsoluteSeat.NORTH, AbsoluteSeat.EAST,  AbsoluteSeat.SOUTH],  # 3
-        [AbsoluteSeat.SOUTH, AbsoluteSeat.WEST,  AbsoluteSeat.NORTH, AbsoluteSeat.EAST ],  # 4
-        [AbsoluteSeat.SOUTH, AbsoluteSeat.EAST,  AbsoluteSeat.NORTH, AbsoluteSeat.WEST ],  # 5
-        [AbsoluteSeat.EAST,  AbsoluteSeat.NORTH, AbsoluteSeat.WEST,  AbsoluteSeat.SOUTH],  # 6
-        [AbsoluteSeat.NORTH, AbsoluteSeat.WEST,  AbsoluteSeat.SOUTH, AbsoluteSeat.EAST ],  # 7
-        [AbsoluteSeat.WEST,  AbsoluteSeat.SOUTH, AbsoluteSeat.EAST,  AbsoluteSeat.NORTH],  # 8
-        [AbsoluteSeat.NORTH, AbsoluteSeat.WEST,  AbsoluteSeat.EAST,  AbsoluteSeat.SOUTH],  # 9
-        [AbsoluteSeat.WEST,  AbsoluteSeat.SOUTH, AbsoluteSeat.NORTH, AbsoluteSeat.EAST ],  # 10
-        [AbsoluteSeat.SOUTH, AbsoluteSeat.EAST,  AbsoluteSeat.WEST,  AbsoluteSeat.NORTH],  # 11
-        [AbsoluteSeat.EAST,  AbsoluteSeat.NORTH, AbsoluteSeat.SOUTH, AbsoluteSeat.WEST ],  # 12
-        [AbsoluteSeat.WEST,  AbsoluteSeat.NORTH, AbsoluteSeat.SOUTH, AbsoluteSeat.EAST ],  # 13
-        [AbsoluteSeat.SOUTH, AbsoluteSeat.WEST,  AbsoluteSeat.EAST,  AbsoluteSeat.NORTH],  # 14
-        [AbsoluteSeat.EAST,  AbsoluteSeat.SOUTH, AbsoluteSeat.NORTH, AbsoluteSeat.WEST ],  # 15
-        [AbsoluteSeat.NORTH, AbsoluteSeat.EAST,  AbsoluteSeat.WEST,  AbsoluteSeat.SOUTH],  # 16
+        [
+            AbsoluteSeat.EAST,
+            AbsoluteSeat.SOUTH,
+            AbsoluteSeat.WEST,
+            AbsoluteSeat.NORTH,
+        ],  # 1
+        [
+            AbsoluteSeat.NORTH,
+            AbsoluteSeat.EAST,
+            AbsoluteSeat.SOUTH,
+            AbsoluteSeat.WEST,
+        ],  # 2
+        [
+            AbsoluteSeat.WEST,
+            AbsoluteSeat.NORTH,
+            AbsoluteSeat.EAST,
+            AbsoluteSeat.SOUTH,
+        ],  # 3
+        [
+            AbsoluteSeat.SOUTH,
+            AbsoluteSeat.WEST,
+            AbsoluteSeat.NORTH,
+            AbsoluteSeat.EAST,
+        ],  # 4
+        [
+            AbsoluteSeat.SOUTH,
+            AbsoluteSeat.EAST,
+            AbsoluteSeat.NORTH,
+            AbsoluteSeat.WEST,
+        ],  # 5
+        [
+            AbsoluteSeat.EAST,
+            AbsoluteSeat.NORTH,
+            AbsoluteSeat.WEST,
+            AbsoluteSeat.SOUTH,
+        ],  # 6
+        [
+            AbsoluteSeat.NORTH,
+            AbsoluteSeat.WEST,
+            AbsoluteSeat.SOUTH,
+            AbsoluteSeat.EAST,
+        ],  # 7
+        [
+            AbsoluteSeat.WEST,
+            AbsoluteSeat.SOUTH,
+            AbsoluteSeat.EAST,
+            AbsoluteSeat.NORTH,
+        ],  # 8
+        [
+            AbsoluteSeat.NORTH,
+            AbsoluteSeat.WEST,
+            AbsoluteSeat.EAST,
+            AbsoluteSeat.SOUTH,
+        ],  # 9
+        [
+            AbsoluteSeat.WEST,
+            AbsoluteSeat.SOUTH,
+            AbsoluteSeat.NORTH,
+            AbsoluteSeat.EAST,
+        ],  # 10
+        [
+            AbsoluteSeat.SOUTH,
+            AbsoluteSeat.EAST,
+            AbsoluteSeat.WEST,
+            AbsoluteSeat.NORTH,
+        ],  # 11
+        [
+            AbsoluteSeat.EAST,
+            AbsoluteSeat.NORTH,
+            AbsoluteSeat.SOUTH,
+            AbsoluteSeat.WEST,
+        ],  # 12
+        [
+            AbsoluteSeat.WEST,
+            AbsoluteSeat.NORTH,
+            AbsoluteSeat.SOUTH,
+            AbsoluteSeat.EAST,
+        ],  # 13
+        [
+            AbsoluteSeat.SOUTH,
+            AbsoluteSeat.WEST,
+            AbsoluteSeat.EAST,
+            AbsoluteSeat.NORTH,
+        ],  # 14
+        [
+            AbsoluteSeat.EAST,
+            AbsoluteSeat.SOUTH,
+            AbsoluteSeat.NORTH,
+            AbsoluteSeat.WEST,
+        ],  # 15
+        [
+            AbsoluteSeat.NORTH,
+            AbsoluteSeat.EAST,
+            AbsoluteSeat.WEST,
+            AbsoluteSeat.SOUTH,
+        ],  # 16
     ]
 
-    def get_seat_mappings(self, deal: int
-                        ) -> tuple[dict[AbsoluteSeat, int],
-                                    dict[int, AbsoluteSeat]]:
+    def get_seat_mappings(
+        self,
+        deal: int,
+    ) -> tuple[dict[AbsoluteSeat, int], dict[int, AbsoluteSeat]]:
         order = self._DEAL_TABLE[deal]
 
         seat_to_player = {seat: idx for idx, seat in enumerate(order)}
         player_to_seat = dict(enumerate(order))
         return seat_to_player, player_to_seat
 
-
     def init_seat_index_mapping(self) -> None:
         # 좌석 ↔ 플레이어 인덱스 매핑 생성
-        self.seat_to_player_index, self.player_index_to_seat = self.get_seat_mappings(int(self.game_manager.current_round))
+        self.seat_to_player_index, self.player_index_to_seat = self.get_seat_mappings(
+            int(self.game_manager.current_round),
+        )
 
     async def send_init_events(self) -> None:
         scores: list[int] = [p.score for p in self.game_manager.player_list]
@@ -471,6 +553,22 @@ class RoundManager:
                     pending_players.remove(seat)
                     print(f"[DEBUG] Removed seat {seat} due to timeout.")
 
+                    action = Action(
+                        type=ActionType.SKIP,
+                        seat_priority=RelativeSeat.create_from_absolute_seats(
+                            current_seat=self.current_player_seat,
+                            target_seat=seat,
+                        ),
+                        tile=GameTile.M1,
+                    )
+                    final_action = self.action_manager.push_action(action=action)
+                    if final_action is not None:
+                        print(
+                            "[DEBUG] Final action selected, breaking out of wait loop.",
+                        )
+                        break
+            if final_action is not None:
+                break
             if response_event is not None:
                 action = Action.create_from_game_event(
                     game_event=response_event,
@@ -1374,8 +1472,7 @@ class GameManager:
             game_id=self.game_id,
         )
         endpoint = (
-            f"https://{settings.COER_SERVER_URL}/internal"
-            f"/rooms/{self.game_id}/end-game"
+            f"https://{settings.COER_SERVER_URL}/internal/rooms/{self.game_id}/end-game"
         )
         async with httpx.AsyncClient(timeout=5.0) as client:
             try:
