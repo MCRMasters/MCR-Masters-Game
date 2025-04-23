@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -6,6 +8,12 @@ from app.api.v1.endpoints import api_router
 from app.core.config import settings
 from app.core.error import DomainErrorCode, MCRDomainError
 from app.schemas.base_response import BaseResponse
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 
 app = FastAPI(
     title="MCRMasters-Game-Server",
