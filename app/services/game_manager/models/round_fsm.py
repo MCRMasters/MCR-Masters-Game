@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
@@ -10,6 +11,8 @@ from app.services.game_manager.models.types import GameEventType
 if TYPE_CHECKING:
     from app.services.game_manager.models.manager import RoundManager
 
+logger = logging.getLogger(__name__)
+
 
 class RoundState(ABC):
     @abstractmethod
@@ -19,22 +22,22 @@ class RoundState(ABC):
 
 class InitState(RoundState):
     async def run(self, manager: RoundManager) -> RoundState | None:
-        print("[DEBUG] InitState: initializing round data")
+        logger.debug("InitState: initializing round data")
         manager.init_round_data()
-        print("[DEBUG] InitState: sending init events")
+        logger.debug("InitState: sending init events")
         await manager.send_init_events()
-        print("[DEBUG] InitState: transition to FlowerState")
+        logger.debug("InitState: transition to FlowerState")
         return FlowerState()
 
 
 class FlowerState(RoundState):
     async def run(self, manager: RoundManager) -> RoundState | None:
-        print("[DEBUG] FlowerState: performing init flower action")
+        logger.debug("FlowerState: performing init flower action")
         await manager.do_init_flower_action()
-        print("[DEBUG] FlowerState: wait for init flower ok")
+        logger.debug("FlowerState: wait for init flower ok")
         await manager.wait_for_init_flower_ok()
-        print(
-            "[DEBUG] FlowerState: transition to TsumoState with prev_type=INIT_FLOWER",
+        logger.debug(
+            "FlowerState: transition to TsumoState with prev_type=INIT_FLOWER",
         )
         return TsumoState(prev_type=GameEventType.INIT_FLOWER)
 
@@ -42,33 +45,36 @@ class FlowerState(RoundState):
 class TsumoState(RoundState):
     def __init__(self, prev_type: GameEventType):
         self.prev_type = prev_type
-        print(f"[DEBUG] TsumoState: initialized with prev_type: {self.prev_type.name}")
+        logger.debug(
+            "TsumoState: initialized with prev_type: %s",
+            self.prev_type.name,
+        )
 
     async def run(self, manager: RoundManager) -> RoundState | None:
-        print("[DEBUG] TsumoState: calling do_tsumo")
+        logger.debug("TsumoState: calling do_tsumo")
         next_game_event: GameEvent = await manager.do_tsumo(
             previous_event_type=self.prev_type,
         )
-        print(f"[DEBUG] TsumoState: do_tsumo returned: {next_game_event}")
+        logger.debug("TsumoState: do_tsumo returned: %s", next_game_event)
         state = manager.get_next_state(
             previous_event_type=GameEventType.TSUMO,
             next_event=next_game_event,
         )
-        print("[DEBUG] TsumoState: transition to next state")
+        logger.debug("TsumoState: transition to next state")
         return state
 
 
 class ActionState(RoundState):
     def __init__(self, current_event: GameEvent):
         self.current_event = current_event
-        print(f"[DEBUG] ActionState: initialized with event: {self.current_event}")
+        logger.debug("ActionState: initialized with event: %s", self.current_event)
 
     async def run(self, manager: RoundManager) -> RoundState | None:
-        print("[DEBUG] ActionState: calling do_action")
+        logger.debug("ActionState: calling do_action")
         next_state: RoundState = await manager.do_action(
             current_event=self.current_event,
         )
-        print("[DEBUG] ActionState: transition to next state")
+        logger.debug("ActionState: transition to next state")
         return next_state
 
 
@@ -76,24 +82,24 @@ class DiscardState(RoundState):
     def __init__(self, prev_type: GameEventType, tile: GameTile):
         self.prev_type = prev_type
         self.tile = tile
-        print(
-            "[DEBUG] DiscardState: initialized with prev_type:"
-            " {self.prev_type.name}, tile: {self.tile}",
+        logger.debug(
+            "DiscardState: initialized with prev_type: %s, tile: %s",
+            self.prev_type.name,
+            self.tile,
         )
 
     async def run(self, manager: RoundManager) -> RoundState | None:
-        print("[DEBUG] DiscardState: calling do_discard")
+        logger.debug("DiscardState: calling do_discard")
         next_game_event: GameEvent | None = await manager.do_discard(
             previous_turn_type=self.prev_type,
             discarded_tile=self.tile,
         )
-        print(
-            f"[DEBUG] DiscardState: do_discard returned: {next_game_event}",
-        )
+        logger.debug("DiscardState: do_discard returned: %s", next_game_event)
+
         if next_game_event is None:
-            print(
-                "[DEBUG] DiscardState: event is None, "
-                "transition to TsumoState with prev_type=DISCARD",
+            logger.debug(
+                "DiscardState: event is None, transition "
+                "to TsumoState with prev_type=DISCARD",
             )
             next_game_event = GameEvent(
                 event_type=GameEventType.TSUMO,
@@ -101,65 +107,72 @@ class DiscardState(RoundState):
                 action_id=-1,
                 data={},
             )
+
         state = manager.get_next_state(
             previous_event_type=GameEventType.DISCARD,
             next_event=next_game_event,
         )
-        print("[DEBUG] DiscardState: transition to next state")
+        logger.debug("DiscardState: transition to next state")
         return state
 
 
 class RobbingKongState(RoundState):
     def __init__(self, tile: GameTile):
         self.tile = tile
-        print(f"[DEBUG] RobbingKongState: initialized with tile: {self.tile}")
+        logger.debug("RobbingKongState: initialized with tile: %s", self.tile)
 
     async def run(self, manager: RoundManager) -> RoundState | None:
-        print("[DEBUG] RobbingKongState: calling do_robbing_kong")
+        logger.debug("RobbingKongState: calling do_robbing_kong")
         next_game_event: GameEvent | None = await manager.do_robbing_kong(
             robbing_tile=self.tile,
         )
-        print(f"[DEBUG] RobbingKongState: do_robbing_kong returned: {next_game_event}")
+        logger.debug(
+            "RobbingKongState: do_robbing_kong returned: %s",
+            next_game_event,
+        )
+
         if next_game_event is None:
-            print(
-                "[DEBUG] RobbingKongState: event is None, "
-                "transition to TsumoState with prev_type=ROBBING_KONG",
+            logger.debug(
+                "RobbingKongState: event is None, transition to "
+                "TsumoState with prev_type=ROBBING_KONG",
             )
             return TsumoState(prev_type=GameEventType.ROBBING_KONG)
+
         state = manager.get_next_state(
             previous_event_type=GameEventType.ROBBING_KONG,
             next_event=next_game_event,
         )
-        print("[DEBUG] RobbingKongState: transition to next state")
+        logger.debug("RobbingKongState: transition to next state")
         return state
 
 
 class DrawState(RoundState):
     async def run(self, manager: RoundManager) -> RoundState | None:
-        print("[DEBUG] DrawState: ending round as draw")
+        logger.debug("DrawState: ending round as draw")
         await manager.end_round_as_draw()
-        print("[DEBUG] DrawState: round ended as draw")
+        logger.debug("DrawState: round ended as draw")
         return WaitingNextRoundState()
 
 
 class HuState(RoundState):
     def __init__(self, current_event: GameEvent):
         self.current_event = current_event
-        print(f"[DEBUG] HuState: initialized with event: {self.current_event}")
+        logger.debug("HuState: initialized with event: %s", self.current_event)
 
     async def run(self, manager: RoundManager) -> RoundState | None:
-        print("[DEBUG] HuState: ending round as hu")
+        logger.debug("HuState: ending round as hu")
         await manager.end_round_as_hu(current_event=self.current_event)
-        print("[DEBUG] HuState: round ended as hu")
+        logger.debug("HuState: round ended as hu")
         return WaitingNextRoundState()
 
 
 class WaitingNextRoundState(RoundState):
     async def run(self, manager: RoundManager) -> RoundState | None:
-        print("[DEBUG] WaitingNextRoundState: Waiting for NEXT_ROUND_CONFIRM responses")
+        logger.debug(
+            "WaitingNextRoundState: Waiting for NEXT_ROUND_CONFIRM responses",
+        )
         await manager.wait_for_next_round_confirm()
-        print(
-            "[DEBUG] WaitingNextRoundState: "
-            "All confirmations received or timeout occurred",
+        logger.debug(
+            "WaitingNextRoundState: All confirmations received or timeout occurred",
         )
         return None

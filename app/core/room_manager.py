@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import TYPE_CHECKING, Any
 
 from fastapi import WebSocket, status
@@ -10,6 +11,9 @@ from app.services.game_manager.models.player import PlayerData
 
 if TYPE_CHECKING:
     from app.services.game_manager.models.manager import GameManager
+
+
+logger = logging.getLogger(__name__)
 
 
 class RoomManager:
@@ -66,12 +70,20 @@ class RoomManager:
 
                 task = asyncio.create_task(self.game_managers[game_id].start_game())
                 task.add_done_callback(
-                    lambda t: print(f"Task finished with exception: {t.exception()}")
+                    lambda t: logger.error(
+                        "Task finished with exception: %s",
+                        t.exception(),
+                    )
                     if t.exception()
                     else None,
                 )
 
                 self.game_tasks[game_id] = task
+                logger.info(
+                    "Game %d: 시작 플레이어 %r명 연결 완료, 게임 태스크 생성",
+                    game_id,
+                    len(players_data),
+                )
 
     async def disconnect(self, game_id: int, user_id: str) -> None:
         async with self.lock:
@@ -80,6 +92,7 @@ class RoomManager:
                 self.id_to_player_data.pop(user_id, None)
                 if not self.active_connections[game_id]:
                     del self.active_connections[game_id]
+                logger.info("Game %d: 사용자 %s 연결 해제", game_id, user_id)
 
     async def broadcast(
         self,
@@ -94,7 +107,12 @@ class RoomManager:
                         try:
                             await connection.send_json(message)
                         except Exception as e:
-                            print(f"Failed to send message to {uid}: {e}")
+                            logger.warning(
+                                "Game %d: UID %s에게 메시지 전송 실패: %s",
+                                game_id,
+                                uid,
+                                e,
+                            )
 
     async def send_personal_message(
         self,
@@ -110,7 +128,12 @@ class RoomManager:
                 try:
                     await self.active_connections[game_id][user_id].send_json(message)
                 except Exception as e:
-                    print(f"Failed to send personal message to {user_id}: {e}")
+                    logger.warning(
+                        "Game %d: 사용자 %s에게 개인 메시지 전송 실패: %s",
+                        game_id,
+                        user_id,
+                        e,
+                    )
 
 
 room_manager = RoomManager()
