@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import heapq
+import logging
 import time
 from collections import Counter
 from collections.abc import Callable, Mapping
@@ -56,6 +57,8 @@ from app.services.score_calculator.score_calculator import ScoreCalculator
 from app.services.score_calculator.winning_conditions.winning_conditions import (
     WinningConditions,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class RoundManager:
@@ -540,7 +543,7 @@ class RoundManager:
                     f"{response_event.player_seat}: {response_event}",
                 )
             else:
-                print("[DEBUG] No event received within wait_time.")
+                logger.debug("[DEBUG] No event received within wait_time.")
 
             epsilon: float = 1e-9
             for seat in list(pending_players):
@@ -551,7 +554,7 @@ class RoundManager:
                 )
                 if remaining_time[seat] <= epsilon:
                     pending_players.remove(seat)
-                    print(f"[DEBUG] Removed seat {seat} due to timeout.")
+                    logger.debug(f"[DEBUG] Removed seat {seat} due to timeout.")
 
                     action = Action(
                         type=ActionType.SKIP,
@@ -574,7 +577,7 @@ class RoundManager:
                     game_event=response_event,
                     current_player_seat=self.current_player_seat,
                 )
-                print(f"[DEBUG] Created action from received event: {action}")
+                logger.debug(f"[DEBUG] Created action from received event: {action}")
                 selected_events.append(deepcopy(response_event))
                 final_action = self.action_manager.push_action(action)
                 print(
@@ -582,7 +585,9 @@ class RoundManager:
                     f" selected_events count: {len(selected_events)}",
                 )
                 if final_action is not None:
-                    print("[DEBUG] Final action selected, breaking out of wait loop.")
+                    logger.debug(
+                        "[DEBUG] Final action selected, breaking out of wait loop.",
+                    )
                     break
 
         print(
@@ -878,7 +883,7 @@ class RoundManager:
         required_ok = self.game_manager.MAX_PLAYERS
         ok_received: set[AbsoluteSeat] = set()
         timeout: float | None = None
-        print("[RoundManager] INIT_FLOWER_OK 응답을 기다립니다.")
+        logger.debug("[RoundManager] INIT_FLOWER_OK 응답을 기다립니다.")
 
         while len(ok_received) < required_ok:
             wait_time = timeout if timeout is not None else 9999.0
@@ -888,10 +893,10 @@ class RoundManager:
                     wait_time,
                 )
             except TimeoutError:
-                print("[RoundManager] 타임아웃 발생: 즉시 다음 상태로 전환")
+                logger.debug("[RoundManager] 타임아웃 발생: 즉시 다음 상태로 전환")
                 break
             if event is None:
-                print("[RoundManager] 이벤트 수신 실패: 타임아웃")
+                logger.debug("[RoundManager] 이벤트 수신 실패: 타임아웃")
                 break
             self.game_manager.event_queue.task_done()
             elapsed
@@ -913,7 +918,7 @@ class RoundManager:
                 f"{len(ok_received)}명의 OK 응답만 수신: 즉시 TSUMO 상태로 전환",
             )
         else:
-            print("[RoundManager] 모든 플레이어의 OK 응답 수신 완료.")
+            logger.debug("[RoundManager] 모든 플레이어의 OK 응답 수신 완료.")
 
     async def safe_wait_for(
         self,
@@ -922,22 +927,22 @@ class RoundManager:
     ) -> tuple[Any | None, float]:
         loop = asyncio.get_running_loop()
         start = loop.time()
-        print(f"[safe_wait_for] 시작: timeout={timeout}")
+        logger.debug(f"[safe_wait_for] 시작: timeout={timeout}")
         try:
             result = await asyncio.wait_for(coroutine, timeout=timeout)
-            print(f"[safe_wait_for] 결과 받음: {result}")
+            logger.debug(f"[safe_wait_for] 결과 받음: {result}")
         except TimeoutError:
-            print("[safe_wait_for] 타임아웃 발생")
+            logger.debug("[safe_wait_for] 타임아웃 발생")
             result = None
         elapsed = loop.time() - start
-        print(f"[safe_wait_for] 소요 시간: {elapsed:.3f}초")
+        logger.debug(f"[safe_wait_for] 소요 시간: {elapsed:.3f}초")
         return result, elapsed
 
     async def send_tsumo_actions_and_wait(
         self,
         actions_lists: list[list[Action]],
     ) -> GameEvent:
-        print("[send_tsumo_actions_and_wait] 시작")
+        logger.debug("[send_tsumo_actions_and_wait] 시작")
         self.game_manager.increase_action_id()
         self.action_choices = [
             action for action_list in actions_lists for action in action_list
@@ -964,7 +969,7 @@ class RoundManager:
                 self.seat_to_player_index[self.current_player_seat]
             ].uid,
         )
-        print("[send_tsumo_actions_and_wait] tsumo actions 메시지 전송 완료")
+        logger.debug("[send_tsumo_actions_and_wait] tsumo actions 메시지 전송 완료")
 
         response_event: GameEvent | None
         elapsed_time: float
@@ -981,7 +986,9 @@ class RoundManager:
         if response_event is not None:
             self.game_manager.event_queue.task_done()
         if response_event is None:
-            print("[send_tsumo_actions_and_wait] 응답 없음 - 자동 DISCARD 이벤트 생성")
+            logger.debug(
+                "[send_tsumo_actions_and_wait] 응답 없음 - 자동 DISCARD 이벤트 생성",
+            )
             self.game_manager.increase_action_id()
 
             rightmost_tile: GameTile | None = self.hands[
@@ -1012,7 +1019,7 @@ class RoundManager:
                 f"생성된 자동 DISCARD 이벤트: {response_event}",
             )
         else:
-            print("[send_tsumo_actions_and_wait] 정상 응답 이벤트 수신")
+            logger.debug("[send_tsumo_actions_and_wait] 정상 응답 이벤트 수신")
 
         print(
             "[send_tsumo_actions_and_wait] "
@@ -1342,7 +1349,7 @@ class RoundManager:
         confirm_received: set[AbsoluteSeat] = set()
         timeout: float | None = None
         start_time = time.time()
-        print("[RoundManager] NEXT_ROUND_CONFIRM 응답을 기다립니다.")
+        logger.debug("[RoundManager] NEXT_ROUND_CONFIRM 응답을 기다립니다.")
 
         while len(confirm_received) < required_confirm:
             elapsed_since_start = time.time() - start_time
@@ -1363,10 +1370,10 @@ class RoundManager:
                 )
                 elapsed
             except TimeoutError:
-                print("[RoundManager] 타임아웃 발생: 즉시 다음 상태로 전환")
+                logger.debug("[RoundManager] 타임아웃 발생: 즉시 다음 상태로 전환")
                 break
             if event is None:
-                print("[RoundManager] 이벤트 수신 실패: 타임아웃")
+                logger.debug("[RoundManager] 이벤트 수신 실패: 타임아웃")
                 break
             self.game_manager.event_queue.task_done()
 
@@ -1388,7 +1395,7 @@ class RoundManager:
                 " 즉시 다음 라운드 진행",
             )
         else:
-            print("[RoundManager] 모든 플레이어의 Confirm 응답 수신 완료.")
+            logger.debug("[RoundManager] 모든 플레이어의 Confirm 응답 수신 완료.")
 
 
 class GameManager:
@@ -1478,9 +1485,9 @@ class GameManager:
             try:
                 resp = await client.post(endpoint)
                 resp.raise_for_status()
-                print("[GameManager] end-game 요청 성공: %s", resp.json())
+                logger.debug("[GameManager] end-game 요청 성공: %s", resp.json())
             except httpx.HTTPError as exc:
-                print("[GameManager] end-game 요청 실패: %s", exc)
+                logger.debug("[GameManager] end-game 요청 실패: %s", exc)
 
     def increase_action_id(self) -> None:
         self.action_id += 1
@@ -1494,7 +1501,7 @@ class GameManager:
                 )
                 return
             await self.event_queue.put(event)
-            print(f"[GameManager.add_event] Event added: {event}")
+            logger.debug(f"[GameManager.add_event] Event added: {event}")
 
     async def is_valid_event(self, event: GameEvent) -> bool:
         if not self._check_action_id(event):
@@ -1518,7 +1525,7 @@ class GameManager:
     def _check_action_id(self, event: GameEvent) -> bool:
         if event.action_id < 0 or event.action_id == self.action_id:
             return True
-        print(f"invalid action id: event {event}")
+        logger.debug(f"invalid action id: event {event}")
         return False
 
     async def _handle_skip(self, event: GameEvent) -> bool:
