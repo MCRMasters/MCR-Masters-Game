@@ -48,8 +48,8 @@ class RoomManager:
             if game_id not in self.active_connections:
                 self.active_connections[game_id] = {}
             if self.is_connected(game_id, user_id):
-                existing_ws = self.active_connections[game_id][user_id]
-                await existing_ws.close(
+                old = self.active_connections[game_id][user_id]
+                await old.close(
                     code=status.WS_1011_INTERNAL_ERROR,
                     reason="Reconnecting",
                 )
@@ -58,10 +58,11 @@ class RoomManager:
                 uid=user_id,
                 nickname=user_nickname,
             )
+
             from app.services.game_manager.models.manager import GameManager
 
             if len(self.active_connections[game_id]) == GameManager.MAX_PLAYERS:
-                players_data: list[PlayerData] = [
+                players_data = [
                     self.id_to_player_data[uid]
                     for uid in self.active_connections[game_id]
                 ]
@@ -71,16 +72,16 @@ class RoomManager:
                 task = asyncio.create_task(self.game_managers[game_id].start_game())
                 task.add_done_callback(
                     lambda t: logger.error(
-                        "Task finished with exception: %s",
+                        "Game %d crashed: %s",
+                        game_id,
                         t.exception(),
                     )
                     if t.exception()
                     else None,
                 )
-
                 self.game_tasks[game_id] = task
                 logger.info(
-                    "Game %d: 시작 플레이어 %r명 연결 완료, 게임 태스크 생성",
+                    "Game %d: all %d players connected, task started",
                     game_id,
                     len(players_data),
                 )
@@ -92,7 +93,7 @@ class RoomManager:
                 self.id_to_player_data.pop(user_id, None)
                 if not self.active_connections[game_id]:
                     del self.active_connections[game_id]
-                logger.info("Game %d: 사용자 %s 연결 해제", game_id, user_id)
+                logger.info("Game %d: user %s disconnected", game_id, user_id)
 
     async def broadcast(
         self,
@@ -101,18 +102,28 @@ class RoomManager:
         exclude_user_id: str | None = None,
     ) -> None:
         async with self.lock:
-            if game_id in self.active_connections:
-                for uid, connection in self.active_connections[game_id].items():
-                    if exclude_user_id is None or uid != exclude_user_id:
-                        try:
-                            await connection.send_json(message)
-                        except Exception as e:
-                            logger.warning(
-                                "Game %d: UID %s에게 메시지 전송 실패: %s",
-                                game_id,
-                                uid,
-                                e,
-                            )
+            if game_id not in self.active_connections:
+                return
+
+            to_remove: list[str] = []
+            for uid, ws in self.active_connections[game_id].items():
+                if exclude_user_id and uid == exclude_user_id:
+                    continue
+                try:
+                    await ws.send_json(message)
+                except Exception as e:
+                    logger.warning(
+                        "Game %d: send to %s failed, removing connection: %s",
+                        game_id,
+                        uid,
+                        e,
+                    )
+                    to_remove.append(uid)
+
+            for uid in to_remove:
+                self.active_connections[game_id].pop(uid, None)
+                self.id_to_player_data.pop(uid, None)
+                logger.info("Game %d: connection for %s cleaned up", game_id, uid)
 
     async def send_personal_message(
         self,
@@ -122,18 +133,28 @@ class RoomManager:
     ) -> None:
         async with self.lock:
             if (
-                game_id in self.active_connections
-                and user_id in self.active_connections[game_id]
+                game_id not in self.active_connections
+                or user_id not in self.active_connections[game_id]
             ):
-                try:
-                    await self.active_connections[game_id][user_id].send_json(message)
-                except Exception as e:
-                    logger.warning(
-                        "Game %d: 사용자 %s에게 개인 메시지 전송 실패: %s",
-                        game_id,
-                        user_id,
-                        e,
-                    )
+                return
+
+            ws = self.active_connections[game_id][user_id]
+            try:
+                await ws.send_json(message)
+            except Exception as e:
+                logger.warning(
+                    "Game %d: personal send to %s failed, removing: %s",
+                    game_id,
+                    user_id,
+                    e,
+                )
+                self.active_connections[game_id].pop(user_id, None)
+                self.id_to_player_data.pop(user_id, None)
+                logger.info(
+                    "Game %d: cleaned up broken personal connection for %s",
+                    game_id,
+                    user_id,
+                )
 
 
 room_manager = RoomManager()
