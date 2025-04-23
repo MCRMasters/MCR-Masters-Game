@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable, Coroutine
 from typing import Any
 
@@ -13,6 +14,8 @@ from app.services.game_manager.models.enums import AbsoluteSeat, GameTile
 from app.services.game_manager.models.event import GameEvent
 from app.services.game_manager.models.manager import GameManager
 from app.services.game_manager.models.types import ActionType, GameEventType
+
+logger = logging.getLogger(__name__)
 
 
 class GameWebSocketHandler:
@@ -236,7 +239,7 @@ class GameWebSocketHandler:
         await self.room_manager.disconnect(game_id=self.game_id, user_id=self.user_id)
 
     async def handle_error(self, e: Exception) -> None:
-        print(f"[GameWebSocketHandler] WebSocket error: {e}")
+        logger.error("GameWebSocketHandler: WebSocket error: %s", e, exc_info=True)
         if self.websocket.client_state.CONNECTED:
             await self.websocket.close(
                 code=status.WS_1011_INTERNAL_ERROR,
