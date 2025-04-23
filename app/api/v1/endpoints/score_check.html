@@ -169,7 +169,7 @@
             };
 
             try {
-                const response = await fetch("/api/v1/score-check", {
+                const response = await fetch("/game/api/v1/score-check", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(data),
