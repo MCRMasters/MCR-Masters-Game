@@ -6,6 +6,7 @@ import logging
 import time
 from collections import Counter
 from collections.abc import Callable, Mapping
+from contextlib import suppress
 from copy import deepcopy
 from random import shuffle
 from typing import Any, Final
@@ -75,6 +76,72 @@ class RoundManager:
         self.current_player_seat: AbsoluteSeat
         self.action_choices: list[Action]
         self.current_state: RoundState | None = None
+        self.remaining_time: float = 0.0
+
+    async def send_reload_data(self, uid: str) -> None:
+        player_index = self.game_manager.player_uid_to_index[uid]
+        player_seat = self.player_index_to_seat[player_index]
+
+        player_list = self.game_manager.player_list
+
+        hand = [t.value for t in self.hands[player_seat].tiles.elements()]
+        hands_count = [
+            sum(self.hands[i].tiles.values())
+            for i in range(self.game_manager.MAX_PLAYERS)
+        ]
+        tsumo_tile = self.hands[player_seat].tsumo_tile
+        tsumo_tiles_count = [
+            1 if self.hands[i].tsumo_tile is not None else 0
+            for i in range(self.game_manager.MAX_PLAYERS)
+        ]
+        flowers_count = [
+            getattr(self.hands[i], "flower_point", 0)
+            for i in range(self.game_manager.MAX_PLAYERS)
+        ]
+
+        raw_call_blocks = [
+            deepcopy(self.hands[i].call_blocks)
+            for i in range(self.game_manager.MAX_PLAYERS)
+        ]
+        for i, blocks in enumerate(raw_call_blocks):
+            if AbsoluteSeat(i) != player_seat:
+                for cb in blocks:
+                    if cb.type == CallBlockType.AN_KONG:
+                        cb.first_tile = GameTile.F0
+
+        call_blocks_list = raw_call_blocks
+
+        current_turn_seat = RelativeSeat.create_from_absolute_seats(
+            current_seat=player_seat,
+            target_seat=self.current_player_seat,
+        )
+        remaining_time = self.remaining_time
+        tiles_remaining = self.tile_deck.tiles_remaining
+        current_round = self.game_manager.current_round
+
+        player = self.get_player_from_seat(seat=player_seat)
+        msg = WSMessage(
+            event=MessageEventType.RELOAD_DATA,
+            data={
+                "player_list": player_list,
+                "hand": hand,
+                "hands_count": hands_count,
+                "tsumo_tile": tsumo_tile.value if tsumo_tile else None,
+                "tsumo_tiles_count": tsumo_tiles_count,
+                "flowers_count": flowers_count,
+                "call_blocks_list": call_blocks_list,
+                "current_turn_seat": current_turn_seat,
+                "remaining_time": remaining_time,
+                "tiles_remaining": tiles_remaining,
+                "current_round": current_round,
+            },
+        )
+
+        await self.game_manager.network_service.send_personal_message(
+            message=msg.model_dump(),
+            game_id=self.game_manager.game_id,
+            user_id=player.uid,
+        )
 
     async def run_round(self) -> None:
         self.current_state = InitState()
@@ -378,7 +445,7 @@ class RoundManager:
         for player_seat in AbsoluteSeat:
             if player_seat == self.current_player_seat:
                 continue
-            print(
+            logger.debug(
                 f"[check_actions_after_shomin_kong] {player_seat} "
                 f"hand cnt: {self.hands[player_seat].hand_size},"
                 f"\n{self.hands[player_seat]}",
@@ -515,13 +582,13 @@ class RoundManager:
         if self.action_manager is None:
             raise ValueError("action manager is none")
 
-        print(
+        logger.debug(
             f"[DEBUG] Starting _wait_for_player_actions."
             f" Initial pending_players: {pending_players}",
         )
         while pending_players:
             wait_time = min(remaining_time[seat] for seat in pending_players)
-            print(
+            logger.debug(
                 f"[DEBUG] Waiting for player action. Pending players:"
                 f" {pending_players}, wait_time: {wait_time:.3f} seconds",
             )
@@ -530,7 +597,7 @@ class RoundManager:
                 self.game_manager.event_queue.get(),
                 wait_time,
             )
-            print(
+            logger.debug(
                 f"[DEBUG] safe_wait_for returned event: {response_event}"
                 f" (elapsed_time: {elapsed_time:.3f} seconds)",
             )
@@ -538,7 +605,7 @@ class RoundManager:
             if response_event is not None:
                 self.game_manager.event_queue.task_done()
                 pending_players.remove(response_event.player_seat)
-                print(
+                logger.debug(
                     f"[DEBUG] Received event from player "
                     f"{response_event.player_seat}: {response_event}",
                 )
@@ -548,7 +615,7 @@ class RoundManager:
             epsilon: float = 1e-9
             for seat in list(pending_players):
                 remaining_time[seat] -= elapsed_time
-                print(
+                logger.debug(
                     f"[DEBUG] Updated remaining_time for seat {seat}:"
                     f" {remaining_time[seat]:.3f} seconds",
                 )
@@ -566,7 +633,7 @@ class RoundManager:
                     )
                     final_action = self.action_manager.push_action(action=action)
                     if final_action is not None:
-                        print(
+                        logger.debug(
                             "[DEBUG] Final action selected, breaking out of wait loop.",
                         )
                         break
@@ -580,7 +647,7 @@ class RoundManager:
                 logger.debug(f"[DEBUG] Created action from received event: {action}")
                 selected_events.append(deepcopy(response_event))
                 final_action = self.action_manager.push_action(action)
-                print(
+                logger.debug(
                     f"[DEBUG] After push_action, final_action: {final_action},"
                     f" selected_events count: {len(selected_events)}",
                 )
@@ -590,7 +657,7 @@ class RoundManager:
                     )
                     break
 
-        print(
+        logger.debug(
             f"[DEBUG] Exiting _wait_for_player_actions. Final action: "
             f"{final_action}, total selected events: {len(selected_events)}",
         )
@@ -903,39 +970,71 @@ class RoundManager:
 
             if event.event_type == GameEventType.INIT_FLOWER_OK:
                 ok_received.add(event.player_seat)
-                print(
+                logger.debug(
                     f"[RoundManager] OK 응답: {event.player_seat} "
                     f"(총 {len(ok_received)}/{required_ok})",
                 )
                 if timeout is None:
-                    timeout = 10.0
+                    timeout = 60.0
             else:
                 continue
 
         if len(ok_received) < required_ok:
-            print(
+            logger.debug(
                 f"[RoundManager] 경고: {required_ok}명 중 "
                 f"{len(ok_received)}명의 OK 응답만 수신: 즉시 TSUMO 상태로 전환",
             )
         else:
             logger.debug("[RoundManager] 모든 플레이어의 OK 응답 수신 완료.")
 
+    async def _ticker(self) -> None:
+        loop = asyncio.get_running_loop()
+        last = loop.time()
+        while True:
+            now = loop.time()
+            delta = now - last
+            last = now
+
+            self.remaining_time = max(0.0, self.remaining_time - delta)
+            logger.debug(f"[ticker] 남은 시간: {self.remaining_time:.3f}초")
+
+            await asyncio.sleep(0.1)
+
     async def safe_wait_for(
         self,
         coroutine: Any,
-        timeout: float,
+        timeout: float | None = None,
     ) -> tuple[Any | None, float]:
+        if timeout is not None:
+            self.remaining_time = timeout
+
         loop = asyncio.get_running_loop()
         start = loop.time()
-        logger.debug(f"[safe_wait_for] 시작: timeout={timeout}")
+        logger.debug(
+            f"[safe_wait_for] 시작: remaining_time={self.remaining_time:.3f}초",
+        )
+
+        ticker_task = asyncio.create_task(self._ticker())
+
         try:
-            result = await asyncio.wait_for(coroutine, timeout=timeout)
+            result = await asyncio.wait_for(coroutine, timeout=self.remaining_time)
             logger.debug(f"[safe_wait_for] 결과 받음: {result}")
         except TimeoutError:
             logger.debug("[safe_wait_for] 타임아웃 발생")
             result = None
+        finally:
+            ticker_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await ticker_task
+
         elapsed = loop.time() - start
-        logger.debug(f"[safe_wait_for] 소요 시간: {elapsed:.3f}초")
+
+        self.remaining_time = max(0.0, self.remaining_time - elapsed)
+        logger.debug(
+            f"[safe_wait_for] 전체 소요: {elapsed:.3f}초, "
+            "최종 남은 시간: {self.remaining_time:.3f}초",
+        )
+
         return result, elapsed
 
     async def send_tsumo_actions_and_wait(
@@ -947,7 +1046,7 @@ class RoundManager:
         self.action_choices = [
             action for action_list in actions_lists for action in action_list
         ]
-        print(
+        logger.debug(
             "[send_tsumo_actions_and_wait] action_id 증가: "
             f"{self.game_manager.action_id}",
         )
@@ -977,7 +1076,7 @@ class RoundManager:
             self.game_manager.event_queue.get(),
             self.DEFAULT_TURN_TIMEOUT,
         )
-        print(
+        logger.debug(
             f"[send_tsumo_actions_and_wait] event_queue 응답: {response_event}"
             f" (elapsed_time: {elapsed_time:.3f}초)",
         )
@@ -1014,14 +1113,14 @@ class RoundManager:
                 message=msg.model_dump(),
                 game_id=self.game_manager.game_id,
             )
-            print(
+            logger.debug(
                 "[send_tsumo_actions_and_wait] "
                 f"생성된 자동 DISCARD 이벤트: {response_event}",
             )
         else:
             logger.debug("[send_tsumo_actions_and_wait] 정상 응답 이벤트 수신")
 
-        print(
+        logger.debug(
             "[send_tsumo_actions_and_wait] "
             f"최종 action_id: {self.game_manager.action_id}",
         )
@@ -1354,7 +1453,7 @@ class RoundManager:
         while len(confirm_received) < required_confirm:
             elapsed_since_start = time.time() - start_time
             if elapsed_since_start >= 60:
-                print(
+                logger.debug(
                     "[RoundManager] 전체 플레이어로부터 응답이 60초 동안"
                     " 없습니다. 즉시 다음 라운드 진행합니다.",
                 )
@@ -1379,7 +1478,7 @@ class RoundManager:
 
             if event.event_type == GameEventType.NEXT_ROUND_CONFIRM:
                 confirm_received.add(event.player_seat)
-                print(
+                logger.debug(
                     f"[RoundManager] Confirm 응답: {event.player_seat} "
                     f"(총 {len(confirm_received)}/{required_confirm})",
                 )
@@ -1389,7 +1488,7 @@ class RoundManager:
                 continue
 
         if len(confirm_received) < required_confirm:
-            print(
+            logger.debug(
                 f"[RoundManager] 경고: {required_confirm}명 중 "
                 f"{len(confirm_received)}명의 Confirm 응답만 수신됨:"
                 " 즉시 다음 라운드 진행",
@@ -1495,7 +1594,7 @@ class GameManager:
     async def add_event(self, event: GameEvent) -> None:
         async with self.event_queue_lock:
             if event.action_id >= 0 and event.action_id != self.action_id:
-                print(
+                logger.debug(
                     "[GameManager.add_event] Ignored event with mismatched "
                     f"action_id: {event.action_id} (expected {self.action_id})",
                 )

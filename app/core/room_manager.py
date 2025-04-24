@@ -59,6 +59,22 @@ class RoomManager:
                 nickname=user_nickname,
             )
 
+            if game_id in self.game_managers:
+                try:
+                    mgr = self.game_managers[game_id]
+                    await mgr.round_manager.send_reload_data(user_id)
+                    logger.info(
+                        "Game %d: sent reload_data to reconnected user %s",
+                        game_id,
+                        user_id,
+                    )
+                except Exception:
+                    logging.exception(
+                        "Game %d: failed to send_reload_data to %s",
+                        game_id,
+                        user_id,
+                    )
+
             from app.services.game_manager.models.manager import GameManager
 
             if len(self.active_connections[game_id]) == GameManager.MAX_PLAYERS:
