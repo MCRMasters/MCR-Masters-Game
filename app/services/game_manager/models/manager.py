@@ -75,6 +75,7 @@ class RoundManager:
         self.action_manager: ActionManager | None
         self.current_player_seat: AbsoluteSeat
         self.action_choices: list[Action]
+        self.action_choices_list: list[list[Action]]
         self.current_state: RoundState | None = None
         self.remaining_time: float = 0.0
 
@@ -125,6 +126,9 @@ class RoundManager:
             data={
                 "player_list": player_list,
                 "hand": hand,
+                "kawas": self.kawas,
+                "action_id": self.game_manager.action_id,
+                "action_choices_list": self.action_choices_list,
                 "hands_count": hands_count,
                 "tsumo_tile": tsumo_tile.value if tsumo_tile else None,
                 "tsumo_tiles_count": tsumo_tiles_count,
@@ -175,6 +179,7 @@ class RoundManager:
         self.action_manager = None
         self.current_player_seat = AbsoluteSeat.EAST
         self.action_choices = []
+        self.action_choices_list = []
 
     # Deal 1‥16 의 (index0,1,2,3) → 좌석 순서
     _DEAL_TABLE: Final[list[list[AbsoluteSeat]]] = [
@@ -502,6 +507,7 @@ class RoundManager:
         self.action_choices = [
             action for action_list in actions_lists for action in action_list
         ]
+        self.action_choices_list = deepcopy(actions_lists)
 
         pending_players, remaining_time = await self._initialize_pending_players(
             actions_lists=actions_lists,
@@ -517,6 +523,7 @@ class RoundManager:
             remaining_time=remaining_time,
         )
         self.action_choices.clear()
+        self.action_choices_list.clear()
         self.game_manager.increase_action_id()
         self.action_manager = None
         if final_action is not None:
@@ -1045,6 +1052,7 @@ class RoundManager:
         self.action_choices = [
             action for action_list in actions_lists for action in action_list
         ]
+        self.action_choices_list = deepcopy(actions_lists)
         logger.debug(
             "[send_tsumo_actions_and_wait] action_id 증가: "
             f"{self.game_manager.action_id}",
@@ -1080,6 +1088,7 @@ class RoundManager:
             f" (elapsed_time: {elapsed_time:.3f}초)",
         )
         self.action_choices.clear()
+        self.action_choices_list.clear()
         self.game_manager.increase_action_id()
         if response_event is not None:
             self.game_manager.event_queue.task_done()
