@@ -1,3 +1,5 @@
+# app/api/v1/endpoints/game_websocket_handler.py
+
 from __future__ import annotations
 
 import logging
@@ -65,7 +67,9 @@ class GameWebSocketHandler:
                     event=data.get("event", ""),
                     data=data.get("data", {}),
                 )
-            except Exception as e:
+            except WebSocketDisconnect:
+                break
+            except (ValueError, TypeError) as e:
                 await self.websocket.send_json(
                     WSMessage(
                         event=MessageEventType.ERROR,

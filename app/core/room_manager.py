@@ -1,3 +1,5 @@
+# app/core/room_manager.py
+
 from __future__ import annotations
 
 import asyncio
@@ -5,13 +7,13 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from fastapi import WebSocket, status
+from starlette.websockets import WebSocketState
 
 from app.dependencies.game_manager import get_game_manager
 from app.services.game_manager.models.player import PlayerData
 
 if TYPE_CHECKING:
     from app.services.game_manager.models.manager import GameManager
-
 
 logger = logging.getLogger(__name__)
 
@@ -49,10 +51,15 @@ class RoomManager:
                 self.active_connections[game_id] = {}
             if self.is_connected(game_id, user_id):
                 old = self.active_connections[game_id][user_id]
-                await old.close(
-                    code=status.WS_1011_INTERNAL_ERROR,
-                    reason="Reconnecting",
-                )
+                try:
+                    if old.client_state == WebSocketState.CONNECTED:
+                        await old.close(
+                            code=status.WS_1011_INTERNAL_ERROR,
+                            reason="Reconnecting",
+                        )
+                except RuntimeError:
+                    pass
+
             self.active_connections[game_id][user_id] = websocket
             self.id_to_player_data[user_id] = PlayerData(
                 uid=user_id,
@@ -69,7 +76,7 @@ class RoomManager:
                         user_id,
                     )
                 except Exception:
-                    logging.exception(
+                    logger.exception(
                         "Game %d: failed to send_reload_data to %s",
                         game_id,
                         user_id,
