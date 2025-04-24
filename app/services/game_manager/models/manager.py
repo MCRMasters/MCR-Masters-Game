@@ -996,7 +996,6 @@ class RoundManager:
             last = now
 
             self.remaining_time = max(0.0, self.remaining_time - delta)
-            logger.debug(f"[ticker] 남은 시간: {self.remaining_time:.3f}초")
 
             await asyncio.sleep(0.1)
 
