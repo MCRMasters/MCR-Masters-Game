@@ -49,16 +49,27 @@ class RoomManager:
         async with self.lock:
             if game_id not in self.active_connections:
                 self.active_connections[game_id] = {}
+
             if self.is_connected(game_id, user_id):
                 old = self.active_connections[game_id][user_id]
                 try:
-                    if old.client_state == WebSocketState.CONNECTED:
+                    if old.application_state == WebSocketState.CONNECTED:
+                        logger.debug(
+                            "Game %d: closing old socket for user %s (reconnect)",
+                            game_id,
+                            user_id,
+                        )
                         await old.close(
                             code=status.WS_1011_INTERNAL_ERROR,
                             reason="Reconnecting",
                         )
-                except RuntimeError:
-                    pass
+                except RuntimeError as e:
+                    logger.debug(
+                        "Game %d: ignore error closing old socket for user %s: %s",
+                        game_id,
+                        user_id,
+                        e,
+                    )
 
             self.active_connections[game_id][user_id] = websocket
             self.id_to_player_data[user_id] = PlayerData(
@@ -67,24 +78,32 @@ class RoomManager:
             )
 
             if game_id in self.game_managers:
+                mgr = self.game_managers[game_id]
                 try:
-                    mgr = self.game_managers[game_id]
+                    logger.debug(
+                        "Game %d: attempting send_reload_data to user %s",
+                        game_id,
+                        user_id,
+                    )
                     await mgr.round_manager.send_reload_data(user_id)
                     logger.info(
-                        "Game %d: sent reload_data to reconnected user %s",
+                        "Game %d: send_reload_data succeeded for user %s",
                         game_id,
                         user_id,
                     )
                 except Exception:
                     logger.exception(
-                        "Game %d: failed to send_reload_data to %s",
+                        "Game %d: send_reload_data failed for user %s",
                         game_id,
                         user_id,
                     )
 
             from app.services.game_manager.models.manager import GameManager
 
-            if len(self.active_connections[game_id]) == GameManager.MAX_PLAYERS:
+            if (
+                game_id not in self.game_managers
+                and len(self.active_connections[game_id]) == GameManager.MAX_PLAYERS
+            ):
                 players_data = [
                     self.id_to_player_data[uid]
                     for uid in self.active_connections[game_id]
