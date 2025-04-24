@@ -1246,7 +1246,9 @@ class RoundManager:
                 )
                 self.hands[response_event.player_seat].apply_call(block=call_block)
                 if response_event.event_type in {
-                    GameEventType.CHII | GameEventType.PON | GameEventType.DAIMIN_KAN,
+                    GameEventType.CHII,
+                    GameEventType.PON,
+                    GameEventType.DAIMIN_KAN,
                 }:
                     if len(self.kawas[source_player_seat]) == 0:
                         raise IndexError("kawa is empty.")
