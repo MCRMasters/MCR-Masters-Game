@@ -204,6 +204,7 @@ class GameWebSocketHandler:
                 await self.send_success("Game event received")
             else:
                 await self.send_error("Game event is invalid")
+                await game_manager.round_manager.send_reload_data(uid=self.user_id)
         except Exception as e:
             await self.send_error(f"Error processing game event: {e}")
 
