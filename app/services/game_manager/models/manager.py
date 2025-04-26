@@ -759,10 +759,16 @@ class RoundManager:
             ]
             for hand in self.hands
         ]
+        hu_hand: list[GameTile] = list(self.hands[hu_player_seat].tiles.elements())
+        if (
+            self.winning_conditions.is_discarded
+            or self.winning_conditions.is_robbing_the_kong
+        ) and self.winning_conditions.winning_tile is not None:
+            hu_hand.append(self.winning_conditions.winning_tile)
         msg = WSMessage(
             event=MessageEventType.HU_HAND,
             data={
-                "hand": list(self.hands[hu_player_seat].tiles.elements()),
+                "hand": hu_hand,
                 "call_blocks": self.hands[hu_player_seat].call_blocks,
                 "score_result": score_result,
                 "player_seat": hu_player_seat,
