@@ -16,6 +16,7 @@ class GameWebSocketActionType(str, Enum):
 class MessageEventType(str, Enum):
     GAME_EVENT = "game_event"
     RETURN_ACTION = "return_action"
+    RELOAD_DATA = "reload_data"
 
     INIT_FLOWER_REPLACEMENT = "init_flower_replacement"
     GAME_START_INFO = "game_start_info"
