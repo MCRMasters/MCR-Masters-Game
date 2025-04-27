@@ -129,7 +129,7 @@ class ScoreCalculator:
         if len(blocks) == 5:
             yaku_list += BlocksYakuChecker(blocks=deepcopy(blocks)).yakus
             yaku_list += scoring_context.get_yakus()
-        if len(blocks) == 7 and len({block.tile.type for block in blocks}):
+        if len(blocks) == 7 and len({block.tile.type for block in blocks}) == 5:
             yaku_list += [Yaku.AllTypes]
         yaku_list += WinningConditionsYakuChecker(
             blocks=deepcopy(blocks),
