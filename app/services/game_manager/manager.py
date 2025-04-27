@@ -1295,6 +1295,17 @@ class RoundManager:
         response_event: GameEvent,
         applied_result: Any,
     ) -> None:
+        if response_event.event_type in {GameEventType.CHII, GameEventType.PON}:
+            tenpai_assistant: TenpaiAssistant = TenpaiAssistant(
+                game_hand=self.hands[response_event.player_seat],
+                game_winning_conditions=self.winning_conditions,
+                visible_tiles_count=self.visible_tiles_count,
+                round_wind=AbsoluteSeat(self.game_manager.current_round // 4),
+                seat_wind=response_event.player_seat,
+            )
+            tenpai_assist_data = (
+                tenpai_assistant.get_tenpai_assistance_info_in_full_hand()
+            )
         match response_event.event_type:
             case GameEventType.FLOWER:
                 msg = WSMessage(
@@ -1347,6 +1358,21 @@ class RoundManager:
                     ].uid,
                 )
             case GameEventType.CHII:
+                msg_personal = WSMessage(
+                    event=MessageEventType.CHII,
+                    data={
+                        "seat": response_event.player_seat,
+                        "call_block_data": applied_result,
+                        "tenpai_assist": tenpai_assist_data,
+                    },
+                )
+                await self.game_manager.network_service.send_personal_message(
+                    message=msg_personal.model_dump(),
+                    game_id=self.game_manager.game_id,
+                    user_id=self.game_manager.player_list[
+                        self.seat_to_player_index[response_event.player_seat]
+                    ].uid,
+                )
                 msg = WSMessage(
                     event=MessageEventType.CHII,
                     data={
@@ -1357,8 +1383,26 @@ class RoundManager:
                 await self.game_manager.network_service.broadcast(
                     message=msg.model_dump(),
                     game_id=self.game_manager.game_id,
+                    exclude_user_id=self.game_manager.player_list[
+                        self.seat_to_player_index[response_event.player_seat]
+                    ].uid,
                 )
             case GameEventType.PON:
+                msg_personal = WSMessage(
+                    event=MessageEventType.CHII,
+                    data={
+                        "seat": response_event.player_seat,
+                        "call_block_data": applied_result,
+                        "tenpai_assist": tenpai_assist_data,
+                    },
+                )
+                await self.game_manager.network_service.send_personal_message(
+                    message=msg_personal.model_dump(),
+                    game_id=self.game_manager.game_id,
+                    user_id=self.game_manager.player_list[
+                        self.seat_to_player_index[response_event.player_seat]
+                    ].uid,
+                )
                 msg = WSMessage(
                     event=MessageEventType.PON,
                     data={
@@ -1369,6 +1413,9 @@ class RoundManager:
                 await self.game_manager.network_service.broadcast(
                     message=msg.model_dump(),
                     game_id=self.game_manager.game_id,
+                    exclude_user_id=self.game_manager.player_list[
+                        self.seat_to_player_index[response_event.player_seat]
+                    ].uid,
                 )
             case GameEventType.DAIMIN_KAN:
                 msg = WSMessage(
