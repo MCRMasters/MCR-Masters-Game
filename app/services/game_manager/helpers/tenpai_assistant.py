@@ -1,4 +1,3 @@
-import logging
 from collections import Counter
 from copy import deepcopy
 
@@ -14,8 +13,6 @@ from app.services.score_calculator.tenpai_calculator import get_tenpai_tiles
 from app.services.score_calculator.winning_conditions.winning_conditions import (
     WinningConditions,
 )
-
-logger = logging.getLogger(__name__)
 
 
 class TenpaiAssistant:
@@ -84,8 +81,6 @@ class TenpaiAssistant:
             tenpai_game_hand = deepcopy(self.game_hand)
             winning_conditions = deepcopy(self.winning_conditions)
             tenpai_game_hand.apply_discard(game_tile)
-
-            logger.debug(f"{tenpai_game_hand.hand_size}, {tenpai_game_hand.tiles}")
 
             if tenpai_game_hand.has_flower:
                 continue
