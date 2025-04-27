@@ -99,20 +99,21 @@ class TenpaiAssistant:
                     continue
                 tenpai_hand.tiles[tenpai_tile] += 1
                 winning_conditions.is_discarded = False
-                tsumo_score_result: ScoreResult = self.get_score_result_from_game_infos(
-                    hand=deepcopy(tenpai_hand),
-                    winning_conditions=winning_conditions,
-                )
+                # tsumo_score_result: ScoreResult = self.get_score_result
+                # _from_game_infos(
+                #     hand=tenpai_hand,
+                #     winning_conditions=winning_conditions,
+                # )
                 winning_conditions.is_discarded = True
-                discard_score_result: ScoreResult = (
-                    self.get_score_result_from_game_infos(
-                        hand=deepcopy(tenpai_hand),
-                        winning_conditions=winning_conditions,
-                    )
-                )
+                # discard_score_result: ScoreResult = (
+                #     self.get_score_result_from_game_infos(
+                #         hand=tenpai_hand,
+                #         winning_conditions=winning_conditions,
+                #     )
+                # )
                 tenpai_hand.tiles[tenpai_tile] -= 1
-                result[game_tile][GameTile(tenpai_tile)] = (
-                    tsumo_score_result,
-                    discard_score_result,
-                )
+                # result[game_tile][GameTile(tenpai_tile)] = (
+                #     tsumo_score_result,
+                #     discard_score_result,
+                # )
         return result
