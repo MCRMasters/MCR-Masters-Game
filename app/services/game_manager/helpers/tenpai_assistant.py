@@ -56,10 +56,12 @@ class TenpaiAssistant:
         if not tenpai_tiles:
             return result
         winning_conditions = deepcopy(self.winning_conditions)
+        winning_conditions.count_tenpai_tiles = len(tenpai_tiles)
         for tenpai_tile in tenpai_tiles:
             if tenpai_hand.tiles[tenpai_tile] >= 4:
                 continue
             tenpai_hand.tiles[tenpai_tile] += 1
+            winning_conditions.winning_tile = tenpai_tile
             winning_conditions.is_discarded = False
             tsumo_score_result: ScoreResult = self.get_score_result_from_game_infos(
                 hand=tenpai_hand,
@@ -99,21 +101,20 @@ class TenpaiAssistant:
                     continue
                 tenpai_hand.tiles[tenpai_tile] += 1
                 winning_conditions.is_discarded = False
-                # tsumo_score_result: ScoreResult = self.get_score_result
-                # _from_game_infos(
-                #     hand=tenpai_hand,
-                #     winning_conditions=winning_conditions,
-                # )
+                tsumo_score_result: ScoreResult = self.get_score_result_from_game_infos(
+                    hand=tenpai_hand,
+                    winning_conditions=winning_conditions,
+                )
                 winning_conditions.is_discarded = True
-                # discard_score_result: ScoreResult = (
-                #     self.get_score_result_from_game_infos(
-                #         hand=tenpai_hand,
-                #         winning_conditions=winning_conditions,
-                #     )
-                # )
+                discard_score_result: ScoreResult = (
+                    self.get_score_result_from_game_infos(
+                        hand=tenpai_hand,
+                        winning_conditions=winning_conditions,
+                    )
+                )
                 tenpai_hand.tiles[tenpai_tile] -= 1
-                # result[game_tile][GameTile(tenpai_tile)] = (
-                #     tsumo_score_result,
-                #     discard_score_result,
-                # )
+                result[game_tile][GameTile(tenpai_tile)] = (
+                    tsumo_score_result,
+                    discard_score_result,
+                )
         return result
