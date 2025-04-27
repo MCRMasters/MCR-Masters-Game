@@ -24,13 +24,13 @@ class TenpaiAssistant:
         seat_wind: AbsoluteSeat,
         round_wind: AbsoluteSeat,
     ):
-        self.game_hand = game_hand
+        self.game_hand = deepcopy(game_hand)
         self.winning_conditions = WinningConditions.create_from_game_winning_conditions(
             game_winning_conditions=game_winning_conditions,
             seat_wind=seat_wind,
             round_wind=round_wind,
         )
-        self.visible_tiles_count = visible_tiles_count
+        self.visible_tiles_count = deepcopy(visible_tiles_count)
 
     def get_score_result_from_game_infos(
         self,

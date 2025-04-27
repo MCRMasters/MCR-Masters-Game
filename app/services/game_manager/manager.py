@@ -28,6 +28,7 @@ from app.services.game_manager.fsm.round_fsm import (
     TsumoState,
     WaitingNextRoundState,
 )
+from app.services.game_manager.helpers.tenpai_assistant import TenpaiAssistant
 from app.services.game_manager.models.action import Action
 from app.services.game_manager.models.call_block import CallBlock
 from app.services.game_manager.models.deck import Deck
@@ -553,6 +554,15 @@ class RoundManager:
                 "left_time": left_time,
             },
         )
+        if message_event_type == MessageEventType.TSUMO_ACTIONS:
+            tenpai_assistant: TenpaiAssistant = TenpaiAssistant(
+                game_hand=self.hands[seat],
+                game_winning_conditions=self.winning_conditions,
+                visible_tiles_count=self.visible_tiles_count,
+                round_wind=AbsoluteSeat(self.game_manager.current_round // 4),
+                seat_wind=seat,
+            )
+            msg.data["tenpai_assist"] = tenpai_assistant.get_tenpai_assistance_info()
         player: Player = self.get_player_from_seat(seat=seat)
         await self.game_manager.network_service.send_personal_message(
             message=msg.model_dump(),
