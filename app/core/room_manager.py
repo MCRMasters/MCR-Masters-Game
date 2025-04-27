@@ -13,7 +13,7 @@ from app.dependencies.game_manager import get_game_manager
 from app.services.game_manager.models.player import PlayerData
 
 if TYPE_CHECKING:
-    from app.services.game_manager.models.manager import GameManager
+    from app.services.game_manager.manager import GameManager
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +85,7 @@ class RoomManager:
                 game_mgr = self.game_managers[game_id]
                 need_reload = True
             else:
-                from app.services.game_manager.models.manager import GameManager
+                from app.services.game_manager.manager import GameManager
 
                 if len(self.active_connections[game_id]) == GameManager.MAX_PLAYERS:
                     gm = get_game_manager(game_id=game_id)

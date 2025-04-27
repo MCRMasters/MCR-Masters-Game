@@ -9,7 +9,7 @@ from app.services.game_manager.models.event import GameEvent
 from app.services.game_manager.models.types import GameEventType
 
 if TYPE_CHECKING:
-    from app.services.game_manager.models.manager import RoundManager
+    from app.services.game_manager.manager import RoundManager
 
 logger = logging.getLogger(__name__)
 

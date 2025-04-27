@@ -8,19 +8,19 @@ import pytest
 from pydantic import BaseModel
 
 from app.schemas.ws import MessageEventType
-from app.services.game_manager.models.enums import AbsoluteSeat, GameTile, Round
-from app.services.game_manager.models.event import GameEvent
-from app.services.game_manager.models.manager import (
-    ActionManager,
-    GameManager,
-)
-from app.services.game_manager.models.round_fsm import (
+from app.services.game_manager.fsm.round_fsm import (
     DiscardState,
     DrawState,
     HuState,
     RobbingKongState,
     TsumoState,
 )
+from app.services.game_manager.manager import (
+    ActionManager,
+    GameManager,
+)
+from app.services.game_manager.models.enums import AbsoluteSeat, GameTile, Round
+from app.services.game_manager.models.event import GameEvent
 from app.services.game_manager.models.types import (
     GameEventType,
 )
@@ -270,7 +270,7 @@ def test_get_next_state(round_manager):
         action_id=1,
     )
     state = round_manager.get_next_state(GameEventType.TSUMO, dummy_event)
-    from app.services.game_manager.models.round_fsm import DiscardState
+    from app.services.game_manager.fsm.round_fsm import DiscardState
 
     assert isinstance(state, DiscardState)
     dummy_event = GameEvent(

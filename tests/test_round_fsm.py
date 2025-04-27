@@ -1,8 +1,6 @@
 import pytest
 
-from app.services.game_manager.models.enums import AbsoluteSeat, GameTile
-from app.services.game_manager.models.event import GameEvent
-from app.services.game_manager.models.round_fsm import (
+from app.services.game_manager.fsm.round_fsm import (
     ActionState,
     DiscardState,
     FlowerState,
@@ -11,6 +9,8 @@ from app.services.game_manager.models.round_fsm import (
     RobbingKongState,
     TsumoState,
 )
+from app.services.game_manager.models.enums import AbsoluteSeat, GameTile
+from app.services.game_manager.models.event import GameEvent
 from app.services.game_manager.models.types import GameEventType
 
 pytestmark = pytest.mark.skip(reason="모든 테스트 스킵")
@@ -86,7 +86,7 @@ async def test_init_state():
     next_state = await state.run(manager)
     assert manager.init_called
     assert manager.send_init_events_called
-    from app.services.game_manager.models.round_fsm import FlowerState
+    from app.services.game_manager.fsm.round_fsm import FlowerState
 
     assert isinstance(next_state, FlowerState)
 
@@ -97,7 +97,7 @@ async def test_flower_state():
     state = FlowerState()
     next_state = await state.run(manager)
     assert manager.do_init_flower_called
-    from app.services.game_manager.models.round_fsm import TsumoState
+    from app.services.game_manager.fsm.round_fsm import TsumoState
 
     assert isinstance(next_state, TsumoState)
     assert next_state.prev_type == GameEventType.DISCARD
@@ -132,7 +132,7 @@ async def test_discard_state_returns_tsumo_state_when_none():
     manager = DummyRoundManager()
     state = DiscardState(prev_type=GameEventType.DISCARD, tile=GameTile.M1)
     next_state = await state.run(manager)
-    from app.services.game_manager.models.round_fsm import TsumoState
+    from app.services.game_manager.fsm.round_fsm import TsumoState
 
     assert isinstance(next_state, TsumoState)
     assert next_state.prev_type == GameEventType.DISCARD
@@ -158,7 +158,7 @@ async def test_discard_state_returns_next_state():
     state = DiscardState(prev_type=GameEventType.DISCARD, tile=GameTile.M1)
     next_state = await state.run(manager)
     assert manager.do_discard_called
-    from app.services.game_manager.models.round_fsm import TsumoState
+    from app.services.game_manager.fsm.round_fsm import TsumoState
 
     assert isinstance(next_state, TsumoState)
 
@@ -168,7 +168,7 @@ async def test_robbing_kong_state_returns_tsumo_state_when_none():
     manager = DummyRoundManager()
     state = RobbingKongState(tile=GameTile.M1)
     next_state = await state.run(manager)
-    from app.services.game_manager.models.round_fsm import TsumoState
+    from app.services.game_manager.fsm.round_fsm import TsumoState
 
     assert isinstance(next_state, TsumoState)
     assert next_state.prev_type == GameEventType.ROBBING_KONG
@@ -190,7 +190,7 @@ async def test_robbing_kong_state_returns_next_state():
     state = RobbingKongState(tile=GameTile.M1)
     next_state = await state.run(manager)
     assert manager.do_robbing_kong_called
-    from app.services.game_manager.models.round_fsm import TsumoState
+    from app.services.game_manager.fsm.round_fsm import TsumoState
 
     # Dummy get_next_state returns TsumoState
     assert isinstance(next_state, TsumoState)
