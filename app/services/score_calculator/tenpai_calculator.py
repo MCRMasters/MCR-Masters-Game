@@ -1,3 +1,4 @@
+import logging
 from copy import deepcopy
 from typing import Final
 
@@ -20,8 +21,12 @@ from app.services.score_calculator.hand.hand import Hand
 TENPAI_HAND_SIZE: Final[int] = 13
 
 
+logger = logging.getLogger(__name__)
+
+
 def get_tenpai_tiles(tenpai_hand: Hand) -> list[Tile]:
     if any(not 0 <= tiles_count <= 4 for tiles_count in tenpai_hand.tiles):
+        logger.debug(f"{tenpai_hand}")
         raise ValueError("Wrong tenpai hand")
     total_tiles_count: int = sum(tenpai_hand.tiles)
     for block in tenpai_hand.call_blocks:
