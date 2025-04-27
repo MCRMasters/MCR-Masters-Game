@@ -100,13 +100,13 @@ class TenpaiAssistant:
                 tenpai_hand.tiles[tenpai_tile] += 1
                 winning_conditions.is_discarded = False
                 tsumo_score_result: ScoreResult = self.get_score_result_from_game_infos(
-                    hand=tenpai_hand,
+                    hand=deepcopy(tenpai_hand),
                     winning_conditions=winning_conditions,
                 )
                 winning_conditions.is_discarded = True
                 discard_score_result: ScoreResult = (
                     self.get_score_result_from_game_infos(
-                        hand=tenpai_hand,
+                        hand=deepcopy(tenpai_hand),
                         winning_conditions=winning_conditions,
                     )
                 )
