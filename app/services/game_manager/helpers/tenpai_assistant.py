@@ -48,6 +48,7 @@ class TenpaiAssistant:
     ) -> dict[GameTile, tuple[ScoreResult, ScoreResult]]:
         result: dict[GameTile, tuple[ScoreResult, ScoreResult]] = {}
         tenpai_hand = Hand.create_from_game_hand(hand=tenpai_game_hand)
+        print(tenpai_hand)
         tenpai_tiles = get_tenpai_tiles(tenpai_hand=tenpai_hand)
         if not tenpai_tiles:
             return result
@@ -78,9 +79,6 @@ class TenpaiAssistant:
             tenpai_game_hand = deepcopy(self.game_hand)
             winning_conditions = deepcopy(self.winning_conditions)
             tenpai_game_hand.apply_discard(game_tile)
-            self.get_tenpai_assistance_info_with_tenpai_hand(
-                tenpai_game_hand=tenpai_game_hand,
-            )
             if tenpai_game_hand.has_flower:
                 continue
             if self.visible_tiles_count[game_tile] + 1 >= 3:
