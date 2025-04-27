@@ -76,7 +76,7 @@ class TenpaiAssistant:
             result[GameTile(tenpai_tile)] = (tsumo_score_result, discard_score_result)
         return result
 
-    def get_tenpai_assistance_info(
+    def get_tenpai_assistance_info_in_full_hand(
         self,
     ) -> dict[GameTile, dict[GameTile, tuple[ScoreResult, ScoreResult]]]:
         result: dict[GameTile, dict[GameTile, tuple[ScoreResult, ScoreResult]]] = {}
@@ -95,11 +95,15 @@ class TenpaiAssistant:
             tenpai_tiles = get_tenpai_tiles(tenpai_hand=tenpai_hand)
             if not tenpai_tiles:
                 continue
+            winning_conditions.count_tenpai_tiles = len(tenpai_tiles)
+            winning_conditions.is_replacement_tile = False
+            winning_conditions.is_robbing_the_kong = False
             result[game_tile] = {}
             for tenpai_tile in tenpai_tiles:
                 if tenpai_hand.tiles[tenpai_tile] >= 4:
                     continue
                 tenpai_hand.tiles[tenpai_tile] += 1
+                winning_conditions.winning_tile = tenpai_tile
                 winning_conditions.is_discarded = False
                 tsumo_score_result: ScoreResult = self.get_score_result_from_game_infos(
                     hand=tenpai_hand,

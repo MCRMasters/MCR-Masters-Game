@@ -161,11 +161,11 @@ class RoundManager:
     def init_round_data(self) -> None:
         self.tile_deck = Deck()
         # test deck
-        self.tile_deck.tiles = [0,0,0,1,2,3,4,5,6,7,8,8,8,
-                                0,8,9,17,18,26,27,28,29,30,31,32,33,
-                                1,2,10,11,12,20,21,22,7,7,7,33,33,
-                                27,27,27,28,28,28,29,29,29,30,30,30,31,
-                                0,0,0,0,27,27,27,27] + self.tile_deck.tiles
+        # self.tile_deck.tiles = [0,0,0,1,2,3,4,5,6,7,8,8,8,
+        #                         0,8,9,17,18,26,27,28,29,30,31,32,33,
+        #                         1,2,10,11,12,20,21,22,7,7,7,33,33,
+        #                         27,27,27,28,28,28,29,29,29,30,30,30,31,
+        #                         0,0,0,0,27,27,27,27] + self.tile_deck.tiles
         self.hands = [
             GameHand.create_from_tiles(tiles=self.tile_deck.draw_haipai())
             for _ in range(self.game_manager.MAX_PLAYERS)
@@ -562,7 +562,9 @@ class RoundManager:
                 round_wind=AbsoluteSeat(self.game_manager.current_round // 4),
                 seat_wind=seat,
             )
-            msg.data["tenpai_assist"] = tenpai_assistant.get_tenpai_assistance_info()
+            msg.data["tenpai_assist"] = (
+                tenpai_assistant.get_tenpai_assistance_info_in_full_hand()
+            )
         player: Player = self.get_player_from_seat(seat=seat)
         await self.game_manager.network_service.send_personal_message(
             message=msg.model_dump(),
