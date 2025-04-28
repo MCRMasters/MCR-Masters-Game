@@ -99,6 +99,8 @@ class TenpaiAssistant:
                 tenpai_hand.tiles[tenpai_tile] += 1
                 if self.visible_tiles_count[GameTile(tenpai_tile)] >= 3:
                     winning_conditions.is_last_tile_of_its_kind = True
+                else:
+                    winning_conditions.is_last_tile_of_its_kind = False
                 winning_conditions.winning_tile = tenpai_tile
                 winning_conditions.is_discarded = False
                 tsumo_score_result: ScoreResult = self.get_score_result_from_game_infos(
