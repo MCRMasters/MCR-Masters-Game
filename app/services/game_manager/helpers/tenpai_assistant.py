@@ -42,82 +42,66 @@ class TenpaiAssistant:
             winning_conditions=winning_conditions,
         ).result
 
-    def get_tenpai_assistance_info_with_tenpai_hand(
+    def _evaluate_tenpai_tiles(
         self,
-        tenpai_game_hand: GameHand,
+        tenpai_hand: Hand,
+        working_winning_conditions: WinningConditions,
+        visible_tiles: Counter[GameTile],
     ) -> dict[GameTile, tuple[ScoreResult, ScoreResult]]:
         result: dict[GameTile, tuple[ScoreResult, ScoreResult]] = {}
-        tenpai_hand = Hand.create_from_game_hand(hand=tenpai_game_hand)
-        print(tenpai_hand)
         tenpai_tiles = get_tenpai_tiles(tenpai_hand=tenpai_hand)
         if not tenpai_tiles:
             return result
-        winning_conditions = deepcopy(self.winning_conditions)
-        winning_conditions.count_tenpai_tiles = len(tenpai_tiles)
+        working_winning_conditions.count_tenpai_tiles = len(tenpai_tiles)
         for tenpai_tile in tenpai_tiles:
             if tenpai_hand.tiles[tenpai_tile] >= 4:
                 continue
             tenpai_hand.tiles[tenpai_tile] += 1
-            winning_conditions.winning_tile = tenpai_tile
-            winning_conditions.is_discarded = False
-            tsumo_score_result: ScoreResult = self.get_score_result_from_game_infos(
+            working_winning_conditions.winning_tile = tenpai_tile
+            working_winning_conditions.is_discarded = False
+            tsumo_score = self.get_score_result_from_game_infos(
                 hand=tenpai_hand,
-                winning_conditions=winning_conditions,
+                winning_conditions=working_winning_conditions,
             )
-            winning_conditions.is_discarded = True
-            discard_score_result: ScoreResult = self.get_score_result_from_game_infos(
+            working_winning_conditions.is_discarded = True
+            working_winning_conditions.is_last_tile_of_its_kind = (
+                visible_tiles[GameTile(tenpai_tile)] >= 3
+            )
+            discard_score = self.get_score_result_from_game_infos(
                 hand=tenpai_hand,
-                winning_conditions=winning_conditions,
+                winning_conditions=working_winning_conditions,
             )
             tenpai_hand.tiles[tenpai_tile] -= 1
-            result[GameTile(tenpai_tile)] = (tsumo_score_result, discard_score_result)
+            result[GameTile(tenpai_tile)] = (tsumo_score, discard_score)
         return result
+
+    def get_tenpai_assistance_info_with_tenpai_hand(
+        self,
+        tenpai_game_hand: GameHand,
+    ) -> dict[GameTile, tuple[ScoreResult, ScoreResult]]:
+        tenpai_hand = Hand.create_from_game_hand(hand=deepcopy(tenpai_game_hand))
+        return self._evaluate_tenpai_tiles(
+            tenpai_hand=tenpai_hand,
+            working_winning_conditions=deepcopy(self.winning_conditions),
+            visible_tiles=deepcopy(self.visible_tiles_count),
+        )
 
     def get_tenpai_assistance_info_in_full_hand(
         self,
     ) -> dict[GameTile, dict[GameTile, tuple[ScoreResult, ScoreResult]]]:
         result: dict[GameTile, dict[GameTile, tuple[ScoreResult, ScoreResult]]] = {}
-        for game_tile in self.game_hand.tiles:
+        for discard_tile in self.game_hand.tiles:
             tenpai_game_hand = deepcopy(self.game_hand)
-            winning_conditions = deepcopy(self.winning_conditions)
-            tenpai_game_hand.apply_discard(game_tile)
-
+            tenpai_game_hand.apply_discard(discard_tile)
             if tenpai_game_hand.has_flower:
                 continue
-            tenpai_hand = Hand.create_from_game_hand(hand=tenpai_game_hand)
-            tenpai_tiles = get_tenpai_tiles(tenpai_hand=tenpai_hand)
-            if not tenpai_tiles:
-                continue
-            self.visible_tiles_count[game_tile] += 1
-            winning_conditions.count_tenpai_tiles = len(tenpai_tiles)
-            winning_conditions.is_replacement_tile = False
-            winning_conditions.is_robbing_the_kong = False
-            result[game_tile] = {}
-            for tenpai_tile in tenpai_tiles:
-                if tenpai_hand.tiles[tenpai_tile] >= 4:
-                    continue
-                tenpai_hand.tiles[tenpai_tile] += 1
-                if self.visible_tiles_count[GameTile(tenpai_tile)] >= 3:
-                    winning_conditions.is_last_tile_of_its_kind = True
-                else:
-                    winning_conditions.is_last_tile_of_its_kind = False
-                winning_conditions.winning_tile = tenpai_tile
-                winning_conditions.is_discarded = False
-                tsumo_score_result: ScoreResult = self.get_score_result_from_game_infos(
-                    hand=tenpai_hand,
-                    winning_conditions=winning_conditions,
-                )
-                winning_conditions.is_discarded = True
-                discard_score_result: ScoreResult = (
-                    self.get_score_result_from_game_infos(
-                        hand=tenpai_hand,
-                        winning_conditions=winning_conditions,
-                    )
-                )
-                tenpai_hand.tiles[tenpai_tile] -= 1
-                result[game_tile][GameTile(tenpai_tile)] = (
-                    tsumo_score_result,
-                    discard_score_result,
-                )
-            self.visible_tiles_count[game_tile] -= 1
+            visible_tiles = deepcopy(self.visible_tiles_count)
+            visible_tiles[discard_tile] += 1
+            sub_info = self._evaluate_tenpai_tiles(
+                tenpai_hand=Hand.create_from_game_hand(hand=tenpai_game_hand),
+                working_winning_conditions=deepcopy(self.winning_conditions),
+                visible_tiles=visible_tiles,
+            )
+            if sub_info:
+                result[discard_tile] = sub_info
         return result
