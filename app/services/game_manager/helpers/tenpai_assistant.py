@@ -84,12 +84,11 @@ class TenpaiAssistant:
 
             if tenpai_game_hand.has_flower:
                 continue
-            if self.visible_tiles_count[game_tile] + 1 >= 3:
-                winning_conditions.is_last_tile_of_its_kind = True
             tenpai_hand = Hand.create_from_game_hand(hand=tenpai_game_hand)
             tenpai_tiles = get_tenpai_tiles(tenpai_hand=tenpai_hand)
             if not tenpai_tiles:
                 continue
+            self.visible_tiles_count[game_tile] += 1
             winning_conditions.count_tenpai_tiles = len(tenpai_tiles)
             winning_conditions.is_replacement_tile = False
             winning_conditions.is_robbing_the_kong = False
@@ -98,6 +97,8 @@ class TenpaiAssistant:
                 if tenpai_hand.tiles[tenpai_tile] >= 4:
                     continue
                 tenpai_hand.tiles[tenpai_tile] += 1
+                if self.visible_tiles_count[GameTile(tenpai_tile)] >= 3:
+                    winning_conditions.is_last_tile_of_its_kind = True
                 winning_conditions.winning_tile = tenpai_tile
                 winning_conditions.is_discarded = False
                 tsumo_score_result: ScoreResult = self.get_score_result_from_game_infos(
@@ -116,4 +117,5 @@ class TenpaiAssistant:
                     tsumo_score_result,
                     discard_score_result,
                 )
+            self.visible_tiles_count[game_tile] -= 1
         return result
