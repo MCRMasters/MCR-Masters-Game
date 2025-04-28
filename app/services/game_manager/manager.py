@@ -1190,6 +1190,22 @@ class RoundManager:
                 action_id=self.game_manager.action_id,
                 data={"tile": rightmost_tile},
             )
+            msg = WSMessage(
+                event=MessageEventType.DISCARD,
+                data={
+                    "tile": rightmost_tile,
+                    "seat": self.current_player_seat,
+                    "is_tsumogiri": False,
+                },
+            )
+            await self.game_manager.network_service.broadcast(
+                message=msg.model_dump(),
+                game_id=self.game_manager.game_id,
+            )
+            logger.debug(
+                "[wait_discard_after_call_action] "
+                f"생성된 자동 DISCARD 이벤트: {response_event}",
+            )
         self.game_manager.increase_action_id()
         return response_event
 
