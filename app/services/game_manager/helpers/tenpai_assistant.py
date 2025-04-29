@@ -58,15 +58,16 @@ class TenpaiAssistant:
                 continue
             tenpai_hand.tiles[tenpai_tile] += 1
             working_winning_conditions.winning_tile = tenpai_tile
+
+            working_winning_conditions.is_last_tile_of_its_kind = (
+                visible_tiles[GameTile(tenpai_tile)] >= 3
+            )
             working_winning_conditions.is_discarded = False
             tsumo_score = self.get_score_result_from_game_infos(
                 hand=tenpai_hand,
                 winning_conditions=working_winning_conditions,
             )
             working_winning_conditions.is_discarded = True
-            working_winning_conditions.is_last_tile_of_its_kind = (
-                visible_tiles[GameTile(tenpai_tile)] >= 3
-            )
             discard_score = self.get_score_result_from_game_infos(
                 hand=tenpai_hand,
                 winning_conditions=working_winning_conditions,
