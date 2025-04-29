@@ -12,9 +12,9 @@ from starlette.websockets import WebSocketDisconnect
 from app.core.error import MCRDomainError
 from app.core.room_manager import RoomManager
 from app.schemas.ws import MessageEventType, WSMessage
+from app.services.game_manager.manager import GameManager
 from app.services.game_manager.models.enums import AbsoluteSeat, GameTile
 from app.services.game_manager.models.event import GameEvent
-from app.services.game_manager.models.manager import GameManager
 from app.services.game_manager.models.types import ActionType, GameEventType
 
 logger = logging.getLogger(__name__)

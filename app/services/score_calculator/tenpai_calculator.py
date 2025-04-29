@@ -1,3 +1,4 @@
+import logging
 from copy import deepcopy
 from typing import Final
 
@@ -20,8 +21,12 @@ from app.services.score_calculator.hand.hand import Hand
 TENPAI_HAND_SIZE: Final[int] = 13
 
 
+logger = logging.getLogger(__name__)
+
+
 def get_tenpai_tiles(tenpai_hand: Hand) -> list[Tile]:
     if any(not 0 <= tiles_count <= 4 for tiles_count in tenpai_hand.tiles):
+        logger.debug(f"{tenpai_hand}")
         raise ValueError("Wrong tenpai hand")
     total_tiles_count: int = sum(tenpai_hand.tiles)
     for block in tenpai_hand.call_blocks:
@@ -32,7 +37,7 @@ def get_tenpai_tiles(tenpai_hand: Hand) -> list[Tile]:
     tenpai_tiles: list[Tile] = []
 
     for tile in Tile.all_tiles():
-        hand = deepcopy(tenpai_hand)  # 이후 최적화 가능(hand가 변동되지 않아야함)
+        hand = deepcopy(tenpai_hand)
         hand.tiles[tile] += 1
         if (
             divide_general_shape(hand)

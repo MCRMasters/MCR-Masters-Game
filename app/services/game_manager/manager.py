@@ -16,6 +16,19 @@ import httpx
 from app.core.config import settings
 from app.core.network_service import NetworkService
 from app.schemas.ws import MessageEventType, WSMessage
+from app.services.game_manager.fsm.round_fsm import (
+    ActionState,
+    DiscardState,
+    DrawState,
+    FlowerState,
+    HuState,
+    InitState,
+    RobbingKongState,
+    RoundState,
+    TsumoState,
+    WaitingNextRoundState,
+)
+from app.services.game_manager.helpers.tenpai_assistant import TenpaiAssistant
 from app.services.game_manager.models.action import Action
 from app.services.game_manager.models.call_block import CallBlock
 from app.services.game_manager.models.deck import Deck
@@ -30,18 +43,6 @@ from app.services.game_manager.models.hand import GameHand
 from app.services.game_manager.models.player import (
     Player,
     PlayerData,
-)
-from app.services.game_manager.models.round_fsm import (
-    ActionState,
-    DiscardState,
-    DrawState,
-    FlowerState,
-    HuState,
-    InitState,
-    RobbingKongState,
-    RoundState,
-    TsumoState,
-    WaitingNextRoundState,
 )
 from app.services.game_manager.models.types import (
     ActionType,
@@ -553,6 +554,17 @@ class RoundManager:
                 "left_time": left_time,
             },
         )
+        if message_event_type == MessageEventType.TSUMO_ACTIONS:
+            tenpai_assistant: TenpaiAssistant = TenpaiAssistant(
+                game_hand=self.hands[seat],
+                game_winning_conditions=self.winning_conditions,
+                visible_tiles_count=self.visible_tiles_count,
+                round_wind=AbsoluteSeat(self.game_manager.current_round // 4),
+                seat_wind=seat,
+            )
+            msg.data["tenpai_assist"] = (
+                tenpai_assistant.get_tenpai_assistance_info_in_full_hand()
+            )
         player: Player = self.get_player_from_seat(seat=seat)
         await self.game_manager.network_service.send_personal_message(
             message=msg.model_dump(),
@@ -1178,6 +1190,22 @@ class RoundManager:
                 action_id=self.game_manager.action_id,
                 data={"tile": rightmost_tile},
             )
+            msg = WSMessage(
+                event=MessageEventType.DISCARD,
+                data={
+                    "tile": rightmost_tile,
+                    "seat": self.current_player_seat,
+                    "is_tsumogiri": False,
+                },
+            )
+            await self.game_manager.network_service.broadcast(
+                message=msg.model_dump(),
+                game_id=self.game_manager.game_id,
+            )
+            logger.debug(
+                "[wait_discard_after_call_action] "
+                f"생성된 자동 DISCARD 이벤트: {response_event}",
+            )
         self.game_manager.increase_action_id()
         return response_event
 
@@ -1283,6 +1311,17 @@ class RoundManager:
         response_event: GameEvent,
         applied_result: Any,
     ) -> None:
+        if response_event.event_type in {GameEventType.CHII, GameEventType.PON}:
+            tenpai_assistant: TenpaiAssistant = TenpaiAssistant(
+                game_hand=self.hands[response_event.player_seat],
+                game_winning_conditions=self.winning_conditions,
+                visible_tiles_count=self.visible_tiles_count,
+                round_wind=AbsoluteSeat(self.game_manager.current_round // 4),
+                seat_wind=response_event.player_seat,
+            )
+            tenpai_assist_data = (
+                tenpai_assistant.get_tenpai_assistance_info_in_full_hand()
+            )
         match response_event.event_type:
             case GameEventType.FLOWER:
                 msg = WSMessage(
@@ -1335,6 +1374,21 @@ class RoundManager:
                     ].uid,
                 )
             case GameEventType.CHII:
+                msg_personal = WSMessage(
+                    event=MessageEventType.CHII,
+                    data={
+                        "seat": response_event.player_seat,
+                        "call_block_data": applied_result,
+                        "tenpai_assist": tenpai_assist_data,
+                    },
+                )
+                await self.game_manager.network_service.send_personal_message(
+                    message=msg_personal.model_dump(),
+                    game_id=self.game_manager.game_id,
+                    user_id=self.game_manager.player_list[
+                        self.seat_to_player_index[response_event.player_seat]
+                    ].uid,
+                )
                 msg = WSMessage(
                     event=MessageEventType.CHII,
                     data={
@@ -1345,8 +1399,26 @@ class RoundManager:
                 await self.game_manager.network_service.broadcast(
                     message=msg.model_dump(),
                     game_id=self.game_manager.game_id,
+                    exclude_user_id=self.game_manager.player_list[
+                        self.seat_to_player_index[response_event.player_seat]
+                    ].uid,
                 )
             case GameEventType.PON:
+                msg_personal = WSMessage(
+                    event=MessageEventType.CHII,
+                    data={
+                        "seat": response_event.player_seat,
+                        "call_block_data": applied_result,
+                        "tenpai_assist": tenpai_assist_data,
+                    },
+                )
+                await self.game_manager.network_service.send_personal_message(
+                    message=msg_personal.model_dump(),
+                    game_id=self.game_manager.game_id,
+                    user_id=self.game_manager.player_list[
+                        self.seat_to_player_index[response_event.player_seat]
+                    ].uid,
+                )
                 msg = WSMessage(
                     event=MessageEventType.PON,
                     data={
@@ -1357,6 +1429,9 @@ class RoundManager:
                 await self.game_manager.network_service.broadcast(
                     message=msg.model_dump(),
                     game_id=self.game_manager.game_id,
+                    exclude_user_id=self.game_manager.player_list[
+                        self.seat_to_player_index[response_event.player_seat]
+                    ].uid,
                 )
             case GameEventType.DAIMIN_KAN:
                 msg = WSMessage(
