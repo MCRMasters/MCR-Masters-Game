@@ -16,14 +16,15 @@ class YakuType(Enum):
     NUM_CONDITION = 1
     NUM_FLUSH = 2
     KONG_COUNT = 3
-    CONCEALED_PUNG_COUNT = 4
-    HAND_SHAPE = 5
-    ALL_GREEN = 6
-    REVERSIBLE_TILES = 7
-    WAIT = 8
-    DRAGON_PUNG = 9
-    PREVALENT_WIND = 10
-    SEAT_WIND = 11
+    CONCEALED_KONG = 4
+    CONCEALED_PUNG_COUNT = 5
+    HAND_SHAPE = 6
+    ALL_GREEN = 7
+    REVERSIBLE_TILES = 8
+    WAIT = 9
+    DRAGON_PUNG = 10
+    PREVALENT_WIND = 11
+    SEAT_WIND = 12
 
 
 # yaku checker for hand property
@@ -38,6 +39,7 @@ class HandYakuChecker(YakuChecker):
             YakuType.NUM_CONDITION: self._get_num_condition_conditions(),
             YakuType.NUM_FLUSH: self._get_num_flush_conditions(),
             YakuType.KONG_COUNT: self._get_kong_count_conditions(),
+            YakuType.CONCEALED_KONG: self._get_concealed_kong_conditions(),
             YakuType.CONCEALED_PUNG_COUNT: self._get_concealed_pung_count_conditions(),
             YakuType.HAND_SHAPE: self._get_hand_shape_conditions(),
             YakuType.ALL_GREEN: self._get_green_tiles_conditions(),
@@ -239,11 +241,22 @@ class HandYakuChecker(YakuChecker):
                 Yaku.TwoMeldedKongs,
             ),
             (
-                lambda: self.count_blocks_if(lambda b: b.is_quad and not b.is_opened)
+                lambda: self.count_blocks_if(lambda b: b.is_quad and b.is_opened) == 1,
+                Yaku.MeldedKong,
+            ),
+        ]
+
+    def _get_concealed_kong_conditions(
+        self,
+    ) -> list[tuple[Callable[[], bool], Yaku]]:
+        return [
+            (
+                lambda: self.count_blocks_if(
+                    lambda b: b.is_quad and not b.is_opened,
+                )
                 == 1,
                 Yaku.ConcealedKong,
             ),
-            (lambda: self.count_blocks_if(lambda b: b.is_quad) == 1, Yaku.MeldedKong),
         ]
 
     def _get_concealed_pung_count_conditions(
