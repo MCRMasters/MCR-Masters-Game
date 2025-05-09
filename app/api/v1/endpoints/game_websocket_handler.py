@@ -85,6 +85,7 @@ class GameWebSocketHandler:
                 MessageEventType.PING: self.handle_ping,
                 MessageEventType.GAME_EVENT: self.handle_game_event,
                 MessageEventType.RETURN_ACTION: self.handle_return_action,
+                MessageEventType.EMOJI_SEND: self.handle_emoji,
             }
             handler = message_handlers.get(message.event)
             if handler:
@@ -96,6 +97,41 @@ class GameWebSocketHandler:
                         data={"message": f"Unknown event: {message.event}"},
                     ).model_dump(),
                 )
+
+    async def handle_emoji(self, message: WSMessage) -> None:
+        try:
+            game_manager = self.room_manager.game_managers[self.game_id]
+
+            emoji_key = message.data.get("emoji_key")
+            if emoji_key is None:
+                await self.send_error("Missing emoji_key in emoji message.")
+                return
+
+            player_index = game_manager.player_uid_to_index.get(self.user_id)
+            if player_index is None:
+                await self.send_error("User not registered in game manager.")
+                return
+
+            if game_manager.round_manager.player_index_to_seat:
+                player_seat = game_manager.round_manager.player_index_to_seat[
+                    player_index
+                ]
+            else:
+                player_seat = AbsoluteSeat(player_index)
+            msg = WSMessage(
+                event=MessageEventType.EMOJI_BROADCAST,
+                data={
+                    "emoji_key": emoji_key,
+                    "seat": player_seat,
+                },
+            )
+            await game_manager.network_service.broadcast(
+                message=msg.model_dump(),
+                game_id=game_manager.game_id,
+                exclude_user_id=self.user_id,
+            )
+        except Exception as e:
+            await self.send_error(f"Error processing emoji broadcast: {e}")
 
     async def handle_return_action(self, message: WSMessage) -> None:
         try:
