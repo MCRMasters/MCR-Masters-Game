@@ -161,7 +161,7 @@ class RoundManager:
     def init_round_data(self) -> None:
         self.tile_deck = Deck()
         # test deck
-        self.tile_deck.tiles = [34,35,36,37,38,39,40,41] + self.tile_deck.tiles + [34,35,36,37,38,39,40,41]
+        self.tile_deck.tiles = [34,35,36,37,38,39,40,41] + self.tile_deck.tiles[10:] + [34,35,36,37,38,39,40,41]
         # self.tile_deck.tiles = [0,0,0,1,2,3,4,5,6,7,8,8,8,
         #                         0,8,9,17,18,26,27,28,29,30,31,32,33,
         #                         1,2,10,11,12,20,21,22,7,7,7,33,33,
