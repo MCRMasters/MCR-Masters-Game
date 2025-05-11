@@ -326,8 +326,10 @@ class RoundManager:
             [] for _ in range(self.game_manager.MAX_PLAYERS)
         ]
         tsumo_tile_dict: dict[AbsoluteSeat, GameTile | None] = {}
+        hand_dict: dict[AbsoluteSeat, list[GameTile]] = {}
         for seat in AbsoluteSeat:
             tsumo_tile_dict[seat] = self.hands[seat].tsumo_tile
+            hand_dict[seat] = list(self.hands[seat].tiles.elements())
             while self.hands[seat].has_flower:
                 if (applied_flower := self.hands[seat].apply_flower()) is None:
                     raise ValueError("Invalid hand value about flower tiles")
@@ -341,7 +343,7 @@ class RoundManager:
             data: dict[str, Any] = {
                 "player_seat": seat,
                 "players_score": scores,
-                "hand": list(self.hands[seat].tiles.elements()),
+                "hand": hand_dict[seat],
                 "tsumo_tile": tsumo_tile_dict[seat],
                 "new_tiles": new_tiles_list[seat],
                 "applied_flowers": applied_flowers_list[seat],
