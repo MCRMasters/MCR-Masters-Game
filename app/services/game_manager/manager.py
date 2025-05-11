@@ -333,15 +333,20 @@ class RoundManager:
                 new_tile: GameTile = self.tile_deck.draw_tiles_right(1)[0]
                 self.hands[seat].apply_init_flower_tsumo(tile=new_tile)
                 new_tiles_list[seat].append(new_tile)
+        scores: list[int] = [p.score for p in self.game_manager.player_list]
         flower_count: list[int] = [hand.flower_point for hand in self.hands]
         for seat in AbsoluteSeat:
             data: dict[str, Any] = {
+                "player_seat": seat,
+                "players_score": scores,
+                "hand": list(self.hands[seat].tiles.elements()),
+                "tsumo_tile": self.hands[seat].tsumo_tile,
                 "new_tiles": new_tiles_list[seat],
                 "applied_flowers": applied_flowers_list[seat],
                 "flower_count": flower_count,
             }
             msg = WSMessage(
-                event=MessageEventType.INIT_FLOWER_REPLACEMENT,
+                event=MessageEventType.INIT_EVENT,
                 data=data,
             )
             player: Player = self.get_player_from_seat(seat=seat)
