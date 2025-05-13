@@ -86,6 +86,7 @@ class GameWebSocketHandler:
                 MessageEventType.GAME_EVENT: self.handle_game_event,
                 MessageEventType.RETURN_ACTION: self.handle_return_action,
                 MessageEventType.EMOJI_SEND: self.handle_emoji,
+                MessageEventType.REQUEST_RELOAD: self.handle_reload,
             }
             handler = message_handlers.get(message.event)
             if handler:
@@ -97,6 +98,10 @@ class GameWebSocketHandler:
                         data={"message": f"Unknown event: {message.event}"},
                     ).model_dump(),
                 )
+
+    async def handle_reload(self, message: WSMessage) -> None:  # noqa : ARG002
+        game_manager = self.room_manager.game_managers[self.game_id]
+        await game_manager.round_manager.send_reload_data(uid=self.user_id)
 
     async def handle_emoji(self, message: WSMessage) -> None:
         try:

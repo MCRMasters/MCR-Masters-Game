@@ -24,8 +24,8 @@ class InitState(RoundState):
     async def run(self, manager: RoundManager) -> RoundState | None:
         logger.debug("InitState: initializing round data")
         manager.init_round_data()
-        logger.debug("InitState: sending init events")
-        await manager.send_init_events()
+        # logger.debug("InitState: sending init events")
+        # await manager.send_init_events()
         logger.debug("InitState: transition to FlowerState")
         return FlowerState()
 

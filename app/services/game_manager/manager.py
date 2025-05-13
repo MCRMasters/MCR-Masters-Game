@@ -325,7 +325,11 @@ class RoundManager:
         applied_flowers_list: list[list[GameTile]] = [
             [] for _ in range(self.game_manager.MAX_PLAYERS)
         ]
+        tsumo_tile_dict: dict[AbsoluteSeat, GameTile | None] = {}
+        hand_dict: dict[AbsoluteSeat, list[GameTile]] = {}
         for seat in AbsoluteSeat:
+            tsumo_tile_dict[seat] = self.hands[seat].tsumo_tile
+            hand_dict[seat] = list(self.hands[seat].tiles.elements())
             while self.hands[seat].has_flower:
                 if (applied_flower := self.hands[seat].apply_flower()) is None:
                     raise ValueError("Invalid hand value about flower tiles")
@@ -333,15 +337,20 @@ class RoundManager:
                 new_tile: GameTile = self.tile_deck.draw_tiles_right(1)[0]
                 self.hands[seat].apply_init_flower_tsumo(tile=new_tile)
                 new_tiles_list[seat].append(new_tile)
+        scores: list[int] = [p.score for p in self.game_manager.player_list]
         flower_count: list[int] = [hand.flower_point for hand in self.hands]
         for seat in AbsoluteSeat:
             data: dict[str, Any] = {
+                "player_seat": seat,
+                "players_score": scores,
+                "hand": hand_dict[seat],
+                "tsumo_tile": tsumo_tile_dict[seat],
                 "new_tiles": new_tiles_list[seat],
                 "applied_flowers": applied_flowers_list[seat],
                 "flower_count": flower_count,
             }
             msg = WSMessage(
-                event=MessageEventType.INIT_FLOWER_REPLACEMENT,
+                event=MessageEventType.INIT_EVENT,
                 data=data,
             )
             player: Player = self.get_player_from_seat(seat=seat)

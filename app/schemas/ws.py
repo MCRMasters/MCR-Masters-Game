@@ -19,6 +19,7 @@ class MessageEventType(str, Enum):
     RELOAD_DATA = "reload_data"
     EMOJI_SEND = "emoji_send"
     EMOJI_BROADCAST = "emoji_broadcast"
+    REQUEST_RELOAD = "request_reload"
 
     INIT_FLOWER_REPLACEMENT = "init_flower_replacement"
     GAME_START_INFO = "game_start_info"
