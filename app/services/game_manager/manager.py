@@ -1164,7 +1164,6 @@ class RoundManager:
     async def wait_discard_after_call_action(
         self,
     ) -> GameEvent:
-        self.game_manager.increase_action_id()
         await self.game_manager.network_service.send_personal_message(
             message=WSMessage(
                 event=MessageEventType.SET_TIMER,
@@ -1320,6 +1319,7 @@ class RoundManager:
         response_event: GameEvent,
         applied_result: Any,
     ) -> None:
+        self.game_manager.increase_action_id()
         if response_event.event_type in {GameEventType.CHII, GameEventType.PON}:
             tenpai_assistant: TenpaiAssistant = TenpaiAssistant(
                 game_hand=self.hands[response_event.player_seat],
@@ -1388,6 +1388,7 @@ class RoundManager:
                     data={
                         "seat": response_event.player_seat,
                         "call_block_data": applied_result,
+                        "action_id": self.game_manager.action_id,
                         "tenpai_assist": tenpai_assist_data,
                     },
                 )
@@ -1418,6 +1419,7 @@ class RoundManager:
                     data={
                         "seat": response_event.player_seat,
                         "call_block_data": applied_result,
+                        "action_id": self.game_manager.action_id,
                         "tenpai_assist": tenpai_assist_data,
                     },
                 )
@@ -1774,6 +1776,8 @@ class GameManager:
             tile_int = int(event.data["tile"])
             tile = GameTile(tile_int)
         except (ValueError, TypeError):
+            return False
+        if event.action_id != self.action_id:
             return False
         hand = self.round_manager.hands[event.player_seat]
         if hand.tiles.get(tile, 0) < 1:
