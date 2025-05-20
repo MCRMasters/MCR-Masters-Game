@@ -53,6 +53,9 @@ class TenpaiAssistant:
         if not tenpai_tiles:
             return result
         working_winning_conditions.count_tenpai_tiles = len(tenpai_tiles)
+        working_winning_conditions.is_replacement_tile = False
+        working_winning_conditions.is_robbing_the_kong = False
+        working_winning_conditions.is_last_tile_in_the_game = False
         for tenpai_tile in tenpai_tiles:
             if tenpai_hand.tiles[tenpai_tile] >= 4:
                 continue
