@@ -1777,11 +1777,7 @@ class GameManager:
             tile = GameTile(tile_int)
         except (ValueError, TypeError):
             return False
-        try:
-            action_id = int(event.data["action_id"])
-        except (ValueError, TypeError):
-            return False
-        if action_id != self.action_id:
+        if event.action_id != self.action_id:
             return False
         hand = self.round_manager.hands[event.player_seat]
         if hand.tiles.get(tile, 0) < 1:
