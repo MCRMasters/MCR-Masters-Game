@@ -176,12 +176,13 @@ class RoundManager:
         )
         # TO BE REMOVED
         self.tile_deck.tiles = (
-            [GameTile.F0] * 8
+            self.tile_deck.tiles[: self.tile_deck.draw_index_left]
+            + [GameTile.F0] * 8
             + [GameTile.M1, GameTile.M2]
             + [GameTile.F1] * 8
             + [GameTile.M3, GameTile.M4]
             + [GameTile.F2] * 8
-            + self.tile_deck.tiles[:-28]
+            + self.tile_deck.tiles[(self.tile_deck.draw_index_left + 28) :]
         )
 
         self.kawas = [[] for _ in range(self.game_manager.MAX_PLAYERS)]
