@@ -563,6 +563,7 @@ class RoundManager:
                 "left_time": left_time,
             },
         )
+        seat
         if message_event_type == MessageEventType.TSUMO_ACTIONS:
             tenpai_assistant: TenpaiAssistant = TenpaiAssistant(
                 game_hand=self.hands[seat],
