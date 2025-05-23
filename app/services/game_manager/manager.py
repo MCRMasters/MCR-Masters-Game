@@ -175,20 +175,20 @@ class RoundManager:
             tile=self.tile_deck.draw_tiles(count=1)[0],
         )
         # TO BE REMOVED
-        self.tile_deck.tiles = (
-            self.tile_deck.tiles[: self.tile_deck.draw_index_left]
-            + [GameTile.F0] * 8
-            + [GameTile.M1, GameTile.M2]
-            + [GameTile.F1] * 8
-            + [GameTile.M3, GameTile.M4]
-            + self.tile_deck.tiles[
-                (self.tile_deck.draw_index_left + 20) : (
-                    self.tile_deck.draw_index_right - 8
-                )
-            ]
-            + [GameTile.F2] * 8
-            + self.tile_deck.tiles[self.tile_deck.draw_index_right :]
-        )
+        # self.tile_deck.tiles = (
+        #     self.tile_deck.tiles[: self.tile_deck.draw_index_left]
+        #     + [GameTile.F0] * 8
+        #     + [GameTile.M1, GameTile.M2]
+        #     + [GameTile.F1] * 8
+        #     + [GameTile.M3, GameTile.M4]
+        #     + self.tile_deck.tiles[
+        #         (self.tile_deck.draw_index_left + 20) : (
+        #             self.tile_deck.draw_index_right - 8
+        #         )
+        #     ]
+        #     + [GameTile.F2] * 8
+        #     + self.tile_deck.tiles[self.tile_deck.draw_index_right :]
+        # )
 
         self.kawas = [[] for _ in range(self.game_manager.MAX_PLAYERS)]
         self.visible_tiles_count = Counter()
