@@ -515,7 +515,7 @@ class RoundManager:
     ) -> GameEvent | None:
         self.game_manager.increase_action_id()
         self.action_choices = [
-            action for action_list in actions_lists for action in action_list
+            deepcopy(action) for action_list in actions_lists for action in action_list
         ]
         self.action_choices_list = deepcopy(actions_lists)
 
