@@ -1077,7 +1077,7 @@ class RoundManager:
         logger.debug("[send_tsumo_actions_and_wait] 시작")
         self.game_manager.increase_action_id()
         self.action_choices = [
-            action for action_list in actions_lists for action in action_list
+            deepcopy(action) for action_list in actions_lists for action in action_list
         ]
         self.action_choices_list = deepcopy(actions_lists)
         logger.debug(
