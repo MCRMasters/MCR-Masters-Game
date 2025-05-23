@@ -591,6 +591,10 @@ class RoundManager:
         for seat in AbsoluteSeat:
             if actions_lists[seat]:
                 pending_players.add(seat)
+            if (
+                message_event_type != MessageEventType.TSUMO_ACTIONS
+                or actions_lists[seat]
+            ):
                 remaining_time[seat] = self.DEFAULT_TURN_TIMEOUT
                 await self._send_actions_message(
                     seat=seat,
