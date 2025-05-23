@@ -1415,7 +1415,7 @@ class RoundManager:
                 )
             case GameEventType.PON:
                 msg_personal = WSMessage(
-                    event=MessageEventType.CHII,
+                    event=MessageEventType.PON,
                     data={
                         "seat": response_event.player_seat,
                         "call_block_data": applied_result,
