@@ -87,14 +87,7 @@ class RoundManager:
         player_list = self.game_manager.player_list
 
         hand = [t.value for t in self.hands[player_seat].tiles.elements()]
-        self.tile_deck.tiles = (
-            [GameTile.F0] * 8
-            + [GameTile.M1, GameTile.M2]
-            + [GameTile.F1] * 8
-            + [GameTile.M3, GameTile.M4]
-            + [GameTile.F2] * 8
-            + self.tile_deck.tiles[:-28]
-        )
+
         hands_count = [
             sum(self.hands[i].tiles.values())
             for i in range(self.game_manager.MAX_PLAYERS)
@@ -181,6 +174,16 @@ class RoundManager:
         self.hands[AbsoluteSeat.EAST].apply_tsumo(
             tile=self.tile_deck.draw_tiles(count=1)[0],
         )
+        # TO BE REMOVED
+        self.tile_deck.tiles = (
+            [GameTile.F0] * 8
+            + [GameTile.M1, GameTile.M2]
+            + [GameTile.F1] * 8
+            + [GameTile.M3, GameTile.M4]
+            + [GameTile.F2] * 8
+            + self.tile_deck.tiles[:-28]
+        )
+
         self.kawas = [[] for _ in range(self.game_manager.MAX_PLAYERS)]
         self.visible_tiles_count = Counter()
         self.winning_conditions = GameWinningConditions.create_default_conditions()
