@@ -591,13 +591,13 @@ class RoundManager:
         for seat in AbsoluteSeat:
             if actions_lists[seat]:
                 pending_players.add(seat)
-                remaining_time[seat] = self.DEFAULT_TURN_TIMEOUT
-                await self._send_actions_message(
-                    seat=seat,
-                    actions=actions_lists[seat],
-                    message_event_type=message_event_type,
-                    left_time=remaining_time[seat],
-                )
+            remaining_time[seat] = self.DEFAULT_TURN_TIMEOUT
+            await self._send_actions_message(
+                seat=seat,
+                actions=actions_lists[seat],
+                message_event_type=message_event_type,
+                left_time=remaining_time[seat],
+            )
         return pending_players, remaining_time
 
     async def _wait_for_player_actions(
