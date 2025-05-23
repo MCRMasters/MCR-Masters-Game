@@ -200,6 +200,10 @@ class GameWebSocketHandler:
             if is_valid:
                 await self.send_success("Game event received")
             else:
+                logger.debug(
+                    f"Invalid Person's Hand "
+                    f"{game_manager.round_manager.hands[player_seat]}",
+                )
                 await self.send_error("Game event is invalid")
         except Exception as e:
             await self.send_error(f"Error processing return action: {e}")
