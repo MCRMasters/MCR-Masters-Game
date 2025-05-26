@@ -1181,12 +1181,10 @@ class RoundManager:
     async def wait_discard_after_call_action(
         self,
     ) -> GameEvent:
-        self.game_manager.increase_action_id()
         await self.game_manager.network_service.send_personal_message(
             message=WSMessage(
                 event=MessageEventType.SET_TIMER,
                 data={
-                    "action_id": self.game_manager.action_id,
                     "remaining_time": self.DEFAULT_TURN_TIMEOUT,
                 },
             ).model_dump(),
