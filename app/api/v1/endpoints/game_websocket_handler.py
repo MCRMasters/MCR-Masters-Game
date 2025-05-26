@@ -200,6 +200,10 @@ class GameWebSocketHandler:
                     is_discarded=game_manager.round_manager.winning_conditions.is_discarded,
                 )
             if event_type is None:
+                logger.debug(
+                    "Invalid Person's Hand %s",
+                    game_manager.round_manager.hands[player_seat],
+                )
                 await self._send_error("Invalid action")
                 return
 
