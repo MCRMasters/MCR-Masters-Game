@@ -1181,6 +1181,7 @@ class RoundManager:
     async def wait_discard_after_call_action(
         self,
     ) -> GameEvent:
+        self.game_manager.increase_action_id()
         await self.game_manager.network_service.send_personal_message(
             message=WSMessage(
                 event=MessageEventType.SET_TIMER,
@@ -1200,6 +1201,7 @@ class RoundManager:
             self.game_manager.event_queue.get(),
             self.DEFAULT_TURN_TIMEOUT,
         )
+        self.game_manager.increase_action_id()
         if response_event is not None:
             self.game_manager.event_queue.task_done()
         elapsed_time
@@ -1748,6 +1750,8 @@ class GameManager:
 
     async def _handle_skip(self, event: GameEvent) -> bool:
         rm = self.round_manager
+        if event.action_id != self.action_id:
+            return False
         valid = (
             rm.current_player_seat == event.player_seat
             or rm.winning_conditions.is_discarded
