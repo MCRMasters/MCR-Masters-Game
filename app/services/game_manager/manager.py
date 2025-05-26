@@ -1743,7 +1743,7 @@ class GameManager:
     def _check_action_id(self, event: GameEvent) -> bool:
         if event.action_id < 0 or event.action_id == self.action_id:
             return True
-        logger.debug(f"invalid action id: event {event}")
+        logger.debug(f"invalid action id: action id: {self.action_id}, event {event}")
         return False
 
     async def _handle_skip(self, event: GameEvent) -> bool:
