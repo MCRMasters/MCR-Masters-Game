@@ -264,7 +264,8 @@ class GameWebSocketHandler:
                     game_manager.round_manager.hands[player_seat],
                 )
                 await self._send_error("Game event is invalid")
-                await game_manager.round_manager.send_reload_data(uid=self.user_id)
+                if game_manager._check_action_id(event=new_event):
+                    await game_manager.round_manager.send_reload_data(uid=self.user_id)
         except Exception as exc:
             await self._send_error(f"Error processing game event: {exc}")
 
