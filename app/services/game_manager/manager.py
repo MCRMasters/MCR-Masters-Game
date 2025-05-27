@@ -1706,6 +1706,8 @@ class GameManager:
                 logger.debug("[GameManager] end-game 요청 성공: %s", resp.json())
             except httpx.HTTPError as exc:
                 logger.debug("[GameManager] end-game 요청 실패: %s", exc)
+            finally:
+                await self.network_service.end_all_connection(game_id=self.game_id)
 
     def increase_action_id(self) -> None:
         self.action_id += 1
