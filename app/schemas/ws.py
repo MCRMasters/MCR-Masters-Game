@@ -20,6 +20,7 @@ class MessageEventType(str, Enum):
     EMOJI_SEND = "emoji_send"
     EMOJI_BROADCAST = "emoji_broadcast"
     REQUEST_RELOAD = "request_reload"
+    WATCH_RELOAD_DATA = "watch_reload_data"
 
     INIT_FLOWER_REPLACEMENT = "init_flower_replacement"
     GAME_START_INFO = "game_start_info"
