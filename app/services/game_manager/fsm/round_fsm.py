@@ -55,6 +55,7 @@ class TsumoState(RoundState):
         next_game_event: GameEvent = await manager.do_tsumo(
             previous_event_type=self.prev_type,
         )
+        logger.debug(f"TsumoState: Hand: {manager.hands[manager.current_player_seat]}")
         logger.debug("TsumoState: do_tsumo returned: %s", next_game_event)
         state = manager.get_next_state(
             previous_event_type=GameEventType.TSUMO,

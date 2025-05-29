@@ -63,3 +63,6 @@ class NetworkService:
             game_id=game_id,
             message=json_message,
         )
+
+    async def end_all_connection(self, game_id: int) -> None:
+        await self.room_manager.disconnect_all(game_id=game_id)

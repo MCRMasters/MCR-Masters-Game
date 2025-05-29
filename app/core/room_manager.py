@@ -155,6 +155,16 @@ class RoomManager:
                     del self.active_connections[game_id]
                 logger.info("Game %d: user %s disconnected", game_id, user_id)
 
+    async def disconnect_all(self, game_id: int) -> None:
+        async with self.lock:
+            if game_id in self.active_connections:
+                for user_id in self.active_connections[game_id]:
+                    user_ws: WebSocket = self.active_connections[game_id][user_id]
+                    user_ws.close()
+            if not self.active_connections[game_id]:
+                del self.active_connections[game_id]
+            logger.info("Game %d: disconnected all", game_id)
+
     async def broadcast(
         self,
         message: Any,
