@@ -87,6 +87,7 @@ class RoundManager:
         player_list = self.game_manager.player_list
 
         hand = [t.value for t in self.hands[player_seat].tiles.elements()]
+
         hands_count = [
             sum(self.hands[i].tiles.values())
             for i in range(self.game_manager.MAX_PLAYERS)
@@ -173,6 +174,22 @@ class RoundManager:
         self.hands[AbsoluteSeat.EAST].apply_tsumo(
             tile=self.tile_deck.draw_tiles(count=1)[0],
         )
+        # TO BE REMOVED
+        # self.tile_deck.tiles = (
+        #     self.tile_deck.tiles[: self.tile_deck.draw_index_left]
+        #     + [GameTile.F0] * 8
+        #     + [GameTile.M1, GameTile.M2]
+        #     + [GameTile.F1] * 8
+        #     + [GameTile.M3, GameTile.M4]
+        #     + self.tile_deck.tiles[
+        #         (self.tile_deck.draw_index_left + 20) : (
+        #             self.tile_deck.draw_index_right - 8
+        #         )
+        #     ]
+        #     + [GameTile.F2] * 8
+        #     + self.tile_deck.tiles[self.tile_deck.draw_index_right :]
+        # )
+
         self.kawas = [[] for _ in range(self.game_manager.MAX_PLAYERS)]
         self.visible_tiles_count = Counter()
         self.winning_conditions = GameWinningConditions.create_default_conditions()
@@ -515,7 +532,7 @@ class RoundManager:
     ) -> GameEvent | None:
         self.game_manager.increase_action_id()
         self.action_choices = [
-            action for action_list in actions_lists for action in action_list
+            deepcopy(action) for action_list in actions_lists for action in action_list
         ]
         self.action_choices_list = deepcopy(actions_lists)
 
@@ -1077,7 +1094,7 @@ class RoundManager:
         logger.debug("[send_tsumo_actions_and_wait] 시작")
         self.game_manager.increase_action_id()
         self.action_choices = [
-            action for action_list in actions_lists for action in action_list
+            deepcopy(action) for action_list in actions_lists for action in action_list
         ]
         self.action_choices_list = deepcopy(actions_lists)
         logger.debug(
@@ -1168,7 +1185,6 @@ class RoundManager:
             message=WSMessage(
                 event=MessageEventType.SET_TIMER,
                 data={
-                    "action_id": self.game_manager.action_id,
                     "remaining_time": self.DEFAULT_TURN_TIMEOUT,
                 },
             ).model_dump(),
@@ -1183,6 +1199,7 @@ class RoundManager:
             self.game_manager.event_queue.get(),
             self.DEFAULT_TURN_TIMEOUT,
         )
+        self.game_manager.increase_action_id()
         if response_event is not None:
             self.game_manager.event_queue.task_done()
         elapsed_time
@@ -1689,6 +1706,8 @@ class GameManager:
                 logger.debug("[GameManager] end-game 요청 성공: %s", resp.json())
             except httpx.HTTPError as exc:
                 logger.debug("[GameManager] end-game 요청 실패: %s", exc)
+            finally:
+                await self.network_service.end_all_connection(game_id=self.game_id)
 
     def increase_action_id(self) -> None:
         self.action_id += 1
@@ -1726,11 +1745,13 @@ class GameManager:
     def _check_action_id(self, event: GameEvent) -> bool:
         if event.action_id < 0 or event.action_id == self.action_id:
             return True
-        logger.debug(f"invalid action id: event {event}")
+        logger.debug(f"invalid action id: action id: {self.action_id}, event {event}")
         return False
 
     async def _handle_skip(self, event: GameEvent) -> bool:
         rm = self.round_manager
+        if event.action_id != self.action_id:
+            return False
         valid = (
             rm.current_player_seat == event.player_seat
             or rm.winning_conditions.is_discarded

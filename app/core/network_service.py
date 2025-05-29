@@ -37,3 +37,6 @@ class NetworkService:
             game_id=game_id,
             exclude_user_id=exclude_user_id,
         )
+
+    async def end_all_connection(self, game_id: int) -> None:
+        await self.room_manager.disconnect_all(game_id=game_id)
