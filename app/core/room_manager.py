@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections import deque
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from fastapi import WebSocket, status
 from starlette.websockets import WebSocketState
 
 from app.dependencies.game_manager import get_game_manager
+from app.schemas.ws import MessageEventType
 from app.services.game_manager.models.player import PlayerData
 
 if TYPE_CHECKING:
@@ -26,6 +29,13 @@ class RoomManager:
         self.id_to_player_data: dict[str, PlayerData] = {}
         self.lock = asyncio.Lock()
         self.next_game_id: int = 1
+
+        self.watchers: dict[int, list[WebSocket]] = {}
+        self.watch_history: dict[int, deque[tuple[datetime, dict]]] = {}
+
+        self._watch_tasks: list[asyncio.Task] = []
+
+        self.game_start_times: dict[int, datetime] = {}
 
     async def generate_game_id(self) -> int:
         async with self.lock:
@@ -119,6 +129,7 @@ class RoomManager:
                 )
 
         if need_start and game_mgr:
+            self.game_start_times[game_id] = datetime.now(UTC)
             task = asyncio.create_task(game_mgr.start_game())
             task.add_done_callback(
                 lambda t: logger.error(
@@ -181,6 +192,50 @@ class RoomManager:
                 self.active_connections[game_id].pop(uid, None)
                 self.id_to_player_data.pop(uid, None)
                 logger.info("Game %d: connection for %s cleaned up", game_id, uid)
+
+    async def _record_event(self, game_id: int, message: dict, ts: datetime) -> None:
+        history = self.watch_history.setdefault(game_id, deque())
+        history.append((ts, message))
+        cutoff_old = ts - timedelta(minutes=10)
+        while history and history[0][0] < cutoff_old:
+            history.popleft()
+
+        if message.get("event") != MessageEventType.WATCH_RELOAD_DATA:
+            task = asyncio.create_task(
+                self._delayed_send_to_watchers(game_id, message, ts),
+            )
+            self._watch_tasks.append(task)
+
+    async def record_personal_message(self, game_id: int, message: dict) -> None:
+        await self._record_event(game_id, message, datetime.now(UTC))
+
+    async def record_broadcast(self, game_id: int, message: dict) -> None:
+        await self._record_event(game_id, message, datetime.now(UTC))
+
+    async def record_reload_data(self, game_id: int, message: dict) -> None:
+        await self._record_event(game_id, message, datetime.now(UTC))
+
+    async def _delayed_send_to_watchers(
+        self,
+        game_id: int,
+        message: dict,
+        ts: datetime,
+    ) -> None:
+        send_at = ts + timedelta(minutes=5)
+        delay = (send_at - datetime.now(UTC)).total_seconds()
+        if delay > 0:
+            await asyncio.sleep(delay)
+
+        for ws in list(self.watchers.get(game_id, [])):
+            try:
+                await ws.send_json(message)
+
+                if message.get("event") == MessageEventType.END_GAME:
+                    await ws.close(code=1000)
+                    self.watchers[game_id].remove(ws)
+
+            except Exception:
+                self.watchers[game_id].remove(ws)
 
     async def send_personal_message(
         self,
