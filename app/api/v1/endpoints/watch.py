@@ -48,6 +48,29 @@ async def watch_game_ws(
     game_id: int,
     room_manager: RoomManager = Depends(get_room_manager),
 ) -> None:
+    start_time = room_manager.game_start_times.get(game_id)
+    if start_time is None:
+        await websocket.accept()
+        await websocket.close(
+            code=status.WS_1008_POLICY_VIOLATION,
+            reason="Game not started",
+        )
+        return
+
+    now = datetime.now(UTC)
+    deadline = start_time + timedelta(minutes=5)
+    if now < deadline:
+        remaining = (deadline - now).total_seconds()
+        await websocket.accept()
+        await websocket.send_json(
+            {
+                "event": MessageEventType.WAIT_REMAINING,
+                "data": {"remaining_time": remaining},
+            },
+        )
+        await websocket.close(code=1000)
+        return
+
     await websocket.accept()
     room_manager.watchers.setdefault(game_id, []).append(websocket)
 
