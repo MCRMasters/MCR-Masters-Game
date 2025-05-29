@@ -1,3 +1,4 @@
+from collections import deque
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, WebSocket, status
@@ -6,6 +7,7 @@ from starlette.websockets import WebSocketDisconnect
 from app.core.room_manager import RoomManager
 from app.dependencies.room_manager import get_room_manager
 from app.schemas.watch import WatchGame, WatchGameUser
+from app.schemas.ws import MessageEventType
 
 router = APIRouter()
 
@@ -49,10 +51,17 @@ async def watch_game_ws(
     await websocket.accept()
     room_manager.watchers.setdefault(game_id, []).append(websocket)
 
-    cutoff = datetime.now(UTC) - timedelta(minutes=5)
-    for ts, msg in room_manager.watch_history.get(game_id, []):
-        if ts <= cutoff:
-            await websocket.send_json(msg)
+    now = datetime.now(UTC)
+    cutoff = now - timedelta(minutes=5)
+    history = room_manager.watch_history.get(game_id, deque())
+    snaps = [
+        (ts, msg)
+        for ts, msg in history
+        if ts <= cutoff and msg.get("event") == MessageEventType.WATCH_RELOAD_DATA
+    ]
+    if snaps:
+        _, snapshot = max(snaps, key=lambda x: x[0])
+        await websocket.send_json(snapshot)
 
     try:
         while True:

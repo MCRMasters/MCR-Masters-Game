@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import heapq
 import logging
 import time
@@ -79,6 +80,65 @@ class RoundManager:
         self.action_choices_list: list[list[Action]]
         self.current_state: RoundState | None = None
         self.remaining_time: float = 0.0
+
+    async def send_watch_reload_data(self) -> None:
+        player_list = self.game_manager.player_list
+
+        hands = [
+            [t.value for t in self.hands[i].tiles.elements()]
+            for i in range(self.game_manager.MAX_PLAYERS)
+        ]
+
+        hands_count = [
+            sum(self.hands[i].tiles.values())
+            for i in range(self.game_manager.MAX_PLAYERS)
+        ]
+        tsumo_tiles = [
+            self.hands[i].tsumo_tile for i in range(self.game_manager.MAX_PLAYERS)
+        ]
+        tsumo_tiles_count = [
+            1 if self.hands[i].tsumo_tile is not None else 0
+            for i in range(self.game_manager.MAX_PLAYERS)
+        ]
+        flowers_count = [
+            getattr(self.hands[i], "flower_point", 0)
+            for i in range(self.game_manager.MAX_PLAYERS)
+        ]
+
+        call_blocks_list = [
+            deepcopy(self.hands[i].call_blocks)
+            for i in range(self.game_manager.MAX_PLAYERS)
+        ]
+
+        current_turn_absolute_seat = self.current_player_seat
+        remaining_time = self.remaining_time
+        tiles_remaining = self.tile_deck.tiles_remaining
+        current_round = self.game_manager.current_round
+
+        msg = WSMessage(
+            event=MessageEventType.WATCH_RELOAD_DATA,
+            data={
+                "player_list": player_list,
+                "hands": hands,
+                "kawas": self.kawas,
+                "action_id": self.game_manager.action_id,
+                "action_choices_list": self.action_choices_list,
+                "hands_count": hands_count,
+                "tsumo_tiles": tsumo_tiles,
+                "tsumo_tiles_count": tsumo_tiles_count,
+                "flowers_count": flowers_count,
+                "call_blocks_list": call_blocks_list,
+                "current_turn_absolute_seat": current_turn_absolute_seat,
+                "remaining_time": remaining_time,
+                "tiles_remaining": tiles_remaining,
+                "current_round": current_round,
+            },
+        )
+
+        await self.game_manager.network_service.send_watch_reload_data(
+            message=msg.model_dump(),
+            game_id=self.game_manager.game_id,
+        )
 
     async def send_reload_data(self, uid: str) -> None:
         player_index = self.game_manager.player_uid_to_index[uid]
@@ -1618,6 +1678,7 @@ class GameManager:
         self.action_id: int
         self.event_queue: asyncio.Queue[GameEvent]
         self.event_queue_lock: asyncio.Lock
+        self._reload_task: asyncio.Task | None = None
 
     def init_game(self, players_data: list[PlayerData]) -> None:
         if len(players_data) != self.MAX_PLAYERS:
@@ -1643,6 +1704,8 @@ class GameManager:
         self.event_queue_lock = asyncio.Lock()
 
     async def start_game(self) -> None:
+        self._reload_task = asyncio.create_task(self._reload_loop())
+
         start_msg = WSMessage(
             event=MessageEventType.GAME_START_INFO,
             data={
@@ -1662,10 +1725,25 @@ class GameManager:
             game_id=self.game_id,
         )
 
-        for _ in range(self.TOTAL_ROUNDS):
-            await self.round_manager.run_round()
-            self.current_round = self.current_round.next_round
+        try:
+            for _ in range(self.TOTAL_ROUNDS):
+                await self.round_manager.run_round()
+                self.current_round = self.current_round.next_round
+        finally:
+            if self._reload_task:
+                self._reload_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await self._reload_task
+
         await self.submit_game_result()
+
+    async def _reload_loop(self) -> None:
+        while True:
+            try:
+                await self.round_manager.send_watch_reload_data()
+            except Exception as e:
+                logger.error("reload loop error: %s", e, exc_info=True)
+            await asyncio.sleep(1)
 
     async def submit_game_result(self) -> None:
         scores: list[int] = [p.score for p in self.player_list]

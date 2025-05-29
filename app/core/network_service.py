@@ -48,3 +48,18 @@ class NetworkService:
             exclude_user_id=exclude_user_id,
         )
         await self.room_manager.record_broadcast(game_id, json_message)
+
+    async def send_watch_reload_data(
+        self,
+        message: dict[str, Any],
+        game_id: int,
+    ) -> None:
+        message_with_ts = {
+            **message,
+            "timestamp": datetime.now(UTC).isoformat(),
+        }
+        json_message = jsonable_encoder(message_with_ts)
+        await self.room_manager.record_reload_data(
+            game_id=game_id,
+            message=json_message,
+        )

@@ -32,6 +32,7 @@ class RoomManager:
 
         self.watchers: dict[int, list[WebSocket]] = {}
         self.watch_history: dict[int, deque[tuple[datetime, dict]]] = {}
+
         self._watch_tasks: list[asyncio.Task] = []
 
         self.game_start_times: dict[int, datetime] = {}
@@ -182,32 +183,27 @@ class RoomManager:
                 self.id_to_player_data.pop(uid, None)
                 logger.info("Game %d: connection for %s cleaned up", game_id, uid)
 
-    async def record_personal_message(self, game_id: int, message: dict) -> None:
-        now = datetime.now(UTC)
+    async def _record_event(self, game_id: int, message: dict, ts: datetime) -> None:
         history = self.watch_history.setdefault(game_id, deque())
-        history.append((now, message))
-
-        cutoff = now - timedelta(minutes=10)
-        while history and history[0][0] < cutoff:
+        history.append((ts, message))
+        cutoff_old = ts - timedelta(minutes=10)
+        while history and history[0][0] < cutoff_old:
             history.popleft()
 
-        task = asyncio.create_task(
-            self._delayed_send_to_watchers(game_id, message, now),
-        )
-        self._watch_tasks.append(task)
+        if message.get("event") != MessageEventType.WATCH_RELOAD_DATA:
+            task = asyncio.create_task(
+                self._delayed_send_to_watchers(game_id, message, ts),
+            )
+            self._watch_tasks.append(task)
+
+    async def record_personal_message(self, game_id: int, message: dict) -> None:
+        await self._record_event(game_id, message, datetime.now(UTC))
 
     async def record_broadcast(self, game_id: int, message: dict) -> None:
-        now = datetime.now(UTC)
-        history = self.watch_history.setdefault(game_id, deque())
-        history.append((now, message))
-        cutoff = now - timedelta(minutes=10)
-        while history and history[0][0] < cutoff:
-            history.popleft()
+        await self._record_event(game_id, message, datetime.now(UTC))
 
-        task = asyncio.create_task(
-            self._delayed_send_to_watchers(game_id, message, now),
-        )
-        self._watch_tasks.append(task)
+    async def record_reload_data(self, game_id: int, message: dict) -> None:
+        await self._record_event(game_id, message, datetime.now(UTC))
 
     async def _delayed_send_to_watchers(
         self,
