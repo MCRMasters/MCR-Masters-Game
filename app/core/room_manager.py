@@ -144,6 +144,7 @@ class RoomManager:
                 if not self.active_connections[game_id]:
                     del self.active_connections[game_id]
                 logger.info("Game %d: user %s disconnected", game_id, user_id)
+            await self._check_only_bots_left_and_end(game_id)
 
     async def disconnect_all(self, game_id: int) -> None:
         async with self.lock:
@@ -154,6 +155,38 @@ class RoomManager:
             if not self.active_connections[game_id]:
                 del self.active_connections[game_id]
             logger.info("Game %d: disconnected all", game_id)
+            await self._check_only_bots_left_and_end(game_id)
+
+    async def _check_only_bots_left_and_end(self, game_id: int) -> None:
+        async with self.lock:
+            if (
+                game_id not in self.active_connections
+                or not self.active_connections[game_id]
+            ):
+                return
+
+            all_uids = list(self.active_connections[game_id].keys())
+            remaining_nicknames = [
+                self.id_to_player_data[uid].nickname
+                for uid in all_uids
+                if uid in self.id_to_player_data
+            ]
+
+        for nick in remaining_nicknames:
+            if not nick.startswith("Bot"):
+                return
+
+        logger.info("Game %d: only bots remain, end-game", game_id)
+
+        game_mgr = self.game_managers.get(game_id)
+        if game_mgr:
+            try:
+                await game_mgr.submit_game_result()
+                logger.info("Game %d: submit_game_result() complete", game_id)
+            except Exception:
+                logger.exception("Game %d: error on submit_game_result()", game_id)
+
+        await self.disconnect_all(game_id)
 
     async def broadcast(
         self,
