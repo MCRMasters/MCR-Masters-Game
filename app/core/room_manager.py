@@ -171,7 +171,7 @@ class RoomManager:
                 for uid in all_uids
                 if uid in self.id_to_player_data
             ]
-
+        logger.info(f"Game {game_id}, nicknames {remaining_nicknames}")
         for nick in remaining_nicknames:
             if not nick.startswith("Bot"):
                 return
