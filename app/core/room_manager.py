@@ -105,6 +105,7 @@ class RoomManager:
                     game_id,
                     user_id,
                 )
+                await game_mgr.send_init_game_data(user_id)
                 await game_mgr.round_manager.send_reload_data(user_id)
                 logger.info(
                     "Game %d: send_reload_data succeeded for user %s",

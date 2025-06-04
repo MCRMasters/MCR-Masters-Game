@@ -1684,6 +1684,27 @@ class GameManager:
             self.current_round = self.current_round.next_round
         await self.submit_game_result()
 
+    async def send_init_game_data(self, uid: str) -> None:
+        start_msg = WSMessage(
+            event=MessageEventType.GAME_START_INFO,
+            data={
+                "players": [
+                    {
+                        "uid": player.uid,
+                        "nickname": player.nickname,
+                        "index": player.index,
+                        "score": player.score,
+                    }
+                    for player in self.player_list
+                ],
+            },
+        )
+        await self.network_service.send_personal_message(
+            message=start_msg.model_dump(),
+            game_id=self.game_id,
+            user_id=uid,
+        )
+
     async def submit_game_result(self) -> None:
         scores: list[int] = [p.score for p in self.player_list]
         msg = WSMessage(
