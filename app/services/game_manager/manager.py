@@ -1717,9 +1717,7 @@ class GameManager:
             message=msg.model_dump(),
             game_id=self.game_id,
         )
-        endpoint = (
-            f"https://{settings.COER_SERVER_URL}/internal/rooms/{self.game_id}/end-game"
-        )
+        endpoint = f"https://{settings.COER_SERVER_URL}/internal/game-server/rooms/{self.game_id}/end-game"
         async with httpx.AsyncClient(timeout=5.0) as client:
             try:
                 resp = await client.post(endpoint)
