@@ -146,35 +146,33 @@ class RoomManager:
             self.id_to_player_data.pop(user_id, None)
             logger.info("Game %d: user %s disconnected", game_id, user_id)
 
-            all_uids = list(self.active_connections.get(game_id, {}).keys())
+            remaining_uids = list(self.active_connections.get(game_id, {}).keys())
             remaining_nicknames = [
                 self.id_to_player_data[uid].nickname
-                for uid in all_uids
+                for uid in remaining_uids
                 if uid in self.id_to_player_data
             ]
             logger.info(f"Game {game_id}, nicknames {remaining_nicknames}")
 
-            if remaining_nicknames and all(
+            only_bots_left = remaining_nicknames and all(
                 nick.startswith("Bot") for nick in remaining_nicknames
-            ):
-                logger.info("Game %d: only bots remain, end-game", game_id)
-
-                game_mgr = self.game_managers.get(game_id)
-                if game_mgr:
-                    try:
-                        await game_mgr.submit_game_result()
-                        logger.info("Game %d: submit_game_result() complete", game_id)
-                    except Exception:
-                        logger.exception(
-                            "Game %d: error on submit_game_result()",
-                            game_id,
-                        )
-
-                await self.disconnect_all(game_id)
-                return
+            )
+            game_mgr = self.game_managers.get(game_id) if only_bots_left else None
 
             if not self.active_connections.get(game_id):
                 self.active_connections.pop(game_id, None)
+
+        if only_bots_left:
+            logger.info("Game %d: only bots remain, end-game", game_id)
+
+            if game_mgr:
+                try:
+                    await game_mgr.submit_game_result()
+                    logger.info("Game %d: submit_game_result() complete", game_id)
+                except Exception:
+                    logger.exception("Game %d: error on submit_game_result()", game_id)
+
+            await self.disconnect_all(game_id)
 
     async def disconnect_all(self, game_id: int) -> None:
         async with self.lock:
