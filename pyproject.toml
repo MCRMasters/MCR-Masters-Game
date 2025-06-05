@@ -10,7 +10,7 @@ packages = [{include = "app"}]
 
 [tool.poetry.dependencies]
 python = "^3.12"
-uvicorn = "^0.34.0"
+uvicorn = {extras = ["standard"], version = "^0.34.3"}
 pydantic-settings = "^2.7.1"
 python-dotenv = "^1.0.1"
 pytest-dotenv = "^0.5.2"

@@ -1754,6 +1754,27 @@ class GameManager:
 
         await self.submit_game_result()
 
+    async def send_init_game_data(self, uid: str) -> None:
+        start_msg = WSMessage(
+            event=MessageEventType.GAME_START_INFO,
+            data={
+                "players": [
+                    {
+                        "uid": player.uid,
+                        "nickname": player.nickname,
+                        "index": player.index,
+                        "score": player.score,
+                    }
+                    for player in self.player_list
+                ],
+            },
+        )
+        await self.network_service.send_personal_message(
+            message=start_msg.model_dump(),
+            game_id=self.game_id,
+            user_id=uid,
+        )
+
     async def _reload_loop(self) -> None:
         while True:
             try:
@@ -1774,9 +1795,7 @@ class GameManager:
             message=msg.model_dump(),
             game_id=self.game_id,
         )
-        endpoint = (
-            f"https://{settings.COER_SERVER_URL}/internal/rooms/{self.game_id}/end-game"
-        )
+        endpoint = f"https://{settings.COER_SERVER_URL}/internal/game-server/rooms/{self.game_id}/end-game"
         async with httpx.AsyncClient(timeout=5.0) as client:
             try:
                 resp = await client.post(endpoint)

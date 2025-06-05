@@ -73,6 +73,16 @@ class GameWebSocketHandler:
         except Exception as exc:
             await self.handle_error(exc)
             return False
+        finally:
+            try:
+                await self.handle_disconnection()
+            except Exception:
+                logger.debug(
+                    "handle_disconnection failed for %s:%d",
+                    self.user_id,
+                    self.game_id,
+                )
+
         return True
 
     async def _recv_loop(self) -> None:
@@ -82,6 +92,11 @@ class GameWebSocketHandler:
                     data = await self.websocket.receive_json()
                     await self._msg_queue.put(data)
                 except WebSocketDisconnect:
+                    break
+                except WebSocketDisconnect:
+                    break
+                except Exception as exc:
+                    logger.debug("recv_loop got exception: %s", exc)
                     break
         finally:
             await self._msg_queue.put(None)
