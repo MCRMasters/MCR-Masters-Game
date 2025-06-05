@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 from collections import deque
 from datetime import UTC, datetime, timedelta
@@ -115,6 +116,7 @@ class RoomManager:
                     game_id,
                     user_id,
                 )
+                await game_mgr.send_init_game_data(user_id)
                 await game_mgr.round_manager.send_reload_data(user_id)
                 logger.info(
                     "Game %d: send_reload_data succeeded for user %s",
@@ -148,21 +150,52 @@ class RoomManager:
 
     async def disconnect(self, game_id: int, user_id: str) -> None:
         async with self.lock:
-            if game_id in self.active_connections:
-                self.active_connections[game_id].pop(user_id, None)
-                self.id_to_player_data.pop(user_id, None)
-                if not self.active_connections[game_id]:
-                    del self.active_connections[game_id]
-                logger.info("Game %d: user %s disconnected", game_id, user_id)
+            if game_id not in self.active_connections:
+                return
+
+            self.active_connections[game_id].pop(user_id, None)
+            self.id_to_player_data.pop(user_id, None)
+            logger.info("Game %d: user %s disconnected", game_id, user_id)
+
+            remaining_uids = list(self.active_connections.get(game_id, {}).keys())
+            remaining_nicknames = [
+                self.id_to_player_data[uid].nickname
+                for uid in remaining_uids
+                if uid in self.id_to_player_data
+            ]
+            logger.info(f"Game {game_id}, nicknames {remaining_nicknames}")
+
+            only_bots_left = remaining_nicknames and all(
+                nick.startswith("Bot") for nick in remaining_nicknames
+            )
+            game_mgr = self.game_managers.get(game_id) if only_bots_left else None
+
+            if not self.active_connections.get(game_id):
+                self.active_connections.pop(game_id, None)
+
+        if only_bots_left:
+            logger.info("Game %d: only bots remain, end-game", game_id)
+
+            if game_mgr:
+                try:
+                    await game_mgr.submit_game_result()
+                    logger.info("Game %d: submit_game_result() complete", game_id)
+                except Exception:
+                    logger.exception("Game %d: error on submit_game_result()", game_id)
+
+            await self.disconnect_all(game_id)
 
     async def disconnect_all(self, game_id: int) -> None:
         async with self.lock:
-            if game_id in self.active_connections:
-                for user_id in self.active_connections[game_id]:
-                    user_ws: WebSocket = self.active_connections[game_id][user_id]
-                    user_ws.close()
-            if not self.active_connections[game_id]:
-                del self.active_connections[game_id]
+            if game_id not in self.active_connections:
+                return
+
+            for user_id, user_ws in list(self.active_connections[game_id].items()):
+                with contextlib.suppress(Exception):
+                    await user_ws.close()
+                self.id_to_player_data.pop(user_id, None)
+
+            self.active_connections.pop(game_id, None)
             logger.info("Game %d: disconnected all", game_id)
 
     async def broadcast(
