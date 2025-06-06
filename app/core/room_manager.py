@@ -165,9 +165,7 @@ class RoomManager:
             ]
             logger.info(f"Game {game_id}, nicknames {remaining_nicknames}")
 
-            only_bots_left = remaining_nicknames and all(
-                nick.startswith("Bot") for nick in remaining_nicknames
-            )
+            only_bots_left = all(nick.startswith("Bot") for nick in remaining_nicknames)
             game_mgr = self.game_managers.get(game_id) if only_bots_left else None
 
             if not self.active_connections.get(game_id):
