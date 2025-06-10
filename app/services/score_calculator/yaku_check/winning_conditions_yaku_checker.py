@@ -77,6 +77,7 @@ class WinningConditionsYakuChecker(YakuChecker):
         return [
             (
                 lambda: not self.winning_conditions.is_discarded
+                and not self.winning_conditions.is_robbing_the_kong
                 and self.is_concealed_hand(),
                 Yaku.FullyConcealedHand,
             ),
@@ -87,6 +88,8 @@ class WinningConditionsYakuChecker(YakuChecker):
             ),
             (
                 lambda: not self.winning_conditions.is_discarded
+                and not self.winning_conditions.is_robbing_the_kong
+                and not self.winning_conditions.is_replacement_tile
                 and not self.is_concealed_hand(),
                 Yaku.SelfDrawn,
             ),
