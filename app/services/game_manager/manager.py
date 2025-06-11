@@ -146,7 +146,7 @@ class RoundManager:
 
         player_list = self.game_manager.player_list
 
-        hand = [t.value for t in self.hands[player_seat].tiles.elements()]
+        hand = [t for t in self.hands[player_seat].tiles.elements()]
 
         hands_count = [
             sum(self.hands[i].tiles.values())
