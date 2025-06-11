@@ -85,7 +85,7 @@ class RoundManager:
         player_list = self.game_manager.player_list
 
         hands = [
-            [tt.value for (tt := GameTile(t)) in self.hands[i].tiles.elements()]
+            [t for t in self.hands[i].tiles.elements()]
             for i in range(self.game_manager.MAX_PLAYERS)
         ]
 
