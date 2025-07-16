@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
 
     SERVER_URL: str = "mcrs.duckdns.org/game"
-    COER_SERVER_URL: str = "mcrs.duckdns.org/core"
+    CORE_SERVER_URL: str = "mcrs.duckdns.org/core"
 
 
 @lru_cache

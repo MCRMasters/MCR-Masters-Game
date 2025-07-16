@@ -875,6 +875,7 @@ class RoundManager:
                 "tsumo_tile": self.hands[hu_player_seat].tsumo_tile,
                 "winning_tile": self.winning_conditions.winning_tile,
                 "an_kan_infos": an_kan_infos,
+                "is_robbing_kong": self.winning_conditions.is_robbing_the_kong,
             },
         )
         await self.game_manager.network_service.broadcast(
@@ -1795,7 +1796,7 @@ class GameManager:
             message=msg.model_dump(),
             game_id=self.game_id,
         )
-        endpoint = f"https://{settings.COER_SERVER_URL}/internal/game-server/rooms/{self.game_id}/end-game"
+        endpoint = f"https://{settings.CORE_SERVER_URL}/internal/game-server/rooms/{self.game_id}/end-game"
         async with httpx.AsyncClient(timeout=5.0) as client:
             try:
                 resp = await client.post(endpoint)
