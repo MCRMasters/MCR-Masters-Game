@@ -142,6 +142,7 @@ class RoomManager:
                 if t.exception()
                 else None,
             )
+            task.add_done_callback(self._cleanup_tasks)
             self.game_tasks[game_id] = task
             logger.info(
                 "Game %d: all players connected, game task started",
@@ -224,7 +225,27 @@ class RoomManager:
                 self.id_to_player_data.pop(uid, None)
                 logger.info("Game %d: connection for %s cleaned up", game_id, uid)
 
+    def _cleanup_tasks(self, *_: asyncio.Task) -> None:
+        new_watch_tasks = []
+        for task in self._watch_tasks:
+            if task.done():
+                with contextlib.suppress(Exception):
+                    task.result()
+            else:
+                new_watch_tasks.append(task)
+        self._watch_tasks = new_watch_tasks
+
+        done_gids: list[int] = []
+        for gid, task in self.game_tasks.items():
+            if task.done():
+                with contextlib.suppress(Exception):
+                    task.result()
+                done_gids.append(gid)
+        for gid in done_gids:
+            self.game_tasks.pop(gid, None)
+
     async def _record_event(self, game_id: int, message: dict, ts: datetime) -> None:
+        self._cleanup_tasks()
         history = self.watch_history.setdefault(game_id, deque())
         history.append((ts, message))
         cutoff_old = ts - timedelta(minutes=10)
@@ -235,6 +256,7 @@ class RoomManager:
             task = asyncio.create_task(
                 self._delayed_send_to_watchers(game_id, message, ts),
             )
+            task.add_done_callback(self._cleanup_tasks)
             self._watch_tasks.append(task)
 
     async def record_personal_message(self, game_id: int, message: dict) -> None:
