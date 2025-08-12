@@ -90,4 +90,6 @@ async def watch_game_ws(
         while True:
             await websocket.receive_text()
     except WebSocketDisconnect:
-        room_manager.watchers[game_id].remove(websocket)
+        watchers = room_manager.watchers.get(game_id)
+        if watchers and websocket in watchers:
+            watchers.remove(websocket)

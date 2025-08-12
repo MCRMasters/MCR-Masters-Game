@@ -171,6 +171,10 @@ class RoomManager:
 
             if not self.active_connections.get(game_id):
                 self.active_connections.pop(game_id, None)
+                task = self.game_tasks.pop(game_id, None)
+                if task:
+                    # TODO: 랭크 게임이 나오면 제거될 옵션
+                    task.cancel()
 
         if only_bots_left:
             logger.info("Game %d: only bots remain, end-game", game_id)
@@ -196,6 +200,11 @@ class RoomManager:
 
             self.active_connections.pop(game_id, None)
             logger.info("Game %d: disconnected all", game_id)
+
+            task = self.game_tasks.pop(game_id, None)
+            if task:
+                # TODO: 랭크 게임이 나오면 제거될 옵션
+                task.cancel()
 
     async def broadcast(
         self,
