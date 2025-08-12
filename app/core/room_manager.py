@@ -257,10 +257,6 @@ class RoomManager:
         self._cleanup_tasks()
         history = self.watch_history.setdefault(game_id, deque())
         history.append((ts, message))
-        cutoff_old = ts - timedelta(minutes=10)
-        while history and history[0][0] < cutoff_old:
-            history.popleft()
-
         if message.get("event") != MessageEventType.WATCH_RELOAD_DATA:
             task = asyncio.create_task(
                 self._delayed_send_to_watchers(game_id, message, ts),
